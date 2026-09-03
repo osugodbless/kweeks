@@ -15,6 +15,10 @@ are 5–8 phones in a room, plus a projected instructor laptop. Crowd energy and
 one real money transfer landing are the show. Zero installs.
 
 ## Surfaces (both in this design system)
+- **Landing Page** (marketing, desktop 1180): the frame that explains the
+  platform to instructors and players and why to choose it — hero pitch, live
+  room mock, For instructors, For players, How it works, Security, CTA. Owns
+  the message: real-money quizzes, code join, escrow pools, instant payouts.
 - Instructor (desktop 1180): sign up → log in → wallet dashboard (landing) →
   create quiz + fund pool → run a live room with projector preview + join
   code + control → view quiz/wallet history (with a no-history empty state).

@@ -1,7 +1,8 @@
 # DESIGN — Kweeks "Money Match Arena"
 
 Written from the built world in `designs/design.pen` (pen.dev). One design
-system, 14 page frames + 1 system frame.
+system, 15 top-level frames: 1 marketing landing page + 13 app pages + the
+Design System token row folded into the landing nav.
 
 ## Direction contract
 
@@ -37,7 +38,20 @@ frames.
 
 ## Pages
 
-1. **Design System** — wordmark, gold/dark chips, money chip.
+1. **Landing Page** (replaces the old token-frame slot) — the marketing frame
+   that tells instructors and players what Kweeks is and why to choose it.
+   Structure: top nav (KWEEKS + `live money quiz`, anchor pills For
+   instructors / For players / How it works / Security, gold START HOSTING +
+   LOG IN) → hero ("Run a quiz. Put real money on it." + live-room mock card:
+   `LIVE NOW · ROOM AB12`, ₦50,000 pool, 18s ring, avatar stack) → **For
+   instructors** (fund a pool in seconds / rooms players love / you decide the
+   winners / a clean ledger) → **For players** (real money real fast / join
+   with a code / every question is live / your win is yours) → **How it works**
+   (3 steps: create & fund → open the room → pay the podium) → **Security**
+   (naira only / escrow while live / winner-only claims / full history) →
+   closing CTA band + footer. Design-system tokens (wordmark, gold/dark chips,
+   money chip) were the prior occupant and are now described in the tokens
+   section above rather than as a standalone frame.
 2. **Player · Join** — room code pill + LIVE tag, pool hero, 2×6 emoji avatar
    grid (selected = gold), nickname + email, gold CTA.
 3. **Player · Lobby** — room code, waiting state card, roster chips, 1st-place
