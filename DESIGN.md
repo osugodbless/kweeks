@@ -61,21 +61,28 @@ frames.
    (full name / email / password, gold CREATE ACCOUNT, log-in link).
 10. **Instructor · Log in** — same split, email + password, gold LOG IN, sign-up
     link; brand panel money chip reads `₦150,000 ready to host`.
-11. **Instructor · Wallet** — nav (KWEEKS / Wallet, WALLET ₦150,000, avatar AP);
-    balance card (`ASSIGNED WALLET · NGN`, `₦150,000`, wallet ID
-    `kweeks_ngn_8f2c1a`, gold FUND WALLET, method chips Card/Transfer/Sandbox
-    credit) + activity ledger that reconciles to the balance (created → funded
-    +₦200k → pool escrow −₦50k = ₦150k).
+11. **Instructor · Wallet** (login landing / dashboard) — nav (KWEEKS / Wallet,
+    WALLET ₦150,000, avatar AP); greeting `Welcome back, Adeola` + gold
+    **CREATE A QUIZ** button; stats row (QUIZZES HOSTED 3, PLAYERS HOSTED 48,
+    WINNERS PAID 9, AVAILABLE ₦150,000); left balance card (`ASSIGNED WALLET ·
+    NGN`, wallet ID `kweeks_ngn_8f2c1a`, FUND WALLET, method chips Card /
+    Transfer / Instant top-up); right "Your quizzes" list (live quiz row with
+    OPEN ROOM →, start-another-quiz CTA, history link). This is where an
+    instructor lands after log in.
 12. **Instructor · Fund wallet** — nav + amount input (₦50,000), quick picks
-    ₦1k/₦5k/₦50k/₦100k (₦50k selected), funding methods (Sandbox credit
-    selected, Debit card, Bank transfer), gold `FUND ₦50,000`, sandbox note.
+    ₦1k/₦5k/₦50k/₦100k (₦50k selected), funding methods (Wallet credit
+    selected, Debit card, Bank transfer), gold `FUND ₦50,000`, production note
+    ("Wallet credits post instantly to your available balance.").
 
 ### Auth & wallet flow (canonical demo story)
-Sign up → log in → a wallet is assigned at signup (`kweeks_ngn_8f2c1a`) →
-fund it (sandbox credit, instant) → funds land in the wallet → the wallet
-funds the quiz pool when the room opens and pays winners at the podium. One
-instructor persona throughout: avatar AP, wallet ₦150,000, hosted quiz "Naija
-General Knowledge" (pool ₦50,000, 3 winners).
+Sign up → log in → the Wallet dashboard is the landing screen → a wallet was
+issued at signup (`kweeks_ngn_8f2c1a`) → fund it (instant wallet credit) →
+funds land in the wallet → the wallet funds the quiz pool when the room opens
+and pays winners at the podium. One instructor persona throughout: avatar AP,
+wallet ₦150,000, hosted quiz "Naija General Knowledge" (pool ₦50,000, 3
+winners). All auth/wallet copy reads production-ready — no sandbox or demo
+wording on any screen (infra is BMONI sandbox under the hood, but the UI never
+says so).
 
 ## Contrast (WCAG, computed)
 

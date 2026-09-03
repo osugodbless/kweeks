@@ -15,8 +15,9 @@ are 5–8 phones in a room, plus a projected instructor laptop. Crowd energy and
 one real money transfer landing are the show. Zero installs.
 
 ## Surfaces (both in this design system)
-- Instructor (desktop 1180): author quiz + fund pool → run a live room with
-  projector preview + join code + control.
+- Instructor (desktop 1180): sign up → log in → wallet dashboard (landing) →
+  create quiz + fund pool → run a live room with projector preview + join
+  code + control.
 - Player (mobile 390): join → lobby → live question → standings → podium +
   redeem.
 
@@ -28,12 +29,15 @@ one real money transfer landing are the show. Zero installs.
   never used for decoration.
 
 ## Instructor account & wallet
-- Sign up → the account is assigned a NGN wallet immediately (one wallet per
-  instructor, created at signup). Log in returns to that same wallet.
-- Funding the wallet = BMONI sandbox test-credit (and/or card/transfer rails);
-  funds land instantly and are spendable on pools. Naira only, always.
-- Demo ledger reconciles: wallet created → funded +₦200,000 → pool escrow
-  −₦50,000 → ₦150,000 available (as shown on the Wallet + nav chips).
+- Sign up → the account is issued a NGN wallet at signup (one wallet per
+  instructor). Log in lands on the **Wallet dashboard** — the instructor home
+  screen — which greets them, shows wallet balance + stats, and offers
+  **CREATE A QUIZ** as the primary action.
+- Funding the wallet = wallet credit / card / transfer rails; funds land
+  instantly and are spendable on pools. Naira only, always.
+- UI copy is production-tone everywhere: no sandbox, demo, or mock wording on
+  any screen. (BMONI sandbox is the underlying demo infra, never surfaced to
+  the instructor.)
 
 ## Persona used across the mockups
 Zainab, avatar 🐙, joins room AB12, pool ₦50,000, 3 winners (25k/15k/10k),
