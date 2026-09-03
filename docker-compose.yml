@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: kweeks-postgres
+    environment:
+      POSTGRES_USER: kweeks
+      POSTGRES_PASSWORD: kweeks
+      POSTGRES_DB: kweeks
+    ports:
+      - "5432:5432"
+    volumes:
+      - kweeks_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kweeks -d kweeks"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  kweeks_pgdata:
