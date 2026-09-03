@@ -17,9 +17,11 @@ one real money transfer landing are the show. Zero installs.
 ## Surfaces (both in this design system)
 - Instructor (desktop 1180): sign up → log in → wallet dashboard (landing) →
   create quiz + fund pool → run a live room with projector preview + join
-  code + control.
+  code + control → view quiz/wallet history (with a no-history empty state).
+  Every instructor screen shares a top nav (Dashboard / Create quiz / History)
+  and a minimal footer.
 - Player (mobile 390): join → lobby → live question → standings → podium +
-  redeem.
+  redeem. Each player screen carries a minimal footer.
 
 ## Money rules that bind the UI
 - Pool is a real wallet balance (BMONI sandbox). Shown as ₦, naira-green.
@@ -38,6 +40,9 @@ one real money transfer landing are the show. Zero installs.
 - UI copy is production-tone everywhere: no sandbox, demo, or mock wording on
   any screen. (BMONI sandbox is the underlying demo infra, never surfaced to
   the instructor.)
+- **History**: every funding, quiz host, and payout appears in the History
+  screen (reached from the wallet dashboard's `View history →`). When nothing
+  has happened yet, a no-history empty state shows instead.
 
 ## Persona used across the mockups
 Zainab, avatar 🐙, joins room AB12, pool ₦50,000, 3 winners (25k/15k/10k),

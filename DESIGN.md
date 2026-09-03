@@ -1,7 +1,7 @@
 # DESIGN — Kweeks "Money Match Arena"
 
 Written from the built world in `designs/design.pen` (pen.dev). One design
-system, 11 page frames + 1 system frame.
+system, 14 page frames + 1 system frame.
 
 ## Direction contract
 
@@ -73,6 +73,24 @@ frames.
     ₦1k/₦5k/₦50k/₦100k (₦50k selected), funding methods (Wallet credit
     selected, Debit card, Bank transfer), gold `FUND ₦50,000`, production note
     ("Wallet credits post instantly to your available balance.").
+13. **Instructor · History** — the target of the wallet dashboard's
+    `View history →`. Nav (History active) + history table (Activity / Type /
+    Pool / Status columns) with 5 reconciled rows: wallet credit +₦200,000,
+    hosted quiz (live AB12), payout −₦50,000, two ended quizzes. Plus footer.
+14. **Instructor · History (empty)** — the no-history alternative: same nav
+    (History active) + centered empty state (🗂️ icon, "No history yet", CTA
+    CREATE A QUIZ) + footer.
+
+### Navigation & footers (system-wide)
+- All six instructor desktop frames share the top nav: KWEEKS logo + link pills
+  (Dashboard / Create quiz / History) with the active page highlighted (gold
+  text on `$surface2` pill), plus right-side WALLET chip and avatar AP. Live
+  Room keeps its ● LIVE status chip beside the logo.
+- Every frame (all 14) carries a minimal footer: 1px stroke rule + `© 2026
+  Kweeks` · `Live money quiz · NGN` · `Support · Terms · Privacy`. Player
+  frames show a shortened footer (`live money quiz`, no legal links). Auth
+  frames (Sign up / Log in) keep the footer; the Design System token frame gets
+  one too.
 
 ### Auth & wallet flow (canonical demo story)
 Sign up → log in → the Wallet dashboard is the landing screen → a wallet was
