@@ -39,3 +39,4 @@ go.work.sum
 
 # Air hot reload
 tmp/
+node_modules/

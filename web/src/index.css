@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #171220;
+  --color-surface: #211b2c;
+  --color-surface-2: #2b2438;
+  --color-stroke: #3a3048;
+  --color-paper: #fbf7ee;
+  --color-text-2: #c9bfd6;
+  --color-text-3: #8e83a3;
+  --color-gold: #ffc53d;
+  --color-gold-deep: #ffb300;
+  --color-gold-ink: #241a00;
+  --color-naira: #2ed08f;
+  --color-naira-deep: #00a870;
+  --color-red: #ff5a67;
+  --color-violet: #8b7cff;
+  --font-display: "Bricolage Grotesque";
+  --font-body: "Work Sans";
+  --radius: 16px;
+  --radius-lg: 24px;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-bg text-paper font-body antialiased;
+  }
+}
+
+@layer components {
+  .font-display {
+    font-family: "Bricolage Grotesque", sans-serif;
+  }
+  .font-body {
+    font-family: "Work Sans", sans-serif;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-stroke);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
