@@ -46,22 +46,37 @@ frames.
    4 option tiles, one selected gold.
 5. **Player · Standings** — LIVE leaderboard, gold "you" row + YOU tag, pts
    shown paper (not money-green), 1st gold.
-6. **Player · Podium** — Unsplash win moment, `You banked ₦15,000`, winners
-   list (25k/15k/10k) with you highlighted, claim code chip, gold redeem CTA,
-   3-step how-it-lands.
-7. **Instructor · Quiz Builder** — nav w/ wallet balance, title, pool slider,
-   winner count segmented (3), pacing segmented (manual), question editor with
-   correct answer marked green, question strip, open-room CTA.
+6. **Player · Podium** — Unsplash confetti win hero, `You banked ₦15,000`,
+   winners list (25k/15k/10k) with you highlighted, claim code chip, gold
+   redeem CTA, 3-step how-it-lands.
+7. **Instructor · Quiz Builder** — nav w/ wallet balance, quiz title card with
+   Unsplash Lagos deck cover, pool slider, winner count segmented (3), pacing
+   segmented (manual), question editor with correct answer marked green,
+   question strip, open-room CTA.
 8. **Instructor · Live Room** — projector preview (Q3, ring, options, live
-   answer bar), join card (QR placeholder + kweeks.ng/r/AB12 + avatars),
-   manual control card (next → declare winners).
+   answer bar), join card (realistic Unsplash QR photo + kweeks.ng/r/AB12 +
+   avatars), manual control card (next → declare winners).
 
 ## Contrast (WCAG, computed)
 
 All body/placeholder ≥ 4.5:1; paper/bg 17.2, text3/bg 5.2, gold-ink/gold 10.9,
 naira/surface 8.4. Green only money/correct; gold only action/you/win.
 
+## Imagery & identity (fixed this pass)
+All three photos are real Unsplash (verified HTTP + orientation, no placeholders):
+- Podium hero = crowd confetti celebration (landscape 1.5 → `fill` crop into
+  the 350×150 banner).
+- Quiz Builder deck cover = Lagos Victoria Island (landscape).
+- Live Room join card = standalone Qr-style photo (not a hollow white box).
+
+Persona avatars stay emojis (🐙 Zainab) everywhere — the committed zero-image
+identity; the single photographed win/cover moments are where photography earns
+its place. Standings avatar mapping fixed so Zainab=🐙 and the podium winner
+avatars (Ada🦊, Zainab🐙, Tobi🐼) match the leaderboard.
+
 ## Known swaps before dev
-- QR is a white placeholder box — generate real QR for AB12.
-- Unsplash photo is decorative stock; replace with real venue/win imagery.
-- Status-bar times progress (9:41→9:45) as a story cue — real app shows clock.
+- QR is a photoreal Unsplash stand-in — replace with a generated, scannable QR
+  encoding `kweeks.ng/r/AB12` before go-live.
+- Status-bar clock is a static `9:42` mock — real app shows the live time.
+- Podium/cover Unsplash photos are stock — swap for real venue/win imagery at
+  the exhibition if available.
