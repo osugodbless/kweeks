@@ -1,7 +1,7 @@
 # DESIGN — Kweeks "Money Match Arena"
 
 Written from the built world in `designs/design.pen` (pen.dev). One design
-system, 7 page frames + 1 system frame.
+system, 11 page frames + 1 system frame.
 
 ## Direction contract
 
@@ -56,6 +56,26 @@ frames.
 8. **Instructor · Live Room** — projector preview (Q3, ring, options, live
    answer bar), join card (realistic Unsplash QR photo + kweeks.ng/r/AB12 +
    avatars), manual control card (next → declare winners).
+9. **Instructor · Sign up** — split brand panel (KWEEKS wordmark, "Fund the
+   pool. Run the room. Pay the winners." lead, money chip) + 420-wide auth card
+   (full name / email / password, gold CREATE ACCOUNT, log-in link).
+10. **Instructor · Log in** — same split, email + password, gold LOG IN, sign-up
+    link; brand panel money chip reads `₦150,000 ready to host`.
+11. **Instructor · Wallet** — nav (KWEEKS / Wallet, WALLET ₦150,000, avatar AP);
+    balance card (`ASSIGNED WALLET · NGN`, `₦150,000`, wallet ID
+    `kweeks_ngn_8f2c1a`, gold FUND WALLET, method chips Card/Transfer/Sandbox
+    credit) + activity ledger that reconciles to the balance (created → funded
+    +₦200k → pool escrow −₦50k = ₦150k).
+12. **Instructor · Fund wallet** — nav + amount input (₦50,000), quick picks
+    ₦1k/₦5k/₦50k/₦100k (₦50k selected), funding methods (Sandbox credit
+    selected, Debit card, Bank transfer), gold `FUND ₦50,000`, sandbox note.
+
+### Auth & wallet flow (canonical demo story)
+Sign up → log in → a wallet is assigned at signup (`kweeks_ngn_8f2c1a`) →
+fund it (sandbox credit, instant) → funds land in the wallet → the wallet
+funds the quiz pool when the room opens and pays winners at the podium. One
+instructor persona throughout: avatar AP, wallet ₦150,000, hosted quiz "Naija
+General Knowledge" (pool ₦50,000, 3 winners).
 
 ## Contrast (WCAG, computed)
 

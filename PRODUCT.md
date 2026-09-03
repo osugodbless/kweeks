@@ -27,6 +27,14 @@ one real money transfer landing are the show. Zero installs.
   screen, redeem → invited → paid. Green is reserved for money/correct;
   never used for decoration.
 
+## Instructor account & wallet
+- Sign up → the account is assigned a NGN wallet immediately (one wallet per
+  instructor, created at signup). Log in returns to that same wallet.
+- Funding the wallet = BMONI sandbox test-credit (and/or card/transfer rails);
+  funds land instantly and are spendable on pools. Naira only, always.
+- Demo ledger reconciles: wallet created → funded +₦200,000 → pool escrow
+  −₦50,000 → ₦150,000 available (as shown on the Wallet + nav chips).
+
 ## Persona used across the mockups
 Zainab, avatar 🐙, joins room AB12, pool ₦50,000, 3 winners (25k/15k/10k),
 manual pacing (venue default), answers the Lagos "Centre of Excellence" deck.
