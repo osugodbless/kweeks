@@ -59,6 +59,10 @@ type Config struct {
 	SmtpUser string
 	SmtpPass string
 	FromAddr string
+	// MailTo, when set, overrides the redemption email recipient so demo mail
+	// lands in a real inbox (e.g. the operator's Gmail) instead of the winner's
+	// throwaway join address.
+	MailTo string
 }
 
 // Load reads configuration from the environment.
@@ -97,6 +101,7 @@ func Load() (*Config, error) {
 		SmtpUser: getEnv("SMTP_USER", ""),
 		SmtpPass: getEnv("SMTP_PASS", ""),
 		FromAddr: getEnv("SMTP_FROM", "kweeks@example.com"),
+		MailTo:   getEnv("MAIL_TO", ""),
 	}
 
 	if err := c.validate(); err != nil {

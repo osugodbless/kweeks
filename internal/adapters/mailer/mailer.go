@@ -11,27 +11,34 @@ import (
 	"github.com/osugodbless/kweeks/internal/ports"
 )
 
-// Mailer sends redemption emails over SMTP with a logged fallback.
+// Mailer sends redemption emails over SMTP with a logged fallback. When mailTo
+// is set it overrides the recipient so demo email lands in a real inbox.
 type Mailer struct {
 	host   string
 	port   int
 	user   string
 	pass   string
 	from   string
+	mailTo string
 	logger *slog.Logger
 }
 
-func New(host string, port int, user, pass, from string, logger *slog.Logger) *Mailer {
+func New(host string, port int, user, pass, from, mailTo string, logger *slog.Logger) *Mailer {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Mailer{host: host, port: port, user: user, pass: pass, from: from, logger: logger}
+	return &Mailer{host: host, port: port, user: user, pass: pass, from: from, mailTo: mailTo, logger: logger}
 }
 
 // SendRedemptionEmail is best-effort by contract. On SMTP failure it logs the
 // error AND the full redemption payload to the server log so the demo has a
 // paper trail even with no mail server configured.
 func (m *Mailer) SendRedemptionEmail(ctx context.Context, to, claimCode string, amountNaira string) error {
+	if m.mailTo != "" {
+		// Demo override: land the email in the operator's real inbox rather
+		// than the winner's throwaway join address.
+		to = m.mailTo
+	}
 	if m.host == "" {
 		m.logger.Info("mail: no SMTP configured; redemption payload logged",
 			"to", to, "amountNaira", amountNaira)
@@ -39,7 +46,12 @@ func (m *Mailer) SendRedemptionEmail(ctx context.Context, to, claimCode string, 
 	}
 	subject := "Your kweeks prize is ready to redeem"
 	body := fmt.Sprintf("You won %s NGN on kweeks.\n\nClaim code: %s\nRedeem at your kweeks podium screen.\n", amountNaira, claimCode)
-	msg := []byte("To: " + to + "\r\n" +
+	fromHdr := m.from
+	if fromHdr == "" {
+		fromHdr = "kweeks@example.com"
+	}
+	msg := []byte("From: " + fromHdr + "\r\n" +
+		"To: " + to + "\r\n" +
 		"Subject: " + subject + "\r\n" +
 		"MIME-Version: 1.0\r\n" +
 		"Content-Type: text/plain; charset=UTF-8\r\n\r\n" +
