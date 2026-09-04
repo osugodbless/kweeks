@@ -263,7 +263,7 @@ function QuizOpenView({ quizId }: { quizId: string }) {
 
             <div className="font-body text-[12.5px] leading-relaxed text-text-3">
               Opening a room deducts the pool from your wallet and holds it until winners redeem.
-              Players join by code on kweeks.ng.
+              Players open the join page and type the room code shown on the live screen.
             </div>
           </div>
         )}
@@ -511,17 +511,32 @@ function RoomView({ roomId }: { roomId: string }) {
             <div className="font-body text-[11px] font-bold tracking-[0.14em] text-text-3">
               PLAYERS JOIN HERE
             </div>
-            <div className="text-center font-body text-[12px] text-text-3">Scan or type</div>
-            <div className="mx-auto flex h-[120px] w-[120px] items-center justify-center overflow-hidden rounded-xl bg-white">
-              <img
-                src="https://images.unsplash.com/photo-1550482768-88b710a445fd?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&h=480&ixlib=rb-1.2.1&q=80&w=480"
-                alt="Join QR"
-                className="h-full w-full object-cover"
-              />
+            <div className="text-center font-body text-[12px] text-text-3">
+              Open the room code below on a player phone
             </div>
-            <div className="flex items-baseline justify-center gap-1">
-              <span className="font-body text-[15px] text-text-3">kweeks.ng/r/</span>
-              <span className="font-display text-[20px] font-extrabold text-gold">{room.code}</span>
+            <div className="rounded-2xl border border-stroke bg-surface-2 px-4 py-4 text-center">
+              <div className="font-body text-[11px] font-bold tracking-[0.14em] text-text-3">
+                ROOM CODE
+              </div>
+              <div className="mt-1 font-display text-[44px] font-extrabold tracking-[0.1em] text-gold">
+                {room.code}
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const url = `${window.location.origin}/join?code=${room.code}`;
+                void navigator.clipboard?.writeText(url).catch(() => {});
+              }}
+              className="flex items-center justify-center gap-2 rounded-xl bg-surface px-4 py-3 font-body text-[13px] font-bold text-text-2 hover:text-paper"
+            >
+              <span className="font-display text-[14px]">⧉</span> COPY JOIN LINK
+            </button>
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="font-body text-[12px] text-text-3">or have players open</span>
+              <span className="font-display text-[14px] font-bold text-paper">
+                {window.location.origin}/join
+              </span>
+              <span className="font-body text-[12px] text-text-3">and type the code</span>
             </div>
             <div className="flex min-h-[28px] items-center justify-center gap-1.5">
               {room.participants.length === 0 && (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   PlayerDesktop,
   PlayerTopBar,
@@ -31,8 +31,10 @@ function stateLabel(state: string): { text: string; dot: string; on: boolean } {
 export function PlayerJoin() {
   const nav = useNavigate();
   const player = usePlayer();
+  const [sp] = useSearchParams();
+  const urlCode = (sp.get("code") ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
 
-  const [code, setCode] = useState(player.code ?? "");
+  const [code, setCode] = useState(urlCode || player.code || "");
   const [avatar, setAvatar] = useState(player.avatar ?? "🐙");
   const [nick, setNick] = useState(player.nickname ?? "");
   const [email, setEmail] = useState(player.email ?? "");

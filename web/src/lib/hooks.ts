@@ -231,7 +231,8 @@ export function useRoomSocket(roomId: string | undefined) {
     if (!roomId) return;
     let ws: WebSocket | null = null;
     let closed = false;
-    let timer: ReturnType<typeof setTimeout>;
+    let openTimer: ReturnType<typeof setTimeout>;
+    let retryTimer: ReturnType<typeof setTimeout>;
 
     const open = () => {
       if (closed) return;
@@ -247,14 +248,19 @@ export function useRoomSocket(roomId: string | undefined) {
       };
       ws.onclose = () => {
         setConnected(false);
-        if (!closed) timer = setTimeout(() => setAttempt((a) => a + 1), 2000);
+        if (!closed) retryTimer = setTimeout(() => setAttempt((a) => a + 1), 2000);
       };
       ws.onerror = () => ws?.close();
     };
-    open();
+    // Defer one tick so React StrictMode's dev double-mount cleanup (which
+    // runs synchronously after the first effect) happens before any socket is
+    // opened. Without this, the phantom first socket is closed mid-handshake
+    // and the browser logs "closed before the connection is established".
+    openTimer = setTimeout(open, 0);
     return () => {
       closed = true;
-      clearTimeout(timer);
+      clearTimeout(openTimer);
+      clearTimeout(retryTimer);
       ws?.close();
     };
   }, [roomId, attempt]);
