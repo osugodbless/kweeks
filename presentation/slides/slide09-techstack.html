@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #111827; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+  display: flex; flex-direction: column;
+  background-image: url('../assets/bg-tech.png');
+  padding: 20pt 36pt;
+}
+h1 { color: #F59E0B; font-size: 24pt; margin: 0 0 4pt 0; }
+.subtitle { color: #E5E7EB; font-size: 10pt; margin: 0 0 12pt 0; }
+.stack { display: flex; gap: 12pt; flex: 1; }
+.stack-col { flex: 1; display: flex; flex-direction: column;
+   gap: 8pt; }
+.tech-card {
+  background: rgba(255,255,255,0.04); border-radius: 6pt;
+  padding: 10pt 12pt; flex: 1;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.tech-card h3 { color: #F59E0B; font-size: 10pt; margin: 0 0 4pt 0; }
+.tech-card p { color: #D1D5DB; font-size: 8pt; margin: 0; line-height: 1.4; }
+.tech-card.bmoni { border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.06); }
+.stats {
+  background: rgba(245,158,11,0.08); border-radius: 6pt;
+  padding: 8pt 16pt; margin-top: 8pt;
+  display: flex; gap: 20pt; justify-content: center;
+}
+.stat { text-align: center; }
+.stat p:first-child { color: #F59E0B; font-size: 18pt; font-weight: bold; margin: 0; }
+.stat p:last-child { color: #9CA3AF; font-size: 7pt; margin: 2pt 0 0 0; }
+</style>
+</head>
+<body>
+<h1>Tech Stack</h1>
+<p class="subtitle">Built in 36 hours. Production-grade architecture, not a prototype.</p>
+<div class="stack">
+  <div class="stack-col">
+    <div class="tech-card">
+      <h3>Backend: Go 1.26</h3>
+      <p>Standard library HTTP router, pgx/v5 PostgreSQL, gorilla/websocket. Hexagonal architecture with pure domain logic.</p>
+    </div>
+    <div class="tech-card">
+      <h3>Frontend: React + TypeScript</h3>
+      <p>Vite 5, React Router v6, Zustand, TanStack React Query, Tailwind CSS. 14 pages, zero UI library.</p>
+    </div>
+  </div>
+  <div class="stack-col">
+    <div class="tech-card bmoni">
+      <h3>BMONI Embedded API</h3>
+      <p>User creation, smart wallet provisioning, NGN payment rails, fund transfers, KYC. secp256k1 signing.</p>
+    </div>
+    <div class="tech-card">
+      <h3>Infrastructure</h3>
+      <p>Single Go binary serves API + SPA. PostgreSQL 16, Docker Compose. Embedded SQL migrations.</p>
+    </div>
+    <div class="tech-card">
+      <h3>Real-Time Engine</h3>
+      <p>WebSocket hub, 500ms scheduler, clock-skew correction. Server-authoritative scoring.</p>
+    </div>
+  </div>
+</div>
+<div class="stats">
+  <div class="stat"><p>14</p><p>React Pages</p></div>
+  <div class="stat"><p>8</p><p>Go Packages</p></div>
+  <div class="stat"><p>3</p><p>DB Migrations</p></div>
+  <div class="stat"><p>0</p><p>External UI Libs</p></div>
+  <div class="stat"><p>36h</p><p>Build Time</p></div>
+</div>
+</body>
+</html>

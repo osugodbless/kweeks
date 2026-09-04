@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #0F172A; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+  display: flex; flex-direction: column;
+  background-image: url('../assets/bg-solution.png');
+  padding: 24pt 36pt;
+}
+h1 { color: #F59E0B; font-size: 24pt; margin: 0 0 4pt 0; }
+.subtitle { color: #E5E7EB; font-size: 10pt; margin: 0 0 12pt 0; }
+.loop { display: flex; gap: 8pt; flex: 1; }
+.phase {
+  flex: 1; display: flex; flex-direction: column;
+  
+  background: rgba(255,255,255,0.04); border-radius: 8pt;
+  padding: 10pt; border-top: 3pt solid #F59E0B;
+}
+.phase h3 { color: #F59E0B; font-size: 10pt; margin: 0 0 4pt 0; }
+.phase ul { color: #D1D5DB; font-size: 8pt; margin: 0; padding-left: 10pt; line-height: 1.5; }
+.phase.purple { border-top-color: #8B5CF6; }
+.phase.purple h3 { color: #8B5CF6; }
+.phase.green { border-top-color: #10B981; }
+.phase.green h3 { color: #10B981; }
+.phase.blue { border-top-color: #3B82F6; }
+.phase.blue h3 { color: #3B82F6; }
+.bottom {
+  background: rgba(245,158,11,0.08); border-radius: 6pt;
+  padding: 8pt 12pt; margin-top: 8pt;
+  border: 1px solid rgba(245,158,11,0.2);
+}
+.bottom p { color: #E5E7EB; font-size: 8pt; margin: 0; line-height: 1.4; }
+.bottom b { color: #F59E0B; }
+</style>
+</head>
+<body>
+<h1>BMONI Embedded Finance Integration</h1>
+<p class="subtitle">Every payment feature runs through BMONI's API. No workarounds, no mock wallets.</p>
+<div class="loop">
+  <div class="phase">
+    <h3>1. Onboarding</h3>
+    <ul>
+      <li>Instructor signs up</li>
+      <li>BMONI user created via API</li>
+      <li>Smart wallet issued</li>
+      <li>KYC provisioning (sandbox)</li>
+      <li>NGN rail activated</li>
+    </ul>
+  </div>
+  <div class="phase purple">
+    <h3>2. Funding</h3>
+    <ul>
+      <li>Wallet funded via BMONI</li>
+      <li>Balance visible on dashboard</li>
+      <li>Quiz pool earmarked</li>
+      <li>Full ledger tracking</li>
+      <li>Kobo-level precision (int64)</li>
+    </ul>
+  </div>
+  <div class="phase green">
+    <h3>3. Settlement</h3>
+    <ul>
+      <li>Winner claim created</li>
+      <li>Claim state machine tracks</li>
+      <li>BMONI transfer executes</li>
+      <li>Winner receives naira</li>
+      <li>Email recovery backup</li>
+    </ul>
+  </div>
+  <div class="phase blue">
+    <h3>4. Security</h3>
+    <ul>
+      <li>secp256k1 signing</li>
+      <li>Bearer token auth</li>
+      <li>Server-authoritative answers</li>
+      <li>Exactly-once guarantee</li>
+      <li>Full audit trail</li>
+    </ul>
+  </div>
+</div>
+<div class="bottom">
+  <p><b>Money flow:</b> Instructor funds wallet (BMONI) > creates quiz with pool > winners claim on screen > BMONI transfer settles > naira lands in winner's account. The entire loop is BMONI-powered.</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #0F172A; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+  display: flex; flex-direction: column;
+  background-image: url('../assets/bg-demo.png');
+  padding: 24pt 36pt;
+}
+h1 { color: #F59E0B; font-size: 24pt; margin: 0 0 4pt 0; }
+.subtitle { color: #E5E7EB; font-size: 10pt; margin: 0 0 12pt 0; }
+.columns { display: flex; gap: 16pt; flex: 1; }
+.left { flex: 1; display: flex; flex-direction: column;
+   gap: 6pt; }
+.right { flex: 1; display: flex; flex-direction: column;
+   gap: 6pt; }
+.feature {
+  background: rgba(255,255,255,0.05); border-radius: 6pt;
+  padding: 8pt 10pt; border-left: 3pt solid #F59E0B; flex: 1;
+}
+.feature h3 { color: #F59E0B; font-size: 9pt; margin: 0 0 2pt 0; }
+.feature p { color: #D1D5DB; font-size: 8pt; margin: 0; line-height: 1.3; }
+.feature.green { border-left-color: #10B981; }
+.feature.green h3 { color: #10B981; }
+.feature.indigo { border-left-color: #6366F1; }
+.feature.indigo h3 { color: #6366F1; }
+</style>
+</head>
+<body>
+<h1>How It Works</h1>
+<p class="subtitle">A complete live quiz experience, powered by embedded finance</p>
+<div class="columns">
+  <div class="left">
+    <div class="feature">
+      <h3>Instructor Dashboard</h3>
+      <p>Wallet balance, quiz builder, live room controls, full financial ledger.</p>
+    </div>
+    <div class="feature">
+      <h3>Quiz Builder</h3>
+      <p>Title, pool amount, winner count, pacing mode, question editor with correct answers.</p>
+    </div>
+    <div class="feature green">
+      <h3>Live Room (Projected)</h3>
+      <p>4-letter room code + QR. Same question, same second. WebSocket real-time updates.</p>
+    </div>
+    <div class="feature green">
+      <h3>Server-Authoritative Scoring</h3>
+      <p>Correct answers never leave server. Tie-breaking: accuracy, speed, join time.</p>
+    </div>
+  </div>
+  <div class="right">
+    <div class="feature indigo">
+      <h3>Player Join (Zero Friction)</h3>
+      <p>Room code, emoji avatar, nickname + email. Ready in 15 seconds. No app install.</p>
+    </div>
+    <div class="feature indigo">
+      <h3>Live Gameplay</h3>
+      <p>Countdown ring, question text, 2x2 options, server-synced timer. Clock-skew correction.</p>
+    </div>
+    <div class="feature">
+      <h3>Winner Podium</h3>
+      <p>Top finishers declared. Private claim code. "Redeem Now" triggers BMONI payout.</p>
+    </div>
+    <div class="feature">
+      <h3>Prize Redemption</h3>
+      <p>Exactly-once claim. State machine: created, invited, onboarded, paid. Email backup.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

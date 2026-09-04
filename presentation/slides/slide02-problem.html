@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #7F1D1D; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+  display: flex; flex-direction: column;
+  background-image: url('../assets/bg-problem.png');
+  padding: 24pt 36pt;
+}
+h1 { color: #FCA5A5; font-size: 24pt; margin: 0 0 4pt 0; }
+.subtitle { color: #FECACA; font-size: 10pt; margin: 0 0 14pt 0; }
+.cards { display: flex; gap: 12pt; flex: 1; }
+.card {
+  flex: 1; background: rgba(0,0,0,0.3); border-radius: 8pt;
+  padding: 14pt; display: flex; flex-direction: column;
+  box-sizing: border-box;
+  border: 1px solid rgba(252,165,165,0.2);
+}
+.card-icon { width: 28pt; height: 28pt; border-radius: 50%; margin-bottom: 6pt; }
+.card h2 { color: #FCA5A5; font-size: 12pt; margin: 0 0 4pt 0; }
+.card p { color: #FECACA; font-size: 9pt; margin: 0; line-height: 1.4; }
+</style>
+</head>
+<body>
+<h1>The Problem</h1>
+<p class="subtitle">Quiz platforms and money apps exist separately. Nobody joins them together.</p>
+<div class="cards">
+  <div class="card">
+    <img src="../assets/icon-quiz.png" class="card-icon">
+    <h2>Quiz Platforms</h2>
+    <p>Kahoot has 9B+ participants but zero real stakes. No money on the line means no real consequences for winning or losing.</p>
+  </div>
+  <div class="card">
+    <img src="../assets/icon-dollar.png" class="card-icon">
+    <h2>Money Apps</h2>
+    <p>Fintech apps handle transfers well, but there is no fun, no competition, no shared live experience. Sending money is a utility.</p>
+  </div>
+  <div class="card">
+    <img src="../assets/icon-lightning.png" class="card-icon">
+    <h2>The Gap</h2>
+    <p>You can run live quizzes or you can pay people, but nobody joins them at the quiz moment using money as the stakes.</p>
+  </div>
+</div>
+</body>
+</html>

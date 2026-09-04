@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #022C22; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+  display: flex; flex-direction: column;
+  background-image: url('../assets/bg-advantage.png');
+  padding: 24pt 36pt;
+}
+h1 { color: #F59E0B; font-size: 24pt; margin: 0 0 4pt 0; }
+.subtitle { color: #E5E7EB; font-size: 10pt; margin: 0 0 14pt 0; }
+.advantages { display: flex; gap: 12pt; flex: 1; }
+.adv-col { flex: 1; display: flex; flex-direction: column;
+   gap: 8pt; }
+.adv-item {
+  background: rgba(16,185,129,0.08); border-radius: 6pt;
+  padding: 10pt 12pt; flex: 1;
+  border: 1px solid rgba(16,185,129,0.2);
+}
+.adv-item h3 { color: #10B981; font-size: 10pt; margin: 0 0 3pt 0; }
+.adv-item p { color: #D1D5DB; font-size: 8pt; margin: 0; line-height: 1.3; }
+.adv-item.gold { border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.06); }
+.adv-item.gold h3 { color: #F59E0B; }
+</style>
+</head>
+<body>
+<h1>Why Kweeks Wins</h1>
+<p class="subtitle">Six unfair advantages no competitor can replicate quickly</p>
+<div class="advantages">
+  <div class="adv-col">
+    <div class="adv-item gold">
+      <h3>Real Money Stakes</h3>
+      <p>Players compete for actual naira, not points. This fundamentally changes the energy in a room.</p>
+    </div>
+    <div class="adv-item">
+      <h3>Zero Friction Join</h3>
+      <p>4-letter room code, emoji avatar, nickname + email. No app install. Ready in 15 seconds.</p>
+    </div>
+    <div class="adv-item">
+      <h3>Embedded Finance Loop</h3>
+      <p>Wallet creation, KYC, NGN rail activation, fund transfers, prize settlement via BMONI.</p>
+    </div>
+  </div>
+  <div class="adv-col">
+    <div class="adv-item">
+      <h3>Server-Authoritative Engine</h3>
+      <p>Correct answers never leave server. Clock-skew correction. Deterministic tie-breaking.</p>
+    </div>
+    <div class="adv-item">
+      <h3>Instant Winner Payout</h3>
+      <p>Winners see claim code on screen. Tap "Redeem." BMONI transfer executes. Exactly-once guarantee.</p>
+    </div>
+    <div class="adv-item gold">
+      <h3>Venue-Native Design</h3>
+      <p>Built for classrooms, office team buildings, pub quizzes. Projector + phones. Manual pacing.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -289,6 +289,8 @@ function RoomView({ roomId }: { roomId: string }) {
   const live = state === "live";
   const lobby = state === "lobby";
   const podium = state === "podium";
+  // The last question is in play when the current index is the final one.
+  const onLast = Boolean(live && room && room.questionCount > 0 && room.currentIndex >= room.questionCount - 1);
   const lastDone = Boolean(live && !q && room && room.currentIndex >= room.questionCount - 1);
   const correctIndex =
     live && q ? quizQ.data?.questions.find((qq) => qq.id === q.id)?.correctIndex ?? -1 : -1;
@@ -497,8 +499,20 @@ function RoomView({ roomId }: { roomId: string }) {
                     </div>
                   ))
                 ) : (
-                  <div className="flex flex-1 items-center justify-center font-body text-[14px] text-text-2">
-                    Computing winners…
+                  <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+                    <div className="font-display text-[24px] font-extrabold text-paper">
+                      No winners this round
+                    </div>
+                    <div className="max-w-[360px] font-body text-[13.5px] text-text-2">
+                      Nobody answered a question correctly, so the pool stays in the wallet. Run the
+                      quiz again with a fresh room.
+                    </div>
+                    <button
+                      onClick={() => nav("/instructor/dashboard")}
+                      className="mt-1 rounded-xl bg-surface px-5 py-2.5 font-body text-[13px] font-bold text-text-2 hover:text-paper"
+                    >
+                      Back to dashboard
+                    </button>
                   </div>
                 )}
               </div>
@@ -576,17 +590,17 @@ function RoomView({ roomId }: { roomId: string }) {
               </button>
             )}
 
-            {live && !lastDone && room.pacing === "manual" && (
+            {live && !lastDone && room.pacing === "manual" && !onLast && (
               <button
                 onClick={() => control.next.mutate(roomId)}
-                disabled={Boolean(q) || control.next.isPending}
+                disabled={control.next.isPending}
                 className="flex h-12 w-full items-center justify-center rounded-2xl bg-gold font-body text-[15px] font-extrabold text-gold-ink disabled:opacity-50"
               >
                 {control.next.isPending ? "ADVANCING…" : "NEXT QUESTION →"}
               </button>
             )}
 
-            {lastDone && (
+            {(lastDone || (live && room.pacing === "manual" && onLast)) && (
               <button
                 onClick={() => control.podium.mutate(roomId)}
                 disabled={control.podium.isPending}
