@@ -36,15 +36,17 @@ func newMockRail(t *testing.T, handler func(w http.ResponseWriter, r *http.Reque
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/v1/users") && r.Method == http.MethodPost:
 			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{"bmoniUserId":"usr_demo_1"}`))
+			_, _ = w.Write([]byte(`{"user":{"bmoniUserId":"usr_demo_1"}}`))
 		case strings.HasSuffix(r.URL.Path, "/kyc"):
 			_, _ = w.Write([]byte(`{}`))
 		case strings.HasSuffix(r.URL.Path, "/owner-proof-challenges"):
 			_, _ = w.Write([]byte(`{"challengeId":"ch_1","message":"please prove you own this key"}`))
 		case strings.HasSuffix(r.URL.Path, "/create-managed"):
-			_, _ = w.Write([]byte(`{"smartWalletId":"wal_1","address":"0xRecipientAddress"}`))
+			_, _ = w.Write([]byte(`{"id":"wal_1","currency":"NGN","walletAddress":"0xRecipientAddress","isActive":true}`))
 		case strings.HasSuffix(r.URL.Path, "/onboarding/start-nigeria"):
 			_, _ = w.Write([]byte(`{}`))
+		case strings.HasSuffix(r.URL.Path, "/smart-wallets/account/wallets"):
+			_, _ = w.Write([]byte(`[]`))
 		case strings.HasSuffix(r.URL.Path, "/onboarding/status"):
 			_, _ = w.Write([]byte(`{"status":"active"}`))
 		case strings.Contains(r.URL.Path, "/kyc/documents/"):
@@ -56,7 +58,7 @@ func newMockRail(t *testing.T, handler func(w http.ResponseWriter, r *http.Reque
 		case strings.HasSuffix(r.URL.Path, "/proposals/sign"):
 			_, _ = w.Write([]byte(`{"data":{"proposal":{"id":"prop_1","status":"COMPLETED"}}}`))
 		case strings.Contains(r.URL.Path, "/proposals") && r.Method == http.MethodPost:
-			_, _ = w.Write([]byte(`{"data":{"proposal":{"id":"prop_1"}}}`))
+			_, _ = w.Write([]byte(`{"proposal":{"id":"prop_1","groupWalletId":"wal_1","status":"PENDING_APPROVALS"}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte(`{"message":"no mock for this path"}`))
@@ -99,10 +101,12 @@ func TestProvisionWalletSignsOwnerProofEIP191(t *testing.T) {
 			gotProof = body["ownerProofSignature"]
 		}
 		switch {
+		case strings.HasSuffix(r.URL.Path, "/smart-wallets/account/wallets"):
+			_, _ = w.Write([]byte(`[]`))
 		case strings.HasSuffix(r.URL.Path, "/owner-proof-challenges"):
 			_, _ = w.Write([]byte(`{"challengeId":"ch_1","message":"prove it"}`))
 		default:
-			_, _ = w.Write([]byte(`{"smartWalletId":"wal_1","address":"0xRecipientAddress"}`))
+			_, _ = w.Write([]byte(`{"id":"wal_1","currency":"NGN","walletAddress":"0xRecipientAddress"}`))
 		}
 	})
 	defer srv.Close()
@@ -146,5 +150,42 @@ func TestUploadDocumentMultipart(t *testing.T) {
 	}
 	if err := c.UploadDocument(context.Background(), "usr_demo_1", "identification", path); err != nil {
 		t.Fatalf("upload: %v", err)
+	}
+}
+
+func TestPayWinnerLiveShape(t *testing.T) {
+	var proposalBody map[string]any
+	srv, c := newMockRail(t, func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/proposals") && r.Method == http.MethodPost {
+			_ = json.NewDecoder(r.Body).Decode(&proposalBody)
+		}
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/proposals") && r.Method == http.MethodPost:
+			_, _ = w.Write([]byte(`{"proposal":{"id":"prop_live","groupWalletId":"wal_platform","status":"PENDING_APPROVALS"}}`))
+		case strings.HasSuffix(r.URL.Path, "/approve"):
+			_, _ = w.Write([]byte(`{}`))
+		case strings.HasSuffix(r.URL.Path, "/sign-payload"):
+			_, _ = w.Write([]byte(`{"data":{"hashToSign":"` + knownDigest + `"}}`))
+		case strings.HasSuffix(r.URL.Path, "/sign"):
+			_, _ = w.Write([]byte(`{"data":{"proposal":{"id":"prop_live","status":"COMPLETED"}}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	defer srv.Close()
+
+	ref, err := c.PayWinner(context.Background(), "winner-user-id", 2500)
+	if err != nil {
+		t.Fatalf("paywinner: %v", err)
+	}
+	if ref != "prop_live" {
+		t.Fatalf("ref = %q", ref)
+	}
+	inner, _ := proposalBody["proposal"].(map[string]any)
+	if inner == nil || inner["toUserId"] != "winner-user-id" {
+		t.Fatalf("proposal recipient mismatch: %v", proposalBody)
+	}
+	if inner["currency"] != "CNGN" {
+		t.Fatalf("proposal currency = %v", inner["currency"])
 	}
 }

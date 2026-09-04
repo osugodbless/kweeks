@@ -3,21 +3,33 @@ package bmoni
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"github.com/osugodbless/kweeks/internal/domain"
 )
 
-// Provision implements ports.Money.Provision: create the BMONI user, submit the
-// NGN KYC profile, provision a CNGN smart wallet, activate the NGN rail, and
-// upload the operator-provided KYC documents (when configured). Returns the
-// external ids for the wallet.
+// Provision implements ports.Money.Provision: create (or recover) the BMONI
+// user, submit the NGN KYC profile, provision a CNGN smart wallet, activate
+// the NGN rail, and upload operator-provided KYC documents (when configured).
+// Returns the external ids for the wallet.
 func (c *Client) Provision(ctx context.Context, p domain.BmoniPersona) (*domain.WalletExternal, error) {
 	if c.apiKey == "" || c.ownerKey == "" {
 		return nil, errors.New("bmoni: api key and owner key required to provision")
 	}
+
 	userID, err := c.CreateUser(ctx, p)
 	if err != nil {
-		return nil, err
+		var apiErr *APIError
+		if errors.As(err, &apiErr) && apiErr.Status == 409 {
+			// Documented recovery: a 409 on create-user means the persona user
+			// already exists under this partner key. Recover it by phone.
+			userID, err = c.findUserByPhone(ctx, p.Phone)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	// KYC profile must carry the persona name before wallet/rail activation.
@@ -40,6 +52,25 @@ func (c *Client) Provision(ctx context.Context, p domain.BmoniPersona) (*domain.
 	}
 
 	return &domain.WalletExternal{UserID: userID, WalletID: walletID, Address: addr}, nil
+}
+
+// findUserByPhone recovers the existing BMONI user for a persona phone.
+func (c *Client) findUserByPhone(ctx context.Context, phone string) (string, error) {
+	var resp struct {
+		Users []struct {
+			BmoniUserID string `json:"bmoniUserId"`
+			PhoneNumber string `json:"phoneNumber"`
+		} `json:"users"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/v1/users?limit=100", nil, &resp); err != nil {
+		return "", err
+	}
+	for _, u := range resp.Users {
+		if u.PhoneNumber == phone && u.BmoniUserID != "" {
+			return u.BmoniUserID, nil
+		}
+	}
+	return "", errors.New("bmoni: persona user exists (409) but could not be recovered by phone")
 }
 
 func (c *Client) uploadOperatorDocs(ctx context.Context, userID string) error {

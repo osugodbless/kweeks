@@ -30,8 +30,11 @@ type Onboarding struct {
 func (c *Client) CreateUser(ctx context.Context, p domain.BmoniPersona) (string, error) {
 	var resp struct {
 		BmoniUserID string `json:"bmoniUserId"`
-		Data        struct {
-			UserID string `json:"bmoniUserId"`
+		User        struct {
+			BmoniUserID string `json:"bmoniUserId"`
+		} `json:"user"`
+		Data struct {
+			BmoniUserID string `json:"bmoniUserId"`
 		} `json:"data"`
 	}
 	err := c.do(ctx, http.MethodPost, "/v1/users", map[string]any{
@@ -44,8 +47,11 @@ func (c *Client) CreateUser(ctx context.Context, p domain.BmoniPersona) (string,
 	if resp.BmoniUserID != "" {
 		return resp.BmoniUserID, nil
 	}
-	if resp.Data.UserID != "" {
-		return resp.Data.UserID, nil
+	if resp.User.BmoniUserID != "" {
+		return resp.User.BmoniUserID, nil
+	}
+	if resp.Data.BmoniUserID != "" {
+		return resp.Data.BmoniUserID, nil
 	}
 	return "", errors.New("bmoni: create-user returned no user id")
 }
@@ -57,10 +63,14 @@ func (c *Client) SubmitKYC(ctx context.Context, userID string, p domain.BmoniPer
 			"firstName": p.FirstName, "lastName": p.LastName,
 			"dateOfBirth": p.DOB, "gender": "male",
 		},
-		"addressDetails": map[string]any{
-			"street": p.Address, "city": p.City, "state": p.State,
-			"countryCode": "NGA",
+		"address": map[string]any{
+			"streetLine1": p.Address, "city": p.City, "state": p.State,
+			"postalCode": "101241", "countryCode": "NGA",
 		},
+		"identificationNumbers": []map[string]any{
+			{"type": "bvn", "number": p.BVN, "issuingCountryCode": "NGA"},
+		},
+		"sourceOfFunds": "salary", "accountPurpose": "personal", "actingAsIntermediary": false,
 	}
 	return c.do(ctx, http.MethodPatch, "/v1/users/"+userID+"/kyc", body, nil)
 }
@@ -74,12 +84,20 @@ func (c *Client) ownerAddress() (string, error) {
 	return addr, nil
 }
 
-// ProvisionWallet runs the owner-proof handshake + create-managed for a CNGN
-// smart wallet owned by c.ownerKey. Returns the smart wallet id + address.
+// ProvisionWallet provisions a CNGN smart wallet owned by c.ownerKey. It first
+// checks the user's existing wallets and reuses one when present (wallet
+// creation has no uniqueness guard, so read-before-create is required).
+// Returns the smart wallet id + address.
 func (c *Client) ProvisionWallet(ctx context.Context, userID string) (walletID, addr string, err error) {
 	if c.ownerKey == "" {
 		return "", "", errors.New("bmoni: owner key required to provision a wallet")
 	}
+	if walletID, addr, ok, err := c.existingCNGNWallet(ctx, userID); err != nil {
+		return "", "", err
+	} else if ok {
+		return walletID, addr, nil
+	}
+
 	owner, err := c.ownerAddress()
 	if err != nil {
 		return "", "", err
@@ -111,16 +129,23 @@ func (c *Client) ProvisionWallet(ctx context.Context, userID string) (walletID, 
 		return "", "", err
 	}
 
-	// 3. create-managed CNGN wallet.
+	// 3. create-managed CNGN wallet. Live response is a flat wallet object;
+	// tolerate the documented nested shapes too.
 	var wallet struct {
+		ID            string `json:"id"`
 		SmartWalletID string `json:"smartWalletId"`
+		WalletAddress string `json:"walletAddress"`
 		Address       string `json:"address"`
+		Currency      string `json:"currency"`
+		IsActive      bool   `json:"isActive"`
 		Data          struct {
-			ID      string `json:"smartWalletId"`
-			Address string `json:"address"`
-			Wallet  struct {
-				ID      string `json:"smartWalletId"`
-				Address string `json:"address"`
+			ID            string `json:"id"`
+			SmartWalletID string `json:"smartWalletId"`
+			WalletAddress string `json:"walletAddress"`
+			Address       string `json:"address"`
+			Wallet        struct {
+				ID      string `json:"id"`
+				Address string `json:"walletAddress"`
 			} `json:"wallet"`
 		} `json:"data"`
 	}
@@ -132,12 +157,32 @@ func (c *Client) ProvisionWallet(ctx context.Context, userID string) (walletID, 
 		}, &wallet); err != nil {
 		return "", "", err
 	}
-	walletID = firstNonEmpty(wallet.SmartWalletID, wallet.Data.ID, wallet.Data.Wallet.ID)
-	addr = firstNonEmpty(wallet.Address, wallet.Data.Address, wallet.Data.Wallet.Address)
+	walletID = firstNonEmpty(wallet.ID, wallet.SmartWalletID, wallet.Data.ID, wallet.Data.SmartWalletID, wallet.Data.Wallet.ID)
+	addr = firstNonEmpty(wallet.WalletAddress, wallet.Address, wallet.Data.WalletAddress, wallet.Data.Address, wallet.Data.Wallet.Address)
 	if walletID == "" {
 		return "", "", errors.New("bmoni: create-managed returned no wallet id")
 	}
 	return walletID, addr, nil
+}
+
+// existingCNGNWallet returns the user's NGN/CNGN wallet when one exists.
+func (c *Client) existingCNGNWallet(ctx context.Context, userID string) (id, addr string, ok bool, err error) {
+	var wallets []struct {
+		ID            string `json:"id"`
+		Currency      string `json:"currency"`
+		WalletAddress string `json:"walletAddress"`
+		IsActive      bool   `json:"isActive"`
+	}
+	if err := c.do(ctx, http.MethodGet,
+		"/v1/users/"+userID+"/smart-wallets/account/wallets", nil, &wallets); err != nil {
+		return "", "", false, err
+	}
+	for _, w := range wallets {
+		if w.Currency == "NGN" || w.Currency == "CNGN" {
+			return w.ID, w.WalletAddress, true, nil
+		}
+	}
+	return "", "", false, nil
 }
 
 // StartNigeria activates the NGN rail against the provisioned wallet. BVN is

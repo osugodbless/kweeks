@@ -62,7 +62,8 @@ func run(logger *slog.Logger) error {
 	money := bmoni.New(cfg.BmoniBaseURL, cfg.BmoniAPIKey, cfg.BmoniOwnerKey, cfg.BmoniInstructorUserID, cfg.BmoniWalletID).
 		WithKYCDocuments(cfg.BmoniDocIdentification, cfg.BmoniDocProofOfAddress, cfg.BmoniDocBiometric)
 	mail := mailer.New(cfg.SmtpHost, cfg.SmtpPort, cfg.SmtpUser, cfg.SmtpPass, cfg.FromAddr, logger)
-	red := app.NewRedemption(st, realClock, money, mail)
+	red := app.NewRedemption(st, realClock, money, mail).
+		WithWinnerUser(cfg.BmoniWinnerUserID)
 
 	persona := domain.BmoniPersona{
 		FirstName: cfg.BmoniPersonaFirstName, LastName: cfg.BmoniPersonaLastName,

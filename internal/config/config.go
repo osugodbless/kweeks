@@ -48,6 +48,11 @@ type Config struct {
 	BmoniDocBiometric      string
 	BmoniProvisionOnSignup bool // when true, signup also provisions a real BMONI user + CNGN wallet
 
+	// BmoniWinnerUserID is the second sandbox persona that closes the payout
+	// loop live: the demo winner who receives prize money from the instructor
+	// wallet. Empty disables real payouts (claims still tracked).
+	BmoniWinnerUserID string
+
 	// Email (redemption recovery artifact; never the critical path)
 	SmtpHost string
 	SmtpPort int
@@ -85,6 +90,7 @@ func Load() (*Config, error) {
 		BmoniDocProofOfAddress: getEnv("BMONI_DOC_PROOF_OF_ADDRESS", ""),
 		BmoniDocBiometric:      getEnv("BMONI_DOC_BIOMETRIC", ""),
 		BmoniProvisionOnSignup: getEnvBool("BMONI_PROVISION_ON_SIGNUP", false),
+		BmoniWinnerUserID:      getEnv("BMONI_WINNER_USER_ID", ""),
 
 		SmtpHost: getEnv("SMTP_HOST", ""),
 		SmtpPort: getEnvInt("SMTP_PORT", 587),

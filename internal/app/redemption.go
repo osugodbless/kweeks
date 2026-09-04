@@ -19,10 +19,21 @@ type Redemption struct {
 	clock ports.Clock
 	money ports.Money
 	mail  ports.Mail
+
+	// winnerUserID is the BMONI user that closes the payout loop live (the
+	// second sandbox persona). When set, Settle pays that user from the
+	// platform wallet; empty means real payouts are disabled.
+	winnerUserID string
 }
 
 func NewRedemption(store ports.Store, clock ports.Clock, money ports.Money, mail ports.Mail) *Redemption {
 	return &Redemption{store: store, clock: clock, money: money, mail: mail}
+}
+
+// WithWinnerUser sets the BMONI recipient that live payouts settle to.
+func (r *Redemption) WithWinnerUser(winnerUserID string) *Redemption {
+	r.winnerUserID = winnerUserID
+	return r
 }
 
 func (r *Redemption) nowTime() time.Time {
@@ -149,10 +160,10 @@ func (r *Redemption) SendRedemptionEmail(ctx context.Context, c *domain.Claim) {
 // Settle triggers the background money move for a claim that has reached the
 // onboarded state. Returns the settlement reference.
 //
-// The money move goes through the platform wallet to the demo recipient the
-// rail is configured with (master design: the loop closes live with a single
-// pre-provisioned persona). Winner emails that are not BMONI users still get a
-// claim row + recovery email; onboarding them is the no-app/invite flow.
+// The money move goes from the platform wallet to the configured demo winner
+// user (the second sandbox persona) — the master design's pre-provisioned
+// persona that closes the payout loop live. Claims for non-persona emails are
+// still created + emailed; onboarding them is the no-app/invite flow.
 func (r *Redemption) Settle(ctx context.Context, c *domain.Claim) (string, error) {
 	if !domain.CanTransition(c.State, domain.ClaimPaid) {
 		return "", domain.ErrInvalidTransition
@@ -160,7 +171,11 @@ func (r *Redemption) Settle(ctx context.Context, c *domain.Claim) (string, error
 	if r.money == nil {
 		return "", errors.New("money port not configured")
 	}
-	ref, err := r.money.PayWinner(ctx, c.Email, c.Amount)
+	recipient := r.winnerUserID
+	if recipient == "" {
+		recipient = c.Email // no persona configured: attempt the email (no-app invite resolves it)
+	}
+	ref, err := r.money.PayWinner(ctx, recipient, c.Amount)
 	if err != nil {
 		_ = r.store.UpdateClaimState(ctx, c.ID, domain.ClaimFailed)
 		return "", err

@@ -39,15 +39,18 @@ func pubkeyToAddress(ownerKeyHex string) (string, error) {
 
 // proposalReply captures the various proposal id response shapes.
 type proposalReply struct {
-	Data struct {
-		Proposal struct {
-			ID string `json:"id"`
-		} `json:"proposal"`
-		ProposalID string `json:"proposalId"`
-		ID         string `json:"id"`
-	} `json:"data"`
 	ProposalID string `json:"proposalId"`
 	ID         string `json:"id"`
+	Proposal   struct {
+		ID string `json:"id"`
+	} `json:"proposal"`
+	Data struct {
+		ProposalID string `json:"proposalId"`
+		ID         string `json:"id"`
+		Proposal   struct {
+			ID string `json:"id"`
+		} `json:"proposal"`
+	} `json:"data"`
 }
 
 // CreditTo funds a provisioned user's CNGN wallet from the platform wallet.
@@ -95,7 +98,7 @@ func (c *Client) sendProposal(ctx context.Context, fromUserID, fromWalletID stri
 		map[string]any{"proposal": proposal}, &created); err != nil {
 		return "", err
 	}
-	proposalID := firstNonEmpty(created.Data.Proposal.ID, created.Data.ProposalID, created.Data.ID, created.ProposalID, created.ID)
+	proposalID := firstNonEmpty(created.Proposal.ID, created.ProposalID, created.ID, created.Data.Proposal.ID, created.Data.ProposalID, created.Data.ID)
 	if proposalID == "" {
 		return "", errors.New("bmoni: proposal returned no id")
 	}

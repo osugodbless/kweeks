@@ -83,12 +83,26 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any)
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("bmoni %s %s: status %d: %s", method, path, resp.StatusCode, truncate(string(raw), 300))
+		return &APIError{Method: method, Path: path, Status: resp.StatusCode, Body: string(raw)}
 	}
 	if out != nil && len(raw) > 0 {
 		return json.Unmarshal(raw, out)
 	}
 	return nil
+}
+
+// APIError carries the HTTP status so callers can implement documented
+// retry/recovery behaviour (e.g. a 409 on create-user = recover the existing
+// user rather than retry).
+type APIError struct {
+	Method string
+	Path   string
+	Status int
+	Body   string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("bmoni %s %s: status %d: %s", e.Method, e.Path, e.Status, truncate(e.Body, 300))
 }
 
 func truncate(s string, n int) string {
@@ -98,103 +112,50 @@ func truncate(s string, n int) string {
 	return s[:n] + "..."
 }
 
-// BalanceNGN reads the platform wallet NGN balance in kobo.
+// BalanceNGN reads the platform wallet NGN balance in kobo. The live sandbox
+// reports balances under GET /smart-wallets/account/balances as a list keyed by
+// smartWalletId with display currency "NGN".
 func (c *Client) BalanceNGN(ctx context.Context) (domain.Amount, error) {
 	var resp struct {
-		Data struct {
-			Balance string `json:"balance"`
-		} `json:"data"`
+		Balances []struct {
+			SmartWalletID string `json:"smartWalletId"`
+			Currency      string `json:"currency"`
+			Balance       string `json:"balance"`
+		} `json:"balances"`
 	}
 	if c.userID == "" {
 		return 0, errors.New("bmoni: no user id configured")
 	}
 	err := c.do(ctx, http.MethodGet,
-		fmt.Sprintf("/v1/users/%s/smart-wallets/account/wallets", c.userID), nil, &resp)
+		fmt.Sprintf("/v1/users/%s/smart-wallets/account/balances", c.userID), nil, &resp)
 	if err != nil {
 		return 0, err
 	}
-	// BMONI reports display currency balance; treat the response's CNGN entry
-	// as the pool. The adapter normalizes decimal string -> kobo.
-	if resp.Data.Balance == "" {
-		return 0, errors.New("bmoni: empty balance in wallet response")
+	for _, b := range resp.Balances {
+		if b.Currency == "NGN" || b.Currency == "CNGN" {
+			if b.Balance == "" {
+				return 0, nil
+			}
+			return domain.FromNairaString(b.Balance)
+		}
 	}
-	return domain.FromNairaString(resp.Data.Balance)
+	return 0, errors.New("bmoni: no NGN balance in wallet response")
 }
 
-// PayWinner runs the four-call proposal flow: create proposal, approve, fetch
-// sign payload, sign with the owner key, submit. The recipient is resolved by
-// the no-app/invite identity in the real build; this adapter signs against a
-// configured recipient wallet address for the sandbox.
-func (c *Client) PayWinner(ctx context.Context, toEmail string, amount domain.Amount) (string, error) {
-	if c.ownerKey == "" || c.userID == "" {
-		return "", errors.New("bmoni: owner key and user id required to send")
+// PayWinner transfers prize money from the platform wallet to a recipient
+// BMONI user (winner persona). The recipient must hold an active wallet in the
+// currency. Returns the settlement reference (proposal id).
+func (c *Client) PayWinner(ctx context.Context, toUserID string, amount domain.Amount) (string, error) {
+	if c.userID == "" || c.walletID == "" {
+		return "", errors.New("bmoni: source wallet not configured")
 	}
-
-	// 1. Proposal.
-	var proposal struct {
-		Data struct {
-			Proposal struct {
-				ID string `json:"id"`
-			} `json:"proposal"`
-		} `json:"data"`
+	if c.ownerKey == "" {
+		return "", errors.New("bmoni: owner key required to send")
 	}
-	err := c.do(ctx, http.MethodPost,
-		fmt.Sprintf("/v1/users/%s/smart-wallets/%s/proposals", c.userID, c.walletID),
-		map[string]any{
-			"proposal": map[string]any{
-				"type":        "TRANSFER",
-				"toUserId":    toEmail, // replaced by resolved recipient in the real flow
-				"amount":      amount.NairaString(),
-				"currency":    "CNGN",
-				"description": "kweeks prize payout",
-			},
-		}, &proposal)
-	if err != nil {
-		return "", err
-	}
-	proposalID := proposal.Data.Proposal.ID
-	if proposalID == "" {
-		return "", errors.New("bmoni: empty proposal id")
-	}
-
-	// 2. Approve.
-	if err := c.do(ctx, http.MethodPost,
-		fmt.Sprintf("/v1/users/%s/smart-wallets/proposals/%s/approve", c.userID, proposalID),
-		nil, nil); err != nil {
-		return "", err
-	}
-
-	// 3. Fetch sign payload (raw 32-byte digest; no EIP-191 prefix).
-	var payload struct {
-		Data struct {
-			HashToSign string `json:"hashToSign"`
-		} `json:"data"`
-	}
-	if err := c.do(ctx, http.MethodGet,
-		fmt.Sprintf("/v1/users/%s/smart-wallets/proposals/%s/sign-payload", c.userID, proposalID),
-		nil, &payload); err != nil {
-		return "", err
-	}
-
-	// 4. Sign digest with the owner key and submit.
-	sig, err := signDigest(c.ownerKey, payload.Data.HashToSign)
-	if err != nil {
-		return "", err
-	}
-	var submit struct {
-		Data struct {
-			Proposal struct {
-				ID     string `json:"id"`
-				Status string `json:"status"`
-			} `json:"proposal"`
-		} `json:"data"`
-	}
-	if err := c.do(ctx, http.MethodPost,
-		fmt.Sprintf("/v1/users/%s/smart-wallets/proposals/%s/sign", c.userID, proposalID),
-		map[string]string{"signature": sig}, &submit); err != nil {
-		return "", err
-	}
-	return submit.Data.Proposal.ID, nil
+	return c.sendProposal(ctx, c.userID, c.walletID, map[string]any{
+		"type": "TRANSFER", "toUserId": toUserID,
+		"amount": amount.NairaString(), "currency": "CNGN", "description": "kweeks prize payout",
+	})
 }
 
 // signDigest signs a raw 32-byte digest (no prefix) with the owner key.
