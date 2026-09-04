@@ -28,6 +28,12 @@ type Wallet struct {
 	InstructorID string    `json:"instructorId"`
 	Balance      Amount    `json:"balanceNaira"` // serialized as naira string
 	CreatedAt    time.Time `json:"createdAt"`
+
+	// External BMONI identity, set when the wallet is provisioned on the rail.
+	// Empty until provisioning succeeds.
+	BmoniUserID     string `json:"bmoniUserId,omitempty"`
+	BmoniWalletID   string `json:"bmoniWalletId,omitempty"`
+	BmoniWalletAddr string `json:"bmoniWalletAddress,omitempty"`
 }
 
 // WalletTxKind classifies a wallet ledger entry.
@@ -39,6 +45,28 @@ const (
 	TxPayout WalletTxKind = "payout"
 	TxCredit WalletTxKind = "credit"
 )
+
+// WalletExternal is the subset of BMONI provisioning results persisted on a
+// wallet row.
+type WalletExternal struct {
+	UserID   string
+	WalletID string
+	Address  string
+}
+
+// BmoniPersona is the identity used to provision a BMONI user + NGN rail.
+// Sandbox persona values come from config (test personas match exactly).
+type BmoniPersona struct {
+	FirstName string
+	LastName  string
+	Email     string
+	Phone     string
+	BVN       string
+	DOB       string
+	Address   string
+	City      string
+	State     string
+}
 
 // WalletTransaction is one wallet ledger row.
 type WalletTransaction struct {

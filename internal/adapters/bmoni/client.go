@@ -31,6 +31,12 @@ type Client struct {
 	userID   string
 	walletID string
 
+	// Operator-provided KYC document image paths (JPEG/PNG). Empty means the
+	// provisioning flow stops before the upload step.
+	docIdentification string
+	docProofOfAddress string
+	docBiometric      string
+
 	http *http.Client
 }
 
@@ -42,8 +48,17 @@ func New(baseURL, apiKey, ownerKey, userID, walletID string) *Client {
 		ownerKey: ownerKey,
 		userID:   userID,
 		walletID: walletID,
-		http:     &http.Client{Timeout: 15 * time.Second},
+		http:     &http.Client{Timeout: 30 * time.Second},
 	}
+}
+
+// WithKYCDocuments supplies operator-provided document image paths so
+// provisioning can complete the upload step.
+func (c *Client) WithKYCDocuments(identification, proofOfAddress, biometric string) *Client {
+	c.docIdentification = identification
+	c.docProofOfAddress = proofOfAddress
+	c.docBiometric = biometric
+	return c
 }
 
 func (c *Client) do(ctx context.Context, method, path string, body any, out any) error {

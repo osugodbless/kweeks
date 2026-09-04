@@ -22,6 +22,7 @@ import (
 	"github.com/osugodbless/kweeks/internal/adapters/ws"
 	"github.com/osugodbless/kweeks/internal/app"
 	"github.com/osugodbless/kweeks/internal/config"
+	"github.com/osugodbless/kweeks/internal/domain"
 )
 
 func main() {
@@ -58,12 +59,29 @@ func run(logger *slog.Logger) error {
 	game := app.NewGame(st, realClock, hub)
 	join := app.NewJoin(st, realClock)
 
-	money := bmoni.New(cfg.BmoniBaseURL, cfg.BmoniAPIKey, cfg.BmoniOwnerKey, cfg.BmoniInstructorUserID, cfg.BmoniWalletID)
+	money := bmoni.New(cfg.BmoniBaseURL, cfg.BmoniAPIKey, cfg.BmoniOwnerKey, cfg.BmoniInstructorUserID, cfg.BmoniWalletID).
+		WithKYCDocuments(cfg.BmoniDocIdentification, cfg.BmoniDocProofOfAddress, cfg.BmoniDocBiometric)
 	mail := mailer.New(cfg.SmtpHost, cfg.SmtpPort, cfg.SmtpUser, cfg.SmtpPass, cfg.FromAddr, logger)
 	red := app.NewRedemption(st, realClock, money, mail)
 
+	persona := domain.BmoniPersona{
+		FirstName: cfg.BmoniPersonaFirstName, LastName: cfg.BmoniPersonaLastName,
+		Email: cfg.BmoniPersonaEmail, Phone: cfg.BmoniPersonaPhone, BVN: cfg.BmoniPersonaBVN,
+		DOB: cfg.BmoniPersonaDOB, Address: cfg.BmoniPersonaAddress,
+		City: cfg.BmoniPersonaCity, State: cfg.BmoniPersonaState,
+	}
 	auth := app.NewAuth(st, realClock)
-	wallet := app.NewWallet(st, realClock, money)
+	wallet := app.NewWallet(st, realClock, money).
+		WithProvisioning(persona, cfg.BmoniProvisionOnSignup)
+	if cfg.BmoniProvisionOnSignup {
+		auth.WithWalletProvisioning(func(ctx context.Context, instructorID string) error {
+			if !wallet.PersonaConfigured() {
+				return nil
+			}
+			_, err := wallet.Provision(ctx, instructorID)
+			return err
+		})
+	}
 
 	// --- HTTP + realtime transport ---
 	api := httpapi.New(game, join, red).WithWS(hub).WithServices(auth, wallet)

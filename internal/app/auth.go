@@ -25,6 +25,11 @@ type Auth struct {
 
 	// SessionTTL controls how long a token stays valid.
 	SessionTTL time.Duration
+
+	// onProvision, when set, is invoked after an instructor's wallet is issued
+	// so the app can provision a real BMONI wallet on the rail. Errors are
+	// logged by the caller, never fatal to signup (ledger wallet still works).
+	onProvision func(ctx context.Context, instructorID string) error
 }
 
 func NewAuth(store ports.Store, clock ports.Clock) *Auth {
@@ -32,6 +37,12 @@ func NewAuth(store ports.Store, clock ports.Clock) *Auth {
 	if clock == nil {
 		a.clock = nil
 	}
+	return a
+}
+
+// WithWalletProvisioning installs the post-signup BMONI wallet provisioner.
+func (a *Auth) WithWalletProvisioning(provision func(ctx context.Context, instructorID string) error) *Auth {
+	a.onProvision = provision
 	return a
 }
 
@@ -47,6 +58,10 @@ type SignupResult struct {
 	Instructor *domain.Instructor
 	Token      string
 	Wallet     *domain.Wallet
+
+	// ProvisionErr is non-nil when BMONI wallet provisioning was attempted but
+	// failed; signup still succeeds with the local ledger wallet.
+	ProvisionErr error
 }
 
 // Signup creates an instructor and immediately issues a NGN wallet.
@@ -74,6 +89,13 @@ func (a *Auth) Signup(ctx context.Context, name, email, password string) (*Signu
 	wallet, err := a.issueWallet(ctx, instructor.ID)
 	if err != nil {
 		return nil, err
+	}
+	if a.onProvision != nil {
+		if perr := a.onProvision(ctx, instructor.ID); perr != nil {
+			// Provisioning failure must never block signup: the local ledger
+			// wallet is the fallback and can be provisioned later.
+			return &SignupResult{Instructor: instructor, Token: "", Wallet: wallet, ProvisionErr: perr}, nil
+		}
 	}
 	token, err := a.createSession(ctx, instructor.ID)
 	if err != nil {

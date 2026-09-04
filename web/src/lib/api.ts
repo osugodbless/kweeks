@@ -66,6 +66,9 @@ export interface Instructor {
 export interface Wallet {
   id: string;
   balanceNaira: string;
+  bmoniUserId?: string;
+  bmoniWalletId?: string;
+  bmoniWalletAddress?: string;
 }
 
 export interface AuthResult {

@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { DesktopFrame } from "@/components/ui/desktop";
 import { InstructorNav, NavRight, InstructorFooter } from "@/components/ui/instructor-nav";
 import { useAuth } from "@/lib/auth";
-import { useDashboard, useWallet } from "@/lib/hooks";
+import { useDashboard, useProvisionWallet, useWallet } from "@/lib/hooks";
 import { naira } from "@/lib/player";
 
 function errText(e: unknown): string {
@@ -14,6 +14,7 @@ export function InstructorWallet() {
   const nav = useNavigate();
   const dash = useDashboard();
   const walletView = useWallet();
+  const provision = useProvisionWallet();
   const instructor = useAuth((s) => s.instructor);
   const authBal = useAuth((s) => s.wallet?.balanceNaira);
 
@@ -158,6 +159,28 @@ export function InstructorWallet() {
                     {walletView.data?.wallet.id ?? "kweeks_ngn_…"}
                   </span>
                 </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-body text-[12px] text-text-3">BMONI rail</span>
+                  {walletView.data?.wallet.bmoniUserId ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-naira" />
+                      <span className="font-body text-[12px] font-bold text-naira">Provisioned</span>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => provision.mutate()}
+                      disabled={provision.isPending}
+                      className="rounded-full bg-surface px-3 py-1.5 font-body text-[12px] font-bold text-gold hover:opacity-80 disabled:opacity-40"
+                    >
+                      {provision.isPending ? "Provisioning…" : "Provision on BMONI"}
+                    </button>
+                  )}
+                </div>
+                {provision.error && (
+                  <div className="rounded-lg bg-surface px-3 py-2 font-body text-[12px] font-semibold text-red">
+                    {errText(provision.error)}
+                  </div>
+                )}
                 <div className="flex items-center gap-2.5">
                   <button
                     onClick={() => nav("/instructor/fund")}

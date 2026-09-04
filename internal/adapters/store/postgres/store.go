@@ -571,9 +571,10 @@ func (s *Store) GetSession(ctx context.Context, token string) (*domain.Session, 
 
 func (s *Store) CreateWallet(ctx context.Context, w *domain.Wallet) error {
 	_, err := s.pool.Exec(ctx, `
-		insert into wallets (id, instructor_id, balance_kobo, created_at)
-		values ($1,$2,$3,$4)`,
-		w.ID, w.InstructorID, int64(w.Balance), w.CreatedAt)
+		insert into wallets (id, instructor_id, balance_kobo, created_at, bmoni_user_id, bmoni_wallet_id, bmoni_wallet_addr)
+		values ($1,$2,$3,$4,$5,$6,$7)`,
+		w.ID, w.InstructorID, int64(w.Balance), w.CreatedAt,
+		w.BmoniUserID, w.BmoniWalletID, w.BmoniWalletAddr)
 	if isUniqueViolation(err) {
 		return domain.ErrWalletExists
 	}
@@ -584,9 +585,11 @@ func (s *Store) GetWalletByInstructor(ctx context.Context, instructorID string) 
 	var w domain.Wallet
 	var bal int64
 	err := s.pool.QueryRow(ctx, `
-		select id, instructor_id, balance_kobo, created_at
+		select id, instructor_id, balance_kobo, created_at,
+		       bmoni_user_id, bmoni_wallet_id, bmoni_wallet_addr
 		from wallets where instructor_id=$1`, instructorID).
-		Scan(&w.ID, &w.InstructorID, &bal, &w.CreatedAt)
+		Scan(&w.ID, &w.InstructorID, &bal, &w.CreatedAt,
+			&w.BmoniUserID, &w.BmoniWalletID, &w.BmoniWalletAddr)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, domain.ErrWalletNotFound
 	}
@@ -595,6 +598,20 @@ func (s *Store) GetWalletByInstructor(ctx context.Context, instructorID string) 
 	}
 	w.Balance = domain.Amount(bal)
 	return &w, nil
+}
+
+func (s *Store) SetWalletBmoni(ctx context.Context, walletID string, external *domain.WalletExternal) error {
+	tag, err := s.pool.Exec(ctx, `
+		update wallets set bmoni_user_id=$2, bmoni_wallet_id=$3, bmoni_wallet_addr=$4
+		where id=$1`,
+		walletID, external.UserID, external.WalletID, external.Address)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrWalletNotFound
+	}
+	return nil
 }
 
 func (s *Store) ApplyWalletTx(ctx context.Context, walletID string, tx *domain.WalletTransaction) error {

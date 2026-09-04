@@ -56,6 +56,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/auth/me", s.requireAuth(s.handleMe))
 	mux.HandleFunc("GET /api/wallet", s.requireAuth(s.handleWallet))
 	mux.HandleFunc("POST /api/wallet/fund", s.requireAuth(s.handleFundWallet))
+	mux.HandleFunc("POST /api/wallet/provision", s.requireAuth(s.handleProvisionWallet))
 	mux.HandleFunc("GET /api/instructor/dashboard", s.requireAuth(s.handleDashboard))
 	mux.HandleFunc("GET /api/instructor/history", s.requireAuth(s.handleHistory))
 

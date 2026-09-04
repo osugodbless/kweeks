@@ -81,6 +81,8 @@ type Store interface {
 	// appends the ledger row.
 	ApplyWalletTx(ctx context.Context, walletID string, tx *domain.WalletTransaction) error
 	ListWalletTransactions(ctx context.Context, walletID string) ([]domain.WalletTransaction, error)
+	// SetWalletBmoni records the external BMONI ids provisioned for a wallet.
+	SetWalletBmoni(ctx context.Context, walletID string, external *domain.WalletExternal) error
 
 	// Admin / bootstrap
 	Close() error

@@ -37,6 +37,13 @@ Credits the wallet. `credit` = instant platform credit (no external rail).
 Card/transfer settle through the money rail when configured; failures return 502.
 Returns updated `{"wallet":{"id","balanceNaira"}}`.
 
+### POST /api/wallet/provision  (Bearer)
+Provisions a real BMONI user + CNGN smart wallet for the instructor on the
+configured rail (NGN persona). Idempotent. Requires a configured BMONI persona;
+otherwise returns 400. Returns `{"wallet":{"id","balanceNaira","bmoniUserId",
+"bmoniWalletId","bmoniWalletAddress"}}`. Wallet provisioning also runs
+automatically at signup when `BMONI_PROVISION_ON_SIGNUP=true`.
+
 ---
 
 ## Dashboard + history (instructor, Bearer)

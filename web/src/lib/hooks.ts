@@ -65,6 +65,18 @@ export function useFundWallet() {
   });
 }
 
+export function useProvisionWallet() {
+  const qc = useQueryClient();
+  const setWallet = useAuth((s) => s.setWallet);
+  return useMutation({
+    mutationFn: () => api.post<{ wallet: Wallet }>("/wallet/provision"),
+    onSuccess: (res) => {
+      if (res?.wallet) setWallet(res.wallet);
+      void qc.invalidateQueries({ queryKey: qk.wallet });
+    },
+  });
+}
+
 export function useDashboard() {
   return useQuery({ queryKey: qk.dashboard, queryFn: () => api.get<DashboardStat>("/instructor/dashboard"), enabled: authed() });
 }

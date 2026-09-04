@@ -164,11 +164,33 @@ func (s *Server) handleFundWallet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"wallet": walletJSON(wallet)})
 }
 
+func (s *Server) handleProvisionWallet(w http.ResponseWriter, r *http.Request) {
+	if s.wallet == nil {
+		writeErr(w, errors.New("wallet rail not configured on this server"))
+		return
+	}
+	instructorID := instructorFrom(r)
+	if !s.wallet.PersonaConfigured() {
+		writeErr(w, errors.New("BMONI persona not configured — cannot provision a wallet"))
+		return
+	}
+	wallet, err := s.wallet.Provision(r.Context(), instructorID)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"wallet": walletJSON(wallet)})
+}
+
 func walletJSON(w *domain.Wallet) map[string]any {
 	if w == nil {
 		return map[string]any{}
 	}
-	return map[string]any{"id": w.ID, "balanceNaira": w.Balance.DisplayString()}
+	return map[string]any{
+		"id": w.ID, "balanceNaira": w.Balance.DisplayString(),
+		"bmoniUserId": w.BmoniUserID, "bmoniWalletId": w.BmoniWalletID,
+		"bmoniWalletAddress": w.BmoniWalletAddr,
+	}
 }
 
 // ---- Dashboard / history ----

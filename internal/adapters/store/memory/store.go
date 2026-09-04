@@ -416,6 +416,19 @@ func (s *Store) ListWalletTransactions(ctx context.Context, walletID string) ([]
 	return out, nil
 }
 
+func (s *Store) SetWalletBmoni(ctx context.Context, walletID string, external *domain.WalletExternal) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	w, ok := s.wallets[walletID]
+	if !ok {
+		return domain.ErrWalletNotFound
+	}
+	w.BmoniUserID = external.UserID
+	w.BmoniWalletID = external.WalletID
+	w.BmoniWalletAddr = external.Address
+	return nil
+}
+
 func (s *Store) ListClaimsByQuizIDs(ctx context.Context, quizIDs []string) ([]domain.Claim, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

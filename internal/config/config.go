@@ -28,6 +28,26 @@ type Config struct {
 	BmoniInstructorUserID string
 	BmoniWalletID         string // optional explicit recipient wallet for sandbox sends
 
+	// BMONI onboarding persona (NGN rail). The sandbox resolves a fixed set of
+	// personas; provisioning uses these identity values verbatim. The three KYC
+	// document uploads stay an operator step: point BmoniDocIdentification,
+	// BmoniDocProofOfAddress, BmoniDocBiometric at JPEG/PNG files to have the
+	// server submit them, or leave empty to stop before uploads.
+	BmoniPersonaFirstName string
+	BmoniPersonaLastName  string
+	BmoniPersonaEmail     string
+	BmoniPersonaPhone     string // E.164, e.g. +2348000000001
+	BmoniPersonaBVN       string
+	BmoniPersonaDOB       string // YYYY-MM-DD
+	BmoniPersonaAddress   string
+	BmoniPersonaCity      string
+	BmoniPersonaState     string
+
+	BmoniDocIdentification string
+	BmoniDocProofOfAddress string
+	BmoniDocBiometric      string
+	BmoniProvisionOnSignup bool // when true, signup also provisions a real BMONI user + CNGN wallet
+
 	// Email (redemption recovery artifact; never the critical path)
 	SmtpHost string
 	SmtpPort int
@@ -50,6 +70,21 @@ func Load() (*Config, error) {
 		BmoniOwnerKey:         getEnv("BMONI_OWNER_KEY", ""),
 		BmoniInstructorUserID: getEnv("BMONI_INSTRUCTOR_USER_ID", ""),
 		BmoniWalletID:         getEnv("BMONI_WALLET_ID", ""),
+
+		BmoniPersonaFirstName: getEnv("BMONI_PERSONA_FIRST_NAME", ""),
+		BmoniPersonaLastName:  getEnv("BMONI_PERSONA_LAST_NAME", ""),
+		BmoniPersonaEmail:     getEnv("BMONI_PERSONA_EMAIL", ""),
+		BmoniPersonaPhone:     getEnv("BMONI_PERSONA_PHONE", ""),
+		BmoniPersonaBVN:       getEnv("BMONI_PERSONA_BVN", ""),
+		BmoniPersonaDOB:       getEnv("BMONI_PERSONA_DOB", ""),
+		BmoniPersonaAddress:   getEnv("BMONI_PERSONA_ADDRESS", ""),
+		BmoniPersonaCity:      getEnv("BMONI_PERSONA_CITY", ""),
+		BmoniPersonaState:     getEnv("BMONI_PERSONA_STATE", ""),
+
+		BmoniDocIdentification: getEnv("BMONI_DOC_IDENTIFICATION", ""),
+		BmoniDocProofOfAddress: getEnv("BMONI_DOC_PROOF_OF_ADDRESS", ""),
+		BmoniDocBiometric:      getEnv("BMONI_DOC_BIOMETRIC", ""),
+		BmoniProvisionOnSignup: getEnvBool("BMONI_PROVISION_ON_SIGNUP", false),
 
 		SmtpHost: getEnv("SMTP_HOST", ""),
 		SmtpPort: getEnvInt("SMTP_PORT", 587),
@@ -93,4 +128,13 @@ func getEnvInt(key string, def int) int {
 // A missing file is ignored silently.
 func loadDotEnv(dir string) {
 	_ = godotenv.Load(filepath.Join(dir, ".env"))
+}
+
+func getEnvBool(key string, def bool) bool {
+	if v, ok := os.LookupEnv(key); ok && v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			return b
+		}
+	}
+	return def
 }
