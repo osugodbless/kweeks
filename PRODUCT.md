@@ -24,8 +24,10 @@ one real money transfer landing are the show. Zero installs.
   code + control → view quiz/wallet history (with a no-history empty state).
   Every instructor screen shares a top nav (Dashboard / Create quiz / History)
   and a minimal footer.
-- Player (mobile 390): join → lobby → live question → standings → podium +
-  redeem. Each player screen carries a minimal footer.
+- Player (desktop 1180): join → lobby → live question → standings → podium +
+  redeem. Same player content as the original mobile screens, re-composed for
+  a wide desktop layout (two-column join/lobby/podium, centered quiz stage,
+  wide leaderboard). Each player screen carries a top bar + minimal footer.
 
 ## Money rules that bind the UI
 - Pool is a real wallet balance (BMONI sandbox). Shown as ₦, naira-green.

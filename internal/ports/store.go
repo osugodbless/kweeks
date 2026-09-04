@@ -23,6 +23,7 @@ type Store interface {
 	// Quizzes
 	CreateQuiz(ctx context.Context, q *domain.Quiz) error
 	GetQuiz(ctx context.Context, id string) (*domain.Quiz, error)
+	UpdateQuiz(ctx context.Context, q *domain.Quiz) error
 	// A quiz is started by attaching it to a room; list is for the instructor
 	// dashboard.
 	ListQuizzes(ctx context.Context, instructorID string) ([]domain.Quiz, error)

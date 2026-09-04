@@ -124,6 +124,33 @@ func scanQuiz(row pgx.Row) (*domain.Quiz, error) {
 	return &q, nil
 }
 
+func (s *Store) UpdateQuiz(ctx context.Context, q *domain.Quiz) error {
+	rows := make([]questionRow, 0, len(q.Questions))
+	for _, question := range q.Questions {
+		rows = append(rows, questionRow{
+			ID: question.ID, Prompt: question.Prompt, Options: question.Options,
+			CorrectIndex: question.CorrectIndex, DurationMs: question.Duration.Milliseconds(),
+		})
+	}
+	b, err := json.Marshal(rows)
+	if err != nil {
+		return err
+	}
+	tag, err := s.pool.Exec(ctx, `
+		update quizzes set title=$2, pool_kobo=$3, winner_count=$4, pacing=$5,
+			default_duration_ms=$6, questions=$7
+		where id=$1`,
+		q.ID, q.Title, int64(q.Pool), q.WinnerCount, string(q.Pacing),
+		q.DefaultDuration.Milliseconds(), b)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrQuizNotFound
+	}
+	return nil
+}
+
 func (s *Store) GetQuiz(ctx context.Context, id string) (*domain.Quiz, error) {
 	return scanQuiz(s.pool.QueryRow(ctx, `
 		select id, instructor_id, title, pool_kobo, winner_count, pacing, default_duration_ms, questions, created_at

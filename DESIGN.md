@@ -52,17 +52,28 @@ frames.
    closing CTA band + footer. Design-system tokens (wordmark, gold/dark chips,
    money chip) were the prior occupant and are now described in the tokens
    section above rather than as a standalone frame.
-2. **Player · Join** — room code pill + LIVE tag, pool hero, 2×6 emoji avatar
-   grid (selected = gold), nickname + email, gold CTA.
-3. **Player · Lobby** — room code, waiting state card, roster chips, 1st-place
-   prize bar.
-4. **Player · Question** — Q of N, score, 18s ring + gold bar, question,
-   4 option tiles, one selected gold.
-5. **Player · Standings** — LIVE leaderboard, gold "you" row + YOU tag, pts
-   shown paper (not money-green), 1st gold.
-6. **Player · Podium** — Unsplash confetti win hero, `You banked ₦15,000`,
-   winners list (25k/15k/10k) with you highlighted, claim code chip, gold
-   redeem CTA, 3-step how-it-lands.
+2. **Player · Join** (desktop 1180) — top bar (wordmark, Room AB12 pill, LIVE)
+   + two-column body: left pool promo (`PRIZE POOL`, ₦50,000, "HOW IT PLAYS"
+   card) · right join card (avatar grid 2×6 with 🐙 gold-selected, nickname +
+   email fields, gold JOIN THE GAME). Same content as the mobile version,
+   re-composed for a wide screen.
+3. **Player · Lobby** (desktop 1180) — top bar (wordmark, Room AB12, WAITING) +
+   two-column: left hero (🐙, "You're in, Zainab", ₦50,000 on the line, prize
+   bar "1st place takes ₦25,000") · right IN THE ROOM roster chips + waiting
+   card with gold pulse.
+4. **Player · Question** (desktop 1180) — top bar (wordmark, "Question 3 of
+   10", 1,250 pts) + centered stage: 18s ring + gold bar, large question, 2×2
+   option tiles (one gold-selected). Footer pinned.
+5. **Player · Standings** (desktop 1180) — top bar (wordmark, Live standings,
+   LIVE) + heading ("After question 4 · 8 players") + wide leaderboard card:
+   pts colhint, 5 rows (Ada/Tobi/Zainab/Chidi/Uche), gold YOU row (bg gold,
+   gold-ink), you-pill at the base.
+6. **Player · Podium** (desktop 1180) — top bar (wordmark, Final standings,
+   GAME OVER) + two-column: left confetti hero (Unsplash, "2nd place · 8
+   players", ₦15,000, "You banked ₦15,000") · right Winners list
+   (Ada🦊/YOU🐙/Tobi🐼 with amounts), claim-code card (KWEEKS-7F3A-9Z, COPY),
+   gold REDEEM ₦15,000 NOW, and 3-step how-it-lands (Claim locked / Invite
+   sent / Paid).
 7. **Instructor · Quiz Builder** — nav w/ wallet balance, quiz title card with
    Unsplash Lagos deck cover, pool slider, winner count segmented (3), pacing
    segmented (manual), question editor with correct answer marked green,

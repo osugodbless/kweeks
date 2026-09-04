@@ -41,14 +41,47 @@ func (s *Server) handleCreateQuiz(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, domain.ErrInvalidQuestion)
 		return
 	}
-	pool, err := domain.FromNairaString(req.PoolNaira)
+	quiz, err := quizFromReq(&req, instructorFrom(r), "")
 	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	if err := s.game.CreateQuiz(r.Context(), quiz); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]string{"id": quiz.ID})
+}
+
+func (s *Server) handleUpdateQuiz(w http.ResponseWriter, r *http.Request) {
+	var req createQuizReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, domain.ErrInvalidQuestion)
 		return
 	}
+	quiz, err := quizFromReq(&req, instructorFrom(r), r.PathValue("quizID"))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	if err := s.game.UpdateQuiz(r.Context(), quiz); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"id": quiz.ID})
+}
+
+func quizFromReq(req *createQuizReq, instructorID, id string) (*domain.Quiz, error) {
+	pool, err := domain.FromNairaString(req.PoolNaira)
+	if err != nil {
+		return nil, domain.ErrInvalidQuestion
+	}
+	if id == "" {
+		id = newID()
+	}
 	quiz := &domain.Quiz{
-		ID:              newID(),
-		InstructorID:    instructorFrom(r),
+		ID:              id,
+		InstructorID:    instructorID,
 		Title:           req.Title,
 		Pool:            pool,
 		WinnerCount:     req.WinnerCount,
@@ -65,11 +98,7 @@ func (s *Server) handleCreateQuiz(w http.ResponseWriter, r *http.Request) {
 			Duration:     time.Duration(q.DurationMs) * time.Millisecond,
 		})
 	}
-	if err := s.game.CreateQuiz(r.Context(), quiz); err != nil {
-		writeErr(w, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, map[string]string{"id": quiz.ID})
+	return quiz, nil
 }
 
 func (s *Server) handleListQuizzes(w http.ResponseWriter, r *http.Request) {
@@ -254,10 +283,11 @@ func (s *Server) handleRedeem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.red.SendRedemptionEmail(r.Context(), claim)
-	// Never return the claim code in a body that could be cached or logged by
-	// intermediaries in the clear at scale; for the demo the winner's own
-	// session is the only consumer.
+	// The claim code is delivered in this response because the caller IS the
+	// winner's own session (the code is never broadcast via standings/room
+	// state). It is the capability that authorizes the claim.
 	writeJSON(w, http.StatusOK, map[string]any{
-		"id": claim.ID, "amountNaira": claim.Amount.NairaString(), "state": claim.State,
+		"id": claim.ID, "amountNaira": claim.Amount.DisplayString(), "state": claim.State,
+		"claimCode": claim.ClaimCode,
 	})
 }

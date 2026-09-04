@@ -1,5 +1,7 @@
 import { cn } from "@/lib/cn";
 import { NavLink } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
+import { naira } from "@/lib/player";
 
 export const INSTRUCTOR_LINKS = [
   { label: "Dashboard", to: "/instructor/dashboard", activeKey: "dashboard" },
@@ -50,16 +52,20 @@ export function InstructorNav({
   );
 }
 
-export function NavRight({ amount = "₦150,000", center }: { amount?: string; center?: React.ReactNode }) {
+export function NavRight({ amount, center, initials }: { amount?: string; center?: React.ReactNode; initials?: string }) {
+  const wallet = useAuth((s) => s.wallet);
+  const instructor = useAuth((s) => s.instructor);
+  const shown = amount ?? (wallet ? naira(wallet.balanceNaira) : "₦0");
+  const avatar = initials ?? instructor?.avatar ?? "AP";
   return (
     <div className="flex items-center gap-3.5">
       {center}
       <div className="flex items-center gap-1 rounded-full bg-surface-2 px-3 py-2">
         <span className="font-body text-[11px] font-bold tracking-widest text-text-3">WALLET</span>
-        <span className="font-display text-[15px] font-extrabold text-naira">{amount}</span>
+        <span className="font-display text-[15px] font-extrabold text-naira">{shown}</span>
       </div>
       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2">
-        <span className="font-body text-[13px] font-extrabold text-violet">AP</span>
+        <span className="font-body text-[13px] font-extrabold text-violet">{avatar}</span>
       </div>
     </div>
   );

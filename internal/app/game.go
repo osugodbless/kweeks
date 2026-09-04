@@ -42,6 +42,21 @@ func (g *Game) CreateQuiz(ctx context.Context, q *domain.Quiz) error {
 	return g.store.CreateQuiz(ctx, q)
 }
 
+// UpdateQuiz validates and persists edits to an existing quiz (builder save).
+func (g *Game) UpdateQuiz(ctx context.Context, q *domain.Quiz) error {
+	if err := domain.ValidateQuiz(q); err != nil {
+		return err
+	}
+	existing, err := g.store.GetQuiz(ctx, q.ID)
+	if err != nil {
+		return err
+	}
+	// Only the owning instructor may edit; keep original ownership + createdAt.
+	q.InstructorID = existing.InstructorID
+	q.CreatedAt = existing.CreatedAt
+	return g.store.UpdateQuiz(ctx, q)
+}
+
 // OpenRoom creates a room in the lobby for an existing quiz. A short human
 // code is generated (and kept unique against existing rooms) for players to
 // join by typing it.

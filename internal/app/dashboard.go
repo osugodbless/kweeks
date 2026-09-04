@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/osugodbless/kweeks/internal/domain"
@@ -89,69 +90,60 @@ func (g *Game) Dashboard(ctx context.Context, instructorID string) (*DashboardSt
 	return stat, nil
 }
 
-// History returns the unified instructor feed. Order: wallet funding entries,
-// then quizzes (with an active room), then paid winners, then rooms.
+// History returns the unified instructor feed: wallet funding + quiz hosting +
+// paid winners, newest first. A fresh instructor with no activity gets an
+// empty slice (frontend shows the empty state).
 func (g *Game) History(ctx context.Context, instructorID string) ([]HistoryItem, error) {
-	wallet, err := g.store.GetWalletByInstructor(ctx, instructorID)
-	if err == nil && wallet != nil {
-		txs, _ := g.store.ListWalletTransactions(ctx, wallet.ID)
-		out := make([]HistoryItem, 0, len(txs)+4)
-		for _, t := range txs {
-			kind := string(t.Kind)
-			title := t.Note
-			meta := ""
-			if t.Kind == domain.TxFund {
-				title = "Funded wallet · " + fundingKindLabel(t.Note)
-			}
-			out = append(out, HistoryItem{
-				ID: t.ID, At: t.CreatedAt, Type: kind, Title: title,
-				AmountNaira: t.Amount.DisplayString(),
-				Meta:        meta,
-			})
-		}
-		return out, nil
-	}
-
-	// No wallet tx (fresh account): surface quizzes + paid winners as a fallback
-	// feed so the History empty state still has honest content.
 	quizzes, err := g.store.ListQuizzes(ctx, instructorID)
 	if err != nil {
 		return []HistoryItem{}, nil
 	}
-	out := []HistoryItem{}
 	quizIDs := make([]string, 0, len(quizzes))
 	for i := range quizzes {
 		quizIDs = append(quizIDs, quizzes[i].ID)
+	}
+	claims, _ := g.store.ListClaimsByQuizIDs(ctx, quizIDs)
+
+	wallet, _ := g.store.GetWalletByInstructor(ctx, instructorID)
+	var walletTx []domain.WalletTransaction
+	if wallet != nil {
+		walletTx, _ = g.store.ListWalletTransactions(ctx, wallet.ID)
+	}
+
+	out := make([]HistoryItem, 0, len(walletTx)+len(quizzes)+len(claims))
+
+	// Wallet funding first (kind fund).
+	for _, t := range walletTx {
 		out = append(out, HistoryItem{
-			ID: quizzes[i].ID, At: quizzes[i].CreatedAt, Type: "quiz",
-			Title: "Hosted · " + quizzes[i].Title,
-			Meta:  poolSummary(quizzes[i]),
+			ID: t.ID, At: t.CreatedAt, Type: string(t.Kind), Title: t.Note,
+			AmountNaira: t.Amount.DisplayString(),
 		})
 	}
-	if claims, err := g.store.ListClaimsByQuizIDs(ctx, quizIDs); err == nil {
-		for _, c := range claims {
-			if c.State != domain.ClaimPaid {
-				continue
-			}
-			out = append(out, HistoryItem{
-				ID: c.ID, At: c.CreatedAt, Type: "payout",
-				Title:       "Paid winners · " + c.Email,
-				AmountNaira: c.Amount.DisplayString(), State: "Paid",
-			})
+	// Quizzes hosted.
+	for i := range quizzes {
+		q := quizzes[i]
+		out = append(out, HistoryItem{
+			ID: q.ID, At: q.CreatedAt, Type: "quiz", Title: "Hosted · " + q.Title,
+			Meta: poolSummary(q),
+		})
+		if room, err := g.store.LatestLiveRoom(ctx, q.ID); err == nil && room != nil {
+			// room opened after hosting
 		}
 	}
-	return out, nil
-}
-
-func fundingKindLabel(note string) string {
-	switch note {
-	case "Funded wallet · card":
-		return "card"
-	case "Funded wallet · transfer":
-		return "transfer"
-	default:
-		return "instant credit"
+	// Paid winners.
+	for _, c := range claims {
+		if c.State != domain.ClaimPaid {
+			continue
+		}
+		out = append(out, HistoryItem{
+			ID: c.ID, At: c.CreatedAt, Type: "payout",
+			Title:       "Paid winners · " + c.Email,
+			AmountNaira: c.Amount.DisplayString(), State: "Paid",
+		})
 	}
+
+	sort.SliceStable(out, func(i, j int) bool { return out[i].At.After(out[j].At) })
+	return out, nil
 }
 
 func poolSummary(q domain.Quiz) string {

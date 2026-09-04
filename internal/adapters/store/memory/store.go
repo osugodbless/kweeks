@@ -47,6 +47,16 @@ func (s *Store) CreateQuiz(ctx context.Context, q *domain.Quiz) error {
 	return nil
 }
 
+func (s *Store) UpdateQuiz(ctx context.Context, q *domain.Quiz) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.quizzes[q.ID]; !ok {
+		return domain.ErrQuizNotFound
+	}
+	s.quizzes[q.ID] = cloneQuiz(q)
+	return nil
+}
+
 func (s *Store) GetQuiz(ctx context.Context, id string) (*domain.Quiz, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

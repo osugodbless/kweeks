@@ -100,15 +100,19 @@ func TestHTTPRedeemWinnerOnly(t *testing.T) {
 		ID          string `json:"id"`
 		AmountNaira string `json:"amountNaira"`
 		State       string `json:"state"`
+		ClaimCode   string `json:"claimCode"`
 	}
 	if err := json.Unmarshal(rr.Body.Bytes(), &claim); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if claim.AmountNaira != "1000.00" {
+	if claim.AmountNaira != "1000" {
 		t.Fatalf("unexpected amount %q", claim.AmountNaira)
 	}
 	if claim.State != "created" {
 		t.Fatalf("unexpected state %q", claim.State)
+	}
+	if len(claim.ClaimCode) == 0 {
+		t.Fatalf("claim code must be returned to the winner's own session")
 	}
 
 	// Non-winner (not a participant) -> 403.

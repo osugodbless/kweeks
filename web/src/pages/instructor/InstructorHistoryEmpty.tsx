@@ -8,7 +8,7 @@ export function InstructorHistoryEmpty() {
     <DesktopFrame>
       <InstructorNav
         activeKey="history"
-        right={<NavRight amount="₦150,000" />}
+        right={<NavRight />}
       />
       <div className="flex flex-1 flex-col items-center justify-center gap-[18px] bg-bg px-8 py-10">
         <div className="flex h-24 w-24 items-center justify-center rounded-full border border-stroke bg-surface-2 text-[44px]">
