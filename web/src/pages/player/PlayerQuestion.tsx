@@ -45,6 +45,11 @@ export function PlayerQuestion() {
   const [remain, setRemain] = useState(0);
   const [pick, setPick] = useState<number | null>(null);
   const [status, setStatus] = useState<AnsState>("idle");
+  // remain starts at 0, which is also the "countdown finished" value. Until the
+  // question's remaining time has actually been seeded, the countdown must not
+  // be allowed to latch status to "missed" (otherwise every question would
+  // disable its answers the moment it renders).
+  const [armed, setArmed] = useState(false);
 
   useEffect(() => {
     setRemain(0);
@@ -67,7 +72,13 @@ export function PlayerQuestion() {
   useEffect(() => {
     setPick(null);
     setStatus("idle");
+    setArmed(false);
   }, [qid]);
+
+  // Arm the missed check only after remain has been seeded for this question.
+  useEffect(() => {
+    if (qid) setArmed(true);
+  }, [qid, q?.remainingMs]);
 
   useEffect(() => {
     if (room?.state === "podium") nav("/podium");
@@ -88,8 +99,8 @@ export function PlayerQuestion() {
   ]);
 
   useEffect(() => {
-    if (q && remain <= 0 && status === "idle") setStatus("missed");
-  }, [q, remain, status]);
+    if (q && armed && remain <= 0 && status === "idle") setStatus("missed");
+  }, [q, armed, remain, status]);
 
   const my = standings?.find((s) => s.participantId === player.participantId);
   const pts = my ? ptsFor(my) : 0;
