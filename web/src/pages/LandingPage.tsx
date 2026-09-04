@@ -6,7 +6,7 @@ export function LandingPage() {
   const nav = useNavigate();
   return (
     <div className="min-h-screen w-full bg-bg">
-      <div className="mx-auto flex w-full max-w-[1180px] flex-col">
+      <div className="mx-auto flex w-full max-w-[1180px] flex-col px-6 pt-6">
         {/* NAV */}
         <header className="flex h-16 w-full items-center justify-between bg-surface px-7">
           <div className="flex items-center gap-7">
