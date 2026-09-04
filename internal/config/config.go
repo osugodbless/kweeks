@@ -17,6 +17,9 @@ type Config struct {
 	Env        string
 	HTTPAddr   string
 	ShutdownTO time.Duration
+	// WebRoot, when set, serves the built SPA (web/dist) from the same origin
+	// as /api so no separate reverse proxy is required. Empty disables it.
+	WebRoot string
 
 	// Database
 	DatabaseURL string
@@ -71,6 +74,7 @@ func Load() (*Config, error) {
 	c := &Config{
 		Env: getEnv("KWEEKS_ENV", "development"), HTTPAddr: getEnv("KWEEKS_HTTP_ADDR", ":8080"),
 		ShutdownTO: 10 * time.Second,
+		WebRoot:    getEnv("KWEEKS_WEB_ROOT", ""),
 
 		DatabaseURL: getEnv("DATABASE_URL", ""),
 

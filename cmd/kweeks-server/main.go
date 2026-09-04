@@ -93,6 +93,21 @@ func run(logger *slog.Logger) error {
 		_, _ = w.Write([]byte("ok"))
 	})
 
+	var spa http.Handler
+	if cfg.WebRoot != "" {
+		// Serve the built SPA from the same origin as /api. Registered last, so
+		// the specific /api/* + /healthz patterns always win; the "/" handler
+		// only catches non-API routes and the SPA index fallback.
+		h, err := newSPAHandler(cfg.WebRoot)
+		if err != nil {
+			logger.Warn("web root not serving (missing dist?)", "webRoot", cfg.WebRoot, "err", err)
+		} else {
+			spa = h
+			mux.HandleFunc("/", h.ServeHTTP)
+		}
+	}
+	_ = spa
+
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           withCORS(mux),
