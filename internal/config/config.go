@@ -7,8 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 // Config is the full runtime configuration for the kweeks server.
@@ -86,28 +87,10 @@ func getEnvInt(key string, def int) int {
 	return def
 }
 
-// loadDotEnv reads a simple KEY=VALUE .env file from dir and sets any key not
-// already present in the environment (real environment wins over the file).
-// Missing files are ignored silently.
+// loadDotEnv reads the project .env file into the process environment using
+// github.com/joho/godotenv. godotenv never overrides variables that already
+// exist in the real environment, so real env always wins over the file.
+// A missing file is ignored silently.
 func loadDotEnv(dir string) {
-	path := filepath.Join(dir, ".env")
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return
-	}
-	for _, line := range strings.Split(string(b), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		key, val, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-		key = strings.TrimSpace(key)
-		val = strings.Trim(strings.TrimSpace(val), `"'`)
-		if _, exists := os.LookupEnv(key); !exists && key != "" {
-			_ = os.Setenv(key, val)
-		}
-	}
+	_ = godotenv.Load(filepath.Join(dir, ".env"))
 }
