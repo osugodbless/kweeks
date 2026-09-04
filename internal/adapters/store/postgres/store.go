@@ -152,10 +152,19 @@ func (s *Store) ListQuizzes(ctx context.Context, instructorID string) ([]domain.
 // --- Rooms ---
 
 func (s *Store) CreateRoom(ctx context.Context, r *domain.Room) error {
+	// Treat an empty code as NULL so the partial unique index still allows
+	// multiple rows without a code (test fixtures) while real rooms carry one.
+	code := (*string)(nil)
+	if r.Code != "" {
+		code = &r.Code
+	}
 	_, err := s.pool.Exec(ctx, `
-		insert into rooms (id, quiz_id, state, host_id, current_question_idx, question_started_at, started_at)
-		values ($1,$2,$3,$4,$5,$6,$7)`,
-		r.ID, r.QuizID, string(r.State), r.HostID, r.CurrentQuestionIdx, r.QuestionStartedAt, r.StartedAt)
+		insert into rooms (id, quiz_id, state, host_id, current_question_idx, question_started_at, started_at, code)
+		values ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		r.ID, r.QuizID, string(r.State), r.HostID, r.CurrentQuestionIdx, r.QuestionStartedAt, r.StartedAt, code)
+	if isUniqueViolation(err) {
+		return domain.ErrRoomCodeTaken
+	}
 	if isFKViolation(err) {
 		return domain.ErrQuizNotFound
 	}
@@ -163,13 +172,23 @@ func (s *Store) CreateRoom(ctx context.Context, r *domain.Room) error {
 }
 
 func (s *Store) GetRoom(ctx context.Context, id string) (*domain.Room, error) {
+	return s.scanRoom(s.pool.QueryRow(ctx, `
+		select id, quiz_id, state, host_id, current_question_idx, question_started_at, started_at, code
+		from rooms where id = $1`, id))
+}
+
+func (s *Store) GetRoomByCode(ctx context.Context, code string) (*domain.Room, error) {
+	return s.scanRoom(s.pool.QueryRow(ctx, `
+		select id, quiz_id, state, host_id, current_question_idx, question_started_at, started_at, code
+		from rooms where code = $1`, code))
+}
+
+func (s *Store) scanRoom(row pgx.Row) (*domain.Room, error) {
 	var r domain.Room
 	var state string
 	var startedAt *time.Time
-	err := s.pool.QueryRow(ctx, `
-		select id, quiz_id, state, host_id, current_question_idx, question_started_at, started_at
-		from rooms where id = $1`, id).
-		Scan(&r.ID, &r.QuizID, &state, &r.HostID, &r.CurrentQuestionIdx, &r.QuestionStartedAt, &startedAt)
+	var code *string
+	err := row.Scan(&r.ID, &r.QuizID, &state, &r.HostID, &r.CurrentQuestionIdx, &r.QuestionStartedAt, &startedAt, &code)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, domain.ErrRoomNotFound
 	}
@@ -179,6 +198,9 @@ func (s *Store) GetRoom(ctx context.Context, id string) (*domain.Room, error) {
 	r.State = domain.RoomState(state)
 	if startedAt != nil {
 		r.StartedAt = *startedAt
+	}
+	if code != nil {
+		r.Code = *code
 	}
 	return &r, nil
 }
@@ -198,7 +220,7 @@ func (s *Store) SaveRoom(ctx context.Context, r *domain.Room) error {
 
 func (s *Store) ListLiveRooms(ctx context.Context) ([]domain.Room, error) {
 	rows, err := s.pool.Query(ctx, `
-		select id, quiz_id, state, host_id, current_question_idx, question_started_at, started_at
+		select id, quiz_id, state, host_id, current_question_idx, question_started_at, started_at, code
 		from rooms where state='live'`)
 	if err != nil {
 		return nil, err
@@ -208,15 +230,56 @@ func (s *Store) ListLiveRooms(ctx context.Context) ([]domain.Room, error) {
 	for rows.Next() {
 		var r domain.Room
 		var startedAt *time.Time
-		if err := rows.Scan(&r.ID, &r.QuizID, &r.State, &r.HostID, &r.CurrentQuestionIdx, &r.QuestionStartedAt, &startedAt); err != nil {
+		var code *string
+		if err := rows.Scan(&r.ID, &r.QuizID, &r.State, &r.HostID, &r.CurrentQuestionIdx, &r.QuestionStartedAt, &startedAt, &code); err != nil {
 			return nil, err
 		}
 		if startedAt != nil {
 			r.StartedAt = *startedAt
 		}
+		if code != nil {
+			r.Code = *code
+		}
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) ListRoomsByHost(ctx context.Context, hostID string) ([]domain.Room, error) {
+	rows, err := s.pool.Query(ctx, `
+		select id, quiz_id, state, host_id, current_question_idx, question_started_at, started_at, code
+		from rooms where host_id=$1 order by created_at desc`, hostID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.Room
+	for rows.Next() {
+		var r domain.Room
+		var startedAt *time.Time
+		var code *string
+		if err := rows.Scan(&r.ID, &r.QuizID, &r.State, &r.HostID, &r.CurrentQuestionIdx, &r.QuestionStartedAt, &startedAt, &code); err != nil {
+			return nil, err
+		}
+		if startedAt != nil {
+			r.StartedAt = *startedAt
+		}
+		if code != nil {
+			r.Code = *code
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) LatestLiveRoom(ctx context.Context, quizID string) (*domain.Room, error) {
+	row := s.pool.QueryRow(ctx, `
+		select id, quiz_id, state, host_id, current_question_idx, question_started_at, started_at, code
+		from rooms
+		where quiz_id=$1 and state in ('lobby','live')
+		order by started_at desc nulls last, created_at desc
+		limit 1`, quizID)
+	return s.scanRoom(row)
 }
 
 // --- Participants ---
@@ -392,4 +455,157 @@ func (s *Store) UpdateClaimState(ctx context.Context, id string, to domain.Claim
 		return domain.ErrClaimNotFound
 	}
 	return nil
+}
+
+func (s *Store) ListClaimsByQuizIDs(ctx context.Context, quizIDs []string) ([]domain.Claim, error) {
+	if len(quizIDs) == 0 {
+		return []domain.Claim{}, nil
+	}
+	rows, err := s.pool.Query(ctx, `
+		select id, quiz_id, room_id, email, amount_kobo, claim_code, state, created_at, paid_at
+		from claims where quiz_id = any($1) order by created_at`, quizIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.Claim
+	for rows.Next() {
+		c, err := scanClaim(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *c)
+	}
+	return out, rows.Err()
+}
+
+// --- Instructors ---
+
+func (s *Store) CreateInstructor(ctx context.Context, i *domain.Instructor) error {
+	_, err := s.pool.Exec(ctx, `
+		insert into instructors (id, name, email, password_hash, avatar, created_at)
+		values ($1,$2,$3,$4,$5,$6)`,
+		i.ID, i.Name, i.Email, i.PasswordHash, i.Avatar, i.CreatedAt)
+	if isUniqueViolation(err) {
+		return domain.ErrEmailTaken
+	}
+	return err
+}
+
+func scanInstructor(row pgx.Row) (*domain.Instructor, error) {
+	var i domain.Instructor
+	if err := row.Scan(&i.ID, &i.Name, &i.Email, &i.PasswordHash, &i.Avatar, &i.CreatedAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrInstructorNotFound
+		}
+		return nil, err
+	}
+	return &i, nil
+}
+
+func (s *Store) GetInstructorByEmail(ctx context.Context, email string) (*domain.Instructor, error) {
+	return scanInstructor(s.pool.QueryRow(ctx, `
+		select id, name, email, password_hash, avatar, created_at
+		from instructors where email=$1`, email))
+}
+
+func (s *Store) GetInstructor(ctx context.Context, id string) (*domain.Instructor, error) {
+	return scanInstructor(s.pool.QueryRow(ctx, `
+		select id, name, email, password_hash, avatar, created_at
+		from instructors where id=$1`, id))
+}
+
+// --- Sessions ---
+
+func (s *Store) CreateSession(ctx context.Context, sess *domain.Session) error {
+	_, err := s.pool.Exec(ctx, `
+		insert into sessions (token, instructor_id, created_at, expires_at)
+		values ($1,$2,$3,$4)`,
+		sess.Token, sess.InstructorID, sess.CreatedAt, sess.ExpiresAt)
+	return err
+}
+
+func (s *Store) GetSession(ctx context.Context, token string) (*domain.Session, error) {
+	var sess domain.Session
+	err := s.pool.QueryRow(ctx, `
+		select token, instructor_id, created_at, expires_at
+		from sessions where token=$1`, token).
+		Scan(&sess.Token, &sess.InstructorID, &sess.CreatedAt, &sess.ExpiresAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrSessionNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &sess, nil
+}
+
+// --- Wallets ---
+
+func (s *Store) CreateWallet(ctx context.Context, w *domain.Wallet) error {
+	_, err := s.pool.Exec(ctx, `
+		insert into wallets (id, instructor_id, balance_kobo, created_at)
+		values ($1,$2,$3,$4)`,
+		w.ID, w.InstructorID, int64(w.Balance), w.CreatedAt)
+	if isUniqueViolation(err) {
+		return domain.ErrWalletExists
+	}
+	return err
+}
+
+func (s *Store) GetWalletByInstructor(ctx context.Context, instructorID string) (*domain.Wallet, error) {
+	var w domain.Wallet
+	var bal int64
+	err := s.pool.QueryRow(ctx, `
+		select id, instructor_id, balance_kobo, created_at
+		from wallets where instructor_id=$1`, instructorID).
+		Scan(&w.ID, &w.InstructorID, &bal, &w.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrWalletNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	w.Balance = domain.Amount(bal)
+	return &w, nil
+}
+
+func (s *Store) ApplyWalletTx(ctx context.Context, walletID string, tx *domain.WalletTransaction) error {
+	tag, err := s.pool.Exec(ctx, `
+		update wallets set balance_kobo = balance_kobo + $2 where id=$1 and balance_kobo + $2 >= 0`,
+		walletID, int64(tx.Amount))
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrInsufficientBalance
+	}
+	_, err = s.pool.Exec(ctx, `
+		insert into wallet_transactions (id, wallet_id, kind, amount_kobo, note, created_at)
+		values ($1,$2,$3,$4,$5,$6)`,
+		tx.ID, walletID, string(tx.Kind), int64(tx.Amount), tx.Note, tx.CreatedAt)
+	return err
+}
+
+func (s *Store) ListWalletTransactions(ctx context.Context, walletID string) ([]domain.WalletTransaction, error) {
+	rows, err := s.pool.Query(ctx, `
+		select id, wallet_id, kind, amount_kobo, note, created_at
+		from wallet_transactions where wallet_id=$1 order by created_at desc`, walletID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.WalletTransaction
+	for rows.Next() {
+		var t domain.WalletTransaction
+		var kind string
+		var amt int64
+		if err := rows.Scan(&t.ID, &t.WalletID, &kind, &amt, &t.Note, &t.CreatedAt); err != nil {
+			return nil, err
+		}
+		t.Kind = domain.WalletTxKind(kind)
+		t.Amount = domain.Amount(amt)
+		out = append(out, t)
+	}
+	return out, rows.Err()
 }

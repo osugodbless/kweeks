@@ -96,3 +96,20 @@ func SplitPodium(pool Amount, n int) []Amount {
 	out[0] += Amount(int64(pool) - assigned)
 	return out
 }
+
+// DisplayString renders the amount as an integer naira string without decimals
+// for UI display (e.g. 15000000 kobo -> "150000"). Negative amounts keep the
+// leading minus sign.
+func (a Amount) DisplayString() string {
+	neg := a < 0
+	abs := int64(a)
+	if neg {
+		abs = -abs
+	}
+	n := abs / AmountPerNaira
+	out := strconv.FormatInt(n, 10)
+	if neg {
+		return "-" + out
+	}
+	return out
+}

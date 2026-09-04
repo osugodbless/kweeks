@@ -62,8 +62,11 @@ func run(logger *slog.Logger) error {
 	mail := mailer.New(cfg.SmtpHost, cfg.SmtpPort, cfg.SmtpUser, cfg.SmtpPass, cfg.FromAddr, logger)
 	red := app.NewRedemption(st, realClock, money, mail)
 
+	auth := app.NewAuth(st, realClock)
+	wallet := app.NewWallet(st, realClock, money)
+
 	// --- HTTP + realtime transport ---
-	api := httpapi.New(game, join, red).WithWS(hub)
+	api := httpapi.New(game, join, red).WithWS(hub).WithServices(auth, wallet)
 	mux := http.NewServeMux()
 	api.Routes(mux)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +76,7 @@ func run(logger *slog.Logger) error {
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           mux,
+		Handler:           withCORS(mux),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

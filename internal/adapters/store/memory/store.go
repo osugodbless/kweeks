@@ -17,6 +17,12 @@ type Store struct {
 	participants map[string][]*domain.Participant // key roomID
 	answers      map[string][]*domain.Answer      // key roomID
 	claims       map[string][]*domain.Claim       // key quizID
+
+	instructors map[string]*domain.Instructor          // by id
+	sessions    map[string]*domain.Session             // by token
+	wallets     map[string]*domain.Wallet              // by id
+	walletByIns map[string]string                      // instructorID -> walletID
+	walletTx    map[string][]*domain.WalletTransaction // by walletID
 }
 
 func New() *Store {
@@ -26,6 +32,11 @@ func New() *Store {
 		participants: map[string][]*domain.Participant{},
 		answers:      map[string][]*domain.Answer{},
 		claims:       map[string][]*domain.Claim{},
+		instructors:  map[string]*domain.Instructor{},
+		sessions:     map[string]*domain.Session{},
+		wallets:      map[string]*domain.Wallet{},
+		walletByIns:  map[string]string{},
+		walletTx:     map[string][]*domain.WalletTransaction{},
 	}
 }
 
@@ -98,6 +109,52 @@ func (s *Store) ListLiveRooms(ctx context.Context) ([]domain.Room, error) {
 		}
 	}
 	return out, nil
+}
+
+func (s *Store) GetRoomByCode(ctx context.Context, code string) (*domain.Room, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, r := range s.rooms {
+		if r.Code == code {
+			cp := *r
+			return &cp, nil
+		}
+	}
+	return nil, domain.ErrRoomNotFound
+}
+
+func (s *Store) ListRoomsByHost(ctx context.Context, hostID string) ([]domain.Room, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var out []domain.Room
+	for _, r := range s.rooms {
+		if r.HostID == hostID {
+			out = append(out, *r)
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) LatestLiveRoom(ctx context.Context, quizID string) (*domain.Room, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var best *domain.Room
+	for _, r := range s.rooms {
+		if r.QuizID != quizID {
+			continue
+		}
+		if r.State != domain.RoomLobby && r.State != domain.RoomLive {
+			continue
+		}
+		if best == nil || r.StartedAt.After(best.StartedAt) {
+			cp := *r
+			best = &cp
+		}
+	}
+	if best == nil {
+		return nil, domain.ErrRoomNotFound
+	}
+	return best, nil
 }
 
 func (s *Store) JoinParticipant(ctx context.Context, p *domain.Participant) (*domain.Participant, error) {
@@ -232,6 +289,141 @@ func (s *Store) UpdateClaimState(ctx context.Context, id string, to domain.Claim
 }
 
 func (s *Store) Close() error { return nil }
+
+// --- Instructors ---
+
+func (s *Store) CreateInstructor(ctx context.Context, i *domain.Instructor) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, existing := range s.instructors {
+		if existing.Email == i.Email {
+			return domain.ErrEmailTaken
+		}
+	}
+	cp := *i
+	s.instructors[cp.ID] = &cp
+	return nil
+}
+
+func (s *Store) GetInstructorByEmail(ctx context.Context, email string) (*domain.Instructor, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, i := range s.instructors {
+		if i.Email == email {
+			cp := *i
+			return &cp, nil
+		}
+	}
+	return nil, domain.ErrInstructorNotFound
+}
+
+func (s *Store) GetInstructor(ctx context.Context, id string) (*domain.Instructor, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	i, ok := s.instructors[id]
+	if !ok {
+		return nil, domain.ErrInstructorNotFound
+	}
+	cp := *i
+	return &cp, nil
+}
+
+// --- Sessions ---
+
+func (s *Store) CreateSession(ctx context.Context, sess *domain.Session) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cp := *sess
+	s.sessions[cp.Token] = &cp
+	return nil
+}
+
+func (s *Store) GetSession(ctx context.Context, token string) (*domain.Session, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	se, ok := s.sessions[token]
+	if !ok {
+		return nil, domain.ErrSessionNotFound
+	}
+	cp := *se
+	return &cp, nil
+}
+
+// --- Wallets ---
+
+func (s *Store) CreateWallet(ctx context.Context, w *domain.Wallet) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.walletByIns[w.InstructorID]; exists {
+		return domain.ErrWalletExists
+	}
+	cp := *w
+	s.wallets[cp.ID] = &cp
+	s.walletByIns[cp.InstructorID] = cp.ID
+	return nil
+}
+
+func (s *Store) GetWalletByInstructor(ctx context.Context, instructorID string) (*domain.Wallet, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	wid, ok := s.walletByIns[instructorID]
+	if !ok {
+		return nil, domain.ErrWalletNotFound
+	}
+	w := s.wallets[wid]
+	if w == nil {
+		return nil, domain.ErrWalletNotFound
+	}
+	cp := *w
+	return &cp, nil
+}
+
+func (s *Store) ApplyWalletTx(ctx context.Context, walletID string, tx *domain.WalletTransaction) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	w, ok := s.wallets[walletID]
+	if !ok {
+		return domain.ErrWalletNotFound
+	}
+	newBal := w.Balance + tx.Amount
+	if newBal < 0 {
+		return domain.ErrInsufficientBalance
+	}
+	w.Balance = newBal
+	cp := *tx
+	s.walletTx[walletID] = append(s.walletTx[walletID], &cp)
+	return nil
+}
+
+func (s *Store) ListWalletTransactions(ctx context.Context, walletID string) ([]domain.WalletTransaction, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	txs := s.walletTx[walletID]
+	out := make([]domain.WalletTransaction, 0, len(txs))
+	for _, t := range txs {
+		out = append(out, *t)
+	}
+	return out, nil
+}
+
+func (s *Store) ListClaimsByQuizIDs(ctx context.Context, quizIDs []string) ([]domain.Claim, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	want := map[string]bool{}
+	for _, id := range quizIDs {
+		want[id] = true
+	}
+	var out []domain.Claim
+	for qid, cs := range s.claims {
+		if !want[qid] {
+			continue
+		}
+		for _, c := range cs {
+			out = append(out, *c)
+		}
+	}
+	return out, nil
+}
 
 func cloneQuiz(q *domain.Quiz) *domain.Quiz {
 	if q == nil {

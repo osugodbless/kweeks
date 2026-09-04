@@ -42,7 +42,9 @@ func (g *Game) CreateQuiz(ctx context.Context, q *domain.Quiz) error {
 	return g.store.CreateQuiz(ctx, q)
 }
 
-// OpenRoom creates a room in the lobby for an existing quiz.
+// OpenRoom creates a room in the lobby for an existing quiz. A short human
+// code is generated (and kept unique against existing rooms) for players to
+// join by typing it.
 func (g *Game) OpenRoom(ctx context.Context, r *domain.Room) error {
 	if r == nil || r.ID == "" || r.QuizID == "" {
 		return domain.ErrRoomNotFound
@@ -57,7 +59,30 @@ func (g *Game) OpenRoom(ctx context.Context, r *domain.Room) error {
 	r.Pacing = quiz.Pacing
 	r.State = domain.RoomLobby
 	r.CurrentQuestionIdx = -1
+	if r.Code == "" {
+		code, err := g.uniqueRoomCode(ctx)
+		if err != nil {
+			return err
+		}
+		r.Code = code
+	}
 	return g.store.CreateRoom(ctx, r)
+}
+
+func (g *Game) uniqueRoomCode(ctx context.Context) (string, error) {
+	for attempt := 0; attempt < 8; attempt++ {
+		code, err := domain.GenerateRoomCode()
+		if err != nil {
+			return "", err
+		}
+		if _, err := g.store.GetRoomByCode(ctx, code); err != nil {
+			if errors.Is(err, domain.ErrRoomNotFound) {
+				return code, nil
+			}
+			return "", err
+		}
+	}
+	return "", errors.New("could not allocate a unique room code")
 }
 
 // Start begins the first question. Pacing is irrelevant to starting; manual
@@ -270,4 +295,37 @@ func (g *Game) GetRoom(ctx context.Context, id string) (*domain.Room, error) {
 // ListQuizzes lists quizzes authored by an instructor.
 func (g *Game) ListQuizzes(ctx context.Context, instructorID string) ([]domain.Quiz, error) {
 	return g.store.ListQuizzes(ctx, instructorID)
+}
+
+// RoomParticipants lists participants of a room (public fields only).
+func (g *Game) RoomParticipants(ctx context.Context, roomID string) ([]domain.Participant, error) {
+	return g.store.ListParticipants(ctx, roomID)
+}
+
+// GetRoomByCode resolves a room by its short join code.
+func (g *Game) GetRoomByCode(ctx context.Context, code string) (*domain.Room, error) {
+	return g.store.GetRoomByCode(ctx, code)
+}
+
+// LatestLiveRoom returns the active (lobby/live) room for a quiz, if any.
+func (g *Game) LatestLiveRoom(ctx context.Context, quizID string) (*domain.Room, error) {
+	return g.store.LatestLiveRoom(ctx, quizID)
+}
+
+// Winners recomputes the podium winners for a room from the live standings.
+// Deterministic and safe to call after FinalizePodium.
+func (g *Game) Winners(ctx context.Context, roomID string) ([]domain.Standing, error) {
+	room, err := g.store.GetRoom(ctx, roomID)
+	if err != nil {
+		return nil, err
+	}
+	quiz, err := g.store.GetQuiz(ctx, room.QuizID)
+	if err != nil {
+		return nil, err
+	}
+	standings, err := g.Standings(ctx, roomID)
+	if err != nil {
+		return nil, err
+	}
+	return domain.SelectWinners(standings, quiz.WinnerCount), nil
 }

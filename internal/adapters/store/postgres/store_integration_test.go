@@ -165,3 +165,72 @@ func TestPostgresRoundTrip(t *testing.T) {
 		t.Fatalf("claim state after update: %v / %+v", err, final)
 	}
 }
+
+func TestPostgresInstructorWalletRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	st, err := OpenMigrated(ctx, testDSN(t))
+	if err != nil {
+		t.Fatalf("open+migrate: %v", err)
+	}
+	defer st.Close()
+
+	run := fmt.Sprintf("%d-%s", time.Now().UnixNano(), randHex(8))
+	email := "host+" + run + "@kweeks.test"
+	ins := &domain.Instructor{
+		ID: "pg-ins-" + run, Name: "Adeola", Email: email,
+		PasswordHash: "hash", Avatar: "AP", CreatedAt: time.Now(),
+	}
+	if err := st.CreateInstructor(ctx, ins); err != nil {
+		t.Fatalf("CreateInstructor: %v", err)
+	}
+	got, err := st.GetInstructorByEmail(ctx, email)
+	if err != nil {
+		t.Fatalf("GetInstructorByEmail: %v", err)
+	}
+	if got.ID != ins.ID {
+		t.Fatalf("instructor mismatch")
+	}
+	// duplicate email rejected
+	if err := st.CreateInstructor(ctx, ins); err != domain.ErrEmailTaken {
+		t.Fatalf("expected ErrEmailTaken got %v", err)
+	}
+
+	// wallet
+	w := &domain.Wallet{ID: "pg-wallet-" + run, InstructorID: ins.ID, Balance: 0, CreatedAt: time.Now()}
+	if err := st.CreateWallet(ctx, w); err != nil {
+		t.Fatalf("CreateWallet: %v", err)
+	}
+	if err := st.CreateWallet(ctx, w); err != domain.ErrWalletExists {
+		t.Fatalf("expected ErrWalletExists got %v", err)
+	}
+
+	// transaction applies atomically
+	tx := &domain.WalletTransaction{ID: "pg-tx-" + run, WalletID: w.ID, Kind: domain.TxFund, Amount: 200000, Note: "credit", CreatedAt: time.Now()}
+	if err := st.ApplyWalletTx(ctx, w.ID, tx); err != nil {
+		t.Fatalf("ApplyWalletTx: %v", err)
+	}
+	w2, err := st.GetWalletByInstructor(ctx, ins.ID)
+	if err != nil {
+		t.Fatalf("GetWallet: %v", err)
+	}
+	if w2.Balance != 200000 {
+		t.Fatalf("balance = %d want 200000", w2.Balance)
+	}
+	txs, err := st.ListWalletTransactions(ctx, w.ID)
+	if err != nil {
+		t.Fatalf("ListWalletTransactions: %v", err)
+	}
+	if len(txs) != 1 || txs[0].Amount != 200000 {
+		t.Fatalf("tx round-trip mismatch: %+v", txs)
+	}
+
+	// session
+	sess := &domain.Session{Token: "tok-" + run, InstructorID: ins.ID, CreatedAt: time.Now(), ExpiresAt: time.Now().Add(time.Hour)}
+	if err := st.CreateSession(ctx, sess); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	gotSess, err := st.GetSession(ctx, sess.Token)
+	if err != nil || gotSess.InstructorID != ins.ID {
+		t.Fatalf("session round-trip: %v %+v", err, gotSess)
+	}
+}

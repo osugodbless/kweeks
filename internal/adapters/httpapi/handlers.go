@@ -81,12 +81,45 @@ func (s *Server) handleListQuizzes(w http.ResponseWriter, r *http.Request) {
 	// Never ship correct answers to the dashboard list.
 	out := make([]map[string]any, 0, len(quizzes))
 	for _, q := range quizzes {
-		out = append(out, map[string]any{
-			"id": q.ID, "title": q.Title, "poolNaira": q.Pool.NairaString(),
+		item := map[string]any{
+			"id": q.ID, "title": q.Title, "poolNaira": q.Pool.DisplayString(),
 			"winnerCount": q.WinnerCount, "pacing": q.Pacing, "questionCount": len(q.Questions),
-		})
+			"createdAt": q.CreatedAt,
+		}
+		if room, err := s.game.LatestLiveRoom(r.Context(), q.ID); err == nil && room != nil {
+			item["roomCode"] = room.Code
+			item["roomId"] = room.ID
+			item["state"] = room.State
+		}
+		out = append(out, item)
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) handleGetQuiz(w http.ResponseWriter, r *http.Request) {
+	quiz, err := s.game.GetQuiz(r.Context(), r.PathValue("quizID"))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	// Instructor-only route: full questions (answers) are fine here.
+	type qJSON struct {
+		ID           string   `json:"id"`
+		Prompt       string   `json:"prompt"`
+		Options      []string `json:"options"`
+		CorrectIndex int      `json:"correctIndex"`
+		DurationMs   int64    `json:"durationMs"`
+	}
+	questions := make([]qJSON, 0, len(quiz.Questions))
+	for _, q := range quiz.Questions {
+		questions = append(questions, qJSON{q.ID, q.Prompt, q.Options, q.CorrectIndex, q.Duration.Milliseconds()})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"id": quiz.ID, "title": quiz.Title, "poolNaira": quiz.Pool.DisplayString(),
+		"winnerCount": quiz.WinnerCount, "pacing": quiz.Pacing,
+		"defaultDurationMs": quiz.DefaultDuration.Milliseconds(),
+		"questions":         questions,
+	})
 }
 
 // ---- Rooms ----
@@ -106,7 +139,7 @@ func (s *Server) handleOpenRoom(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]string{"id": room.ID})
+	writeJSON(w, http.StatusCreated, map[string]string{"id": room.ID, "code": room.Code})
 }
 
 func (s *Server) handleStartRoom(w http.ResponseWriter, r *http.Request) {
@@ -227,10 +260,4 @@ func (s *Server) handleRedeem(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id": claim.ID, "amountNaira": claim.Amount.NairaString(), "state": claim.State,
 	})
-}
-
-// instructorFrom extracts the demo instructor identity. The design scopes
-// instructor auth to a single demo account for the 36h build.
-func instructorFrom(r *http.Request) string {
-	return "instructor-demo"
 }

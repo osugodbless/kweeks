@@ -22,6 +22,10 @@ type Room struct {
 	Pacing PacingMode
 	HostID string
 
+	// Code is the short human join code (e.g. "AB12") players type to enter
+	// the room. Generated server-side at open with an unambiguous alphabet.
+	Code string
+
 	// CurrentQuestionIdx is -1 before the first question starts.
 	CurrentQuestionIdx int
 	// QuestionStartedAt is the server epoch when the current question was

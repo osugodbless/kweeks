@@ -33,3 +33,20 @@ var (
 	ErrInvalidPacing         = errors.New("invalid pacing mode")
 	ErrPoolInsufficient      = errors.New("pool must be positive to fund a podium")
 )
+
+// Errors added for auth, wallet, and room-code features.
+var (
+	ErrEmailTaken          = errors.New("email already registered")
+	ErrBadCredentials      = errors.New("invalid email or password")
+	ErrSessionExpired      = errors.New("session expired")
+	ErrInsufficientBalance = errors.New("insufficient wallet balance")
+	ErrRoomCodeTaken       = errors.New("room code already in use")
+	ErrNoLiveRoom          = errors.New("no room currently running this quiz")
+)
+
+var (
+	ErrInstructorNotFound = errors.New("instructor not found")
+	ErrSessionNotFound    = errors.New("session not found")
+	ErrWalletNotFound     = errors.New("wallet not found")
+	ErrWalletExists       = errors.New("wallet already exists for instructor")
+)

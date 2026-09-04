@@ -1,5 +1,6 @@
-// Package httpapi exposes the kweeks REST surface: instructor authoring and
-// room control, player join/answer, and winner redemption.
+// Package httpapi exposes the kweeks REST surface: instructor auth + wallet,
+// quiz authoring and room control, player join/answer, room state, and winner
+// redemption.
 package httpapi
 
 import (
@@ -16,6 +17,9 @@ type Server struct {
 	game *app.Game
 	join *app.Join
 	red  *app.Redemption
+
+	auth   *app.Auth
+	wallet *app.Wallet
 
 	// wsHub, when set, serves the realtime room socket. Nil disables the
 	// websocket route (unit tests and REST-only deployments).
@@ -37,20 +41,43 @@ func (s *Server) WithWS(hub interface {
 	return s
 }
 
+// WithServices attaches the auth + wallet services (instructor surface).
+func (s *Server) WithServices(auth *app.Auth, wallet *app.Wallet) *Server {
+	s.auth = auth
+	s.wallet = wallet
+	return s
+}
+
 // Routes registers every handler on the mux.
 func (s *Server) Routes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /api/quizzes", s.handleCreateQuiz)
-	mux.HandleFunc("GET /api/quizzes", s.handleListQuizzes)
+	// Auth + wallet
+	mux.HandleFunc("POST /api/auth/signup", s.handleSignup)
+	mux.HandleFunc("POST /api/auth/login", s.handleLogin)
+	mux.HandleFunc("GET /api/auth/me", s.requireAuth(s.handleMe))
+	mux.HandleFunc("GET /api/wallet", s.requireAuth(s.handleWallet))
+	mux.HandleFunc("POST /api/wallet/fund", s.requireAuth(s.handleFundWallet))
+	mux.HandleFunc("GET /api/instructor/dashboard", s.requireAuth(s.handleDashboard))
+	mux.HandleFunc("GET /api/instructor/history", s.requireAuth(s.handleHistory))
 
-	mux.HandleFunc("POST /api/rooms", s.handleOpenRoom)
+	// Quiz authoring
+	mux.HandleFunc("POST /api/quizzes", s.requireAuth(s.handleCreateQuiz))
+	mux.HandleFunc("GET /api/quizzes", s.requireAuth(s.handleListQuizzes))
+	mux.HandleFunc("GET /api/quizzes/{quizID}", s.requireAuth(s.handleGetQuiz))
+
+	// Rooms
+	mux.HandleFunc("POST /api/rooms", s.requireAuth(s.handleOpenRoom))
 	mux.HandleFunc("POST /api/rooms/{roomID}/start", s.handleStartRoom)
 	mux.HandleFunc("POST /api/rooms/{roomID}/next", s.handleNextQuestion)
 	mux.HandleFunc("GET /api/rooms/{roomID}/standings", s.handleStandings)
 	mux.HandleFunc("POST /api/rooms/{roomID}/podium", s.handleFinalizePodium)
+	mux.HandleFunc("GET /api/rooms/{roomID}", s.handleRoomState)
+	mux.HandleFunc("GET /api/lookup/{code}", s.handleRoomStateByCode)
 
+	// Player join/answer
 	mux.HandleFunc("POST /api/rooms/{roomID}/join", s.handleJoin)
 	mux.HandleFunc("POST /api/rooms/{roomID}/answer", s.handleAnswer)
 
+	// Winner redemption
 	mux.HandleFunc("POST /api/rooms/{roomID}/redeem", s.handleRedeem)
 
 	if s.wsHub != nil {
@@ -75,9 +102,19 @@ func writeErr(w http.ResponseWriter, err error) {
 	case errors.Is(err, domain.ErrQuizNotFound),
 		errors.Is(err, domain.ErrRoomNotFound),
 		errors.Is(err, domain.ErrParticipantNotFound),
-		errors.Is(err, domain.ErrClaimNotFound):
+		errors.Is(err, domain.ErrClaimNotFound),
+		errors.Is(err, domain.ErrInstructorNotFound),
+		errors.Is(err, domain.ErrSessionNotFound),
+		errors.Is(err, domain.ErrWalletNotFound):
 		code = http.StatusNotFound
-	case errors.Is(err, domain.ErrNotWinner), errors.Is(err, domain.ErrUnauthorized), errors.Is(err, domain.ErrBadClaimCode):
+	case errors.Is(err, domain.ErrUnauthorized), errors.Is(err, domain.ErrBadCredentials):
+		code = http.StatusUnauthorized
+	case errors.Is(err, domain.ErrEmailTaken), errors.Is(err, domain.ErrWalletExists),
+		errors.Is(err, domain.ErrRoomCodeTaken):
+		code = http.StatusConflict
+	case errors.Is(err, domain.ErrInsufficientBalance):
+		code = http.StatusUnprocessableEntity
+	case errors.Is(err, domain.ErrNotWinner), errors.Is(err, domain.ErrBadClaimCode):
 		code = http.StatusForbidden
 	case errors.Is(err, domain.ErrAnswerLate), errors.Is(err, domain.ErrAlreadyAnswered),
 		errors.Is(err, domain.ErrAnswerUnknownQuestion), errors.Is(err, domain.ErrInvalidOptionIndex),
@@ -86,7 +123,8 @@ func writeErr(w http.ResponseWriter, err error) {
 		errors.Is(err, domain.ErrInvalidQuestion), errors.Is(err, domain.ErrDuplicateQuestionID),
 		errors.Is(err, domain.ErrCorrectOptionInvalid), errors.Is(err, domain.ErrInvalidWinnerCount),
 		errors.Is(err, domain.ErrInvalidPacing), errors.Is(err, domain.ErrClaimExists),
-		errors.Is(err, domain.ErrNoWinners), errors.Is(err, domain.ErrDuplicateParticipant):
+		errors.Is(err, domain.ErrNoWinners), errors.Is(err, domain.ErrDuplicateParticipant),
+		errors.Is(err, domain.ErrInvalidTransition):
 		code = http.StatusBadRequest
 	}
 	writeJSON(w, code, map[string]string{"error": err.Error()})

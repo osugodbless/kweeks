@@ -30,10 +30,17 @@ type Store interface {
 	// Rooms
 	CreateRoom(ctx context.Context, r *domain.Room) error
 	GetRoom(ctx context.Context, id string) (*domain.Room, error)
+	GetRoomByCode(ctx context.Context, code string) (*domain.Room, error)
 	SaveRoom(ctx context.Context, r *domain.Room) error
 	// ListLiveRooms returns rooms in the live state (used by the pacing
 	// scheduler to advance AUTO rooms).
 	ListLiveRooms(ctx context.Context) ([]domain.Room, error)
+	// ListRoomsByHost lists rooms a host has opened, newest first. Used by the
+	// dashboard + history.
+	ListRoomsByHost(ctx context.Context, hostID string) ([]domain.Room, error)
+	// LatestLiveRoom returns the most recently started room for a quiz, if one
+	// is in lobby/live state (dashboard "continue" affordance).
+	LatestLiveRoom(ctx context.Context, quizID string) (*domain.Room, error)
 
 	// Participants (one row per email per room; rejoin merges)
 	JoinParticipant(ctx context.Context, p *domain.Participant) (*domain.Participant, error)
@@ -54,7 +61,25 @@ type Store interface {
 	GetClaimByCode(ctx context.Context, quizID, code string) (*domain.Claim, error)
 	GetClaimByEmail(ctx context.Context, quizID, email string) (*domain.Claim, error)
 	ListClaims(ctx context.Context, quizID string) ([]domain.Claim, error)
+	ListClaimsByQuizIDs(ctx context.Context, quizIDs []string) ([]domain.Claim, error)
 	UpdateClaimState(ctx context.Context, id string, to domain.ClaimState) error
+
+	// Instructors (multi-user auth)
+	CreateInstructor(ctx context.Context, i *domain.Instructor) error
+	GetInstructorByEmail(ctx context.Context, email string) (*domain.Instructor, error)
+	GetInstructor(ctx context.Context, id string) (*domain.Instructor, error)
+
+	// Sessions (bearer tokens)
+	CreateSession(ctx context.Context, s *domain.Session) error
+	GetSession(ctx context.Context, token string) (*domain.Session, error)
+
+	// Wallets (per-instructor NGN ledger)
+	CreateWallet(ctx context.Context, w *domain.Wallet) error
+	GetWalletByInstructor(ctx context.Context, instructorID string) (*domain.Wallet, error)
+	// ApplyWalletTx atomically applies a signed transaction to the balance and
+	// appends the ledger row.
+	ApplyWalletTx(ctx context.Context, walletID string, tx *domain.WalletTransaction) error
+	ListWalletTransactions(ctx context.Context, walletID string) ([]domain.WalletTransaction, error)
 
 	// Admin / bootstrap
 	Close() error
