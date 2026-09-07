@@ -3,55 +3,128 @@
 @tailwind utilities;
 
 :root {
-  --color-bg: #171220;
-  --color-surface: #211b2c;
-  --color-surface-2: #2b2438;
-  --color-stroke: #3a3048;
-  --color-paper: #fbf7ee;
-  --color-text-2: #c9bfd6;
-  --color-text-3: #8e83a3;
-  --color-gold: #ffc53d;
-  --color-gold-deep: #ffb300;
-  --color-gold-ink: #241a00;
-  --color-naira: #2ed08f;
-  --color-naira-deep: #00a870;
-  --color-red: #ff5a67;
-  --color-violet: #8b7cff;
-  --font-display: "Bricolage Grotesque";
-  --font-body: "Work Sans";
-  --radius: 16px;
-  --radius-lg: 24px;
+  --color-canvas: 250 243 231; /* warm paper stage */
+  --color-cream: 255 250 240; /* cards, elevated surfaces */
+  --color-ink: 36 22 63; /* primary text — deep plum */
+  --color-soft: 107 95 141; /* secondary text */
+  --color-coral: 255 77 95; /* primary action / wrong / live */
+  --color-coral-dark: 226 58 75;
+  --color-violet: 108 76 241; /* host identity / selection */
+  --color-violet-dark: 81 51 214;
+  --color-mint: 22 196 127; /* money / correct */
+  --color-mint-dark: 11 154 98;
+  --color-gold: 246 169 27; /* win / prize / highlight */
+  --color-gold-dark: 218 140 5;
+  --color-sky: 56 168 255; /* info / streak */
+  --color-sky-dark: 23 133 222;
+  --font-display: "Fredoka", "Trebuchet MS", ui-rounded, system-ui, sans-serif;
+  --font-body: "Karla", "Trebuchet MS", system-ui, sans-serif;
 }
 
 @layer base {
-  html,
-  body,
-  #root {
-    height: 100%;
+  html {
+    scroll-behavior: smooth;
   }
 
   body {
-    @apply bg-bg text-paper font-body antialiased;
+    @apply bg-canvas font-body text-ink antialiased;
+  }
+
+  ::selection {
+    background: rgb(var(--color-coral));
+    color: #fff;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--color-soft) / 0.35);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
   }
 }
 
 @layer components {
   .font-display {
-    font-family: "Bricolage Grotesque", sans-serif;
+    font-family: var(--font-display);
   }
   .font-body {
-    font-family: "Work Sans", sans-serif;
+    font-family: var(--font-body);
   }
 }
 
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+@layer utilities {
+  .bg-dots {
+    background-image: radial-gradient(rgb(var(--color-ink) / 0.12) 1.2px, transparent 1.2px);
+    background-size: 18px 18px;
+  }
+
+  .bg-dots-light {
+    background-image: radial-gradient(rgb(255 255 255 / 0.16) 1.2px, transparent 1.2px);
+    background-size: 18px 18px;
+  }
+
+  .text-shine {
+    background: linear-gradient(
+      100deg,
+      rgb(var(--color-gold-dark)) 0%,
+      rgb(var(--color-gold)) 30%,
+      #ffd878 50%,
+      rgb(var(--color-gold)) 70%,
+      rgb(var(--color-gold-dark)) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .text-pop {
+    background: linear-gradient(
+      100deg,
+      rgb(var(--color-coral)) 0%,
+      rgb(var(--color-violet)) 50%,
+      rgb(var(--color-sky)) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .press-3d {
+    box-shadow: 0 5px 0 rgb(var(--btn-deep-rgb, var(--color-coral-dark)));
+    transition:
+      transform 0.12s ease,
+      box-shadow 0.12s ease,
+      filter 0.12s ease;
+  }
+
+  .press-3d:hover {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+    box-shadow: 0 7px 0 rgb(var(--btn-deep-rgb, var(--color-coral-dark)));
+  }
+
+  .press-3d:active {
+    transform: translateY(4px);
+    box-shadow: 0 1px 0 rgb(var(--btn-deep-rgb, var(--color-coral-dark)));
+  }
+
+  .card-3d {
+    box-shadow: 0 30px 60px -30px rgb(var(--color-ink) / 0.35);
+  }
 }
-::-webkit-scrollbar-thumb {
-  background: var(--color-stroke);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

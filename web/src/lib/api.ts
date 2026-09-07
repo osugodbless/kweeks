@@ -1,49 +1,64 @@
 // Thin typed client for the kweeks REST API. All money fields are whole-naira
-// display strings (e.g. "150000"), matching the backend contract.
+// display strings (e.g. "150000"), matching the backend contract in
+// `web/docs/API_CONTRACT.md`. This is the ONLY place that talks to the
+// network; every page goes through the hooks in `lib/hooks.ts`.
+
 export class ApiError extends Error {
-  status: number;
+  readonly status: number;
+
   constructor(status: number, message: string) {
     super(message);
+    this.name = "ApiError";
     this.status = status;
   }
 }
 
 const BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
-function token(): string | null {
-  return localStorage.getItem("kweeks.token");
+const TOKEN_KEY = "kweeks.token";
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
 }
 
-export function setToken(t: string | null) {
-  if (t) localStorage.setItem("kweeks.token", t);
-  else localStorage.removeItem("kweeks.token");
+export function setToken(t: string | null): void {
+  if (t) localStorage.setItem(TOKEN_KEY, t);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
+export function isAuthed(): boolean {
+  return Boolean(getToken());
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {};
-  const tok = token();
+  const tok = getToken();
   if (tok) headers.Authorization = `Bearer ${tok}`;
+
   let payload: string | undefined;
   if (body !== undefined) {
     headers["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
   }
+
   let res: Response;
   try {
     res = await fetch(`${BASE}${path}`, { method, headers, body: payload });
   } catch {
-    throw new ApiError(0, "Network error — is the backend running on :8080?");
+    throw new ApiError(0, "Network error — is the kweeks backend running on :8080?");
   }
+
   if (!res.ok) {
     let message = res.statusText;
     try {
-      const j = await res.json();
+      const j = (await res.json()) as { error?: string };
       if (j?.error) message = j.error;
     } catch {
       /* non-JSON error body */
     }
     throw new ApiError(res.status, message);
   }
+
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
@@ -107,12 +122,13 @@ export interface PublicQuestion {
   remainingMs: number;
 }
 
-export interface PublicWinner {
+export interface Standing {
   participantId: string;
   nickname: string;
   avatar: string;
   correctCount: number;
   totalLatencyMs: number;
+  joinedAt: string;
 }
 
 export type RoomState = "lobby" | "live" | "podium" | "ended";
@@ -133,16 +149,7 @@ export interface PublicRoom {
   host: { name?: string };
   participants: ParticipantBrief[];
   currentQuestion: PublicQuestion | null;
-  winners: PublicWinner[] | null;
-}
-
-export interface Standing {
-  participantId: string;
-  nickname: string;
-  avatar: string;
-  correctCount: number;
-  totalLatencyMs: number;
-  joinedAt: string;
+  winners: Standing[] | null;
 }
 
 export interface Participant {
@@ -203,7 +210,7 @@ export interface DashboardStat {
 export interface HistoryItem {
   id: string;
   at: string;
-  type: "fund" | "quiz" | "payout" | "room";
+  type: "fund" | "credit" | "quiz" | "payout" | "room";
   title: string;
   amountNaira?: string;
   meta?: string;

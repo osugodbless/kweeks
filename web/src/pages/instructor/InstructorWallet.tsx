@@ -1,314 +1,184 @@
-import { useNavigate } from "react-router-dom";
-import { DesktopFrame } from "@/components/ui/desktop";
-import { InstructorNav, NavRight, InstructorFooter } from "@/components/ui/instructor-nav";
+import type { CSSProperties, ReactNode } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, FileQuestion, History, LayoutDashboard, Plus, Trophy, Users, Wallet, Zap } from "lucide-react";
+import { useDashboard, useWallet } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
-import { useDashboard, useProvisionWallet, useWallet } from "@/lib/hooks";
-import { naira } from "@/lib/player";
+import { Button } from "@/components/ui/button";
+import { Chip, LiveDot } from "@/components/ui/chip";
+import { Footer } from "@/components/ui/footer";
+import { InstructorNav } from "@/components/ui/instructor-nav";
+import { Money } from "@/components/ui/money";
 
-function errText(e: unknown): string {
-  if (e instanceof Error && e.message) return e.message;
-  return "Something went wrong loading your dashboard.";
+const METHODS = ["Card", "Transfer", "Instant top-up"];
+
+function Stat({ label, value, accent }: { label: string; value: ReactNode; accent: string }) {
+  return (
+    <div className="rounded-3xl border-2 border-ink/5 bg-cream p-5">
+      <p className="text-[11px] font-bold uppercase tracking-widest text-soft">{label}</p>
+      <p className={`mt-2 font-display text-3xl font-semibold ${accent}`}>{value}</p>
+    </div>
+  );
 }
 
 export function InstructorWallet() {
-  const nav = useNavigate();
-  const dash = useDashboard();
-  const walletView = useWallet();
-  const provision = useProvisionWallet();
-  const instructor = useAuth((s) => s.instructor);
-  const authBal = useAuth((s) => s.wallet?.balanceNaira);
+  const navigate = useNavigate();
+  const { instructor, wallet } = useAuth();
+  const { data: dash } = useDashboard();
+  const { data: walletView } = useWallet();
 
-  const name = instructor?.name || "Adeola";
-  const s = dash.data;
-  const quizzes = s?.quizzes ?? [];
-  const live = quizzes.filter(
-    (q) => Boolean(q.roomId && q.roomCode) && (q.state === "lobby" || q.state === "live"),
-  );
-  const balance = s?.availableNaira ?? walletView.data?.wallet.balanceNaira ?? authBal ?? "0";
-
-  const stats = [
-    { k: "QUIZZES HOSTED", v: s ? String(s.quizzesHosted) : "0", naira: false },
-    { k: "PLAYERS HOSTED", v: s ? String(s.playersHosted) : "0", naira: false },
-    { k: "WINNERS PAID", v: s ? String(s.winnersPaid) : "0", naira: false },
-    { k: "AVAILABLE", v: naira(balance), naira: true },
-  ];
-
-  const retry = () => {
-    void dash.refetch();
-    void walletView.refetch();
-  };
+  const first = instructor?.name?.split(" ")[0] ?? "host";
+  const balance = walletView?.wallet.balanceNaira ?? wallet?.balanceNaira ?? "0";
+  const quizzes = dash?.quizzes ?? [];
+  const liveQuiz = quizzes.find((q) => q.roomId && (q.state === "lobby" || q.state === "live"));
 
   return (
-    <DesktopFrame>
-      <InstructorNav
-        activeKey="dashboard"
-        right={<NavRight amount={naira(balance)} />}
-      />
-      <div className="flex flex-1 flex-col gap-[22px] bg-bg px-8 py-[30px]">
-        {/* greeting */}
-        <div className="flex items-center justify-between">
+    <main className="relative min-h-screen overflow-hidden pb-24">
+      <div className="bg-dots pointer-events-none absolute inset-0 opacity-40" />
+      <span className="pointer-events-none absolute -right-24 -top-10 size-80 rounded-full bg-violet/20 blur-3xl" />
+      <span className="pointer-events-none absolute -left-24 bottom-0 size-72 rounded-full bg-gold/15 blur-3xl" />
+
+      <InstructorNav />
+
+      <div className="relative mx-auto w-full max-w-6xl px-4 pt-12 sm:px-6 lg:pt-16">
+        <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
           <div>
-            <h1 className="font-display text-[28px] font-extrabold text-paper">
-              Welcome back, {name}
+            <span className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-cream px-4 py-1.5 text-sm font-bold uppercase tracking-widest text-soft">
+              <LayoutDashboard className="size-4 text-gold" /> Wallet dashboard
+            </span>
+            <h1 className="mt-4 font-display text-4xl font-semibold leading-[1.02] tracking-tight sm:text-5xl">
+              Welcome back, <span className="text-pop">{first}</span>
             </h1>
-            <p className="font-body text-[14px] text-text-2">
-              Create a quiz, fund a pool, run the room — all from here.
-            </p>
           </div>
-          <button
-            onClick={() => nav("/instructor/quiz-builder")}
-            className="flex h-[54px] items-center gap-2 rounded-2xl bg-gold px-6 font-body text-[15px] font-extrabold tracking-wide text-gold-ink hover:opacity-90"
-          >
-            <span className="font-display text-[20px] font-extrabold">+</span>
-            CREATE A QUIZ
-          </button>
+          <Button variant="coral" size="lg" icon={<Plus className="size-5" />} onClick={() => navigate("/instructor/quiz-builder")}>
+            Create a quiz
+          </Button>
         </div>
 
-        {dash.isPending ? (
-          /* loading skeleton */
-          <>
-            <div className="grid grid-cols-4 gap-3.5">
-              {[0, 1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="flex flex-col gap-2.5 rounded-2xl border border-stroke bg-surface px-[18px] py-4"
-                >
-                  <div className="h-[11px] w-24 animate-pulse rounded bg-surface-2" />
-                  <div className="h-[26px] w-28 animate-pulse rounded bg-surface-2" />
-                </div>
-              ))}
-            </div>
+        {/* Stats */}
+        <div className="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <Stat label="Quizzes hosted" value={String(dash?.quizzesHosted ?? 0)} accent="text-violet-dark" />
+          <Stat label="Players hosted" value={String(dash?.playersHosted ?? 0)} accent="text-sky-dark" />
+          <Stat label="Winners paid" value={String(dash?.winnersPaid ?? 0)} accent="text-coral" />
+          <Stat label="Available" value={<Money value={balance} className="text-3xl" />} accent="text-mint-dark" />
+        </div>
 
-            <div className="flex flex-1 items-start gap-5">
-              <div className="flex w-[540px] flex-col gap-4 rounded-3xl border border-stroke bg-surface-2 p-[26px]">
-                <div className="h-[11px] w-32 animate-pulse rounded bg-surface" />
-                <div className="h-[52px] w-52 animate-pulse rounded bg-surface" />
-                <div className="h-[14px] w-64 animate-pulse rounded bg-surface" />
-                <div className="h-px w-full bg-stroke" />
-                <div className="h-[14px] w-40 animate-pulse rounded bg-surface" />
-                <div className="h-[52px] w-[200px] animate-pulse rounded-2xl bg-surface" />
+        <div className="mt-8 grid items-start gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+          {/* Wallet card */}
+          <section className="rounded-[2rem] bg-ink p-7 text-cream sm:p-8">
+            <span className="pointer-events-none absolute inset-0 rounded-[2rem] bg-dots-light opacity-60" />
+            <div className="relative">
+              <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/50">
+                <Wallet className="size-4 text-gold" /> Assigned wallet · NGN
+              </p>
+              <div className="mt-4">
+                <Money value={balance} tone="dark" className="text-5xl" />
+                <p className="mt-2 text-sm text-white/60">Wallet ID · {wallet?.id ?? "kweeks_ngn_…"}</p>
               </div>
-              <div className="flex flex-1 flex-col justify-between gap-4 rounded-3xl border border-stroke bg-surface p-[22px]">
-                <div className="flex items-center justify-between">
-                  <div className="h-[20px] w-32 animate-pulse rounded bg-surface-2" />
-                  <div className="h-[13px] w-10 animate-pulse rounded bg-surface-2" />
-                </div>
-                <div className="h-[64px] w-full animate-pulse rounded-2xl bg-surface-2" />
-                <div className="h-[70px] w-full animate-pulse rounded-2xl bg-surface-2" />
-                <div className="h-[14px] w-40 animate-pulse rounded bg-surface-2" />
+
+              <Button variant="gold" size="lg" className="mt-6 w-full" onClick={() => navigate("/instructor/fund")}>
+                Fund wallet
+              </Button>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                {METHODS.map((m) => (
+                  <Chip key={m} tone="soft" className="border-white/10 bg-white/5 text-white/70">
+                    {m}
+                  </Chip>
+                ))}
               </div>
-            </div>
-          </>
-        ) : dash.isError ? (
-          /* error state */
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 rounded-3xl border border-stroke bg-surface px-8 py-16 text-center">
-            <div className="font-display text-[22px] font-extrabold text-paper">
-              Couldn't load your dashboard
-            </div>
-            <p className="max-w-[420px] font-body text-[13.5px] leading-relaxed text-text-2">
-              {errText(dash.error)}
-            </p>
-            <button
-              onClick={retry}
-              className="mt-2 flex h-[50px] items-center rounded-2xl bg-gold px-8 font-body text-[14px] font-extrabold tracking-wide text-gold-ink hover:opacity-90"
-            >
-              RETRY
-            </button>
-          </div>
-        ) : (
-          /* data */
-          <>
-            {/* stats */}
-            <div className="grid grid-cols-4 gap-3.5">
-              {stats.map((st) => (
-                <div
-                  key={st.k}
-                  className="flex flex-col gap-1.5 rounded-2xl border border-stroke bg-surface px-[18px] py-4"
-                >
-                  <span className="font-body text-[11px] font-bold tracking-[0.1em] text-text-3">
-                    {st.k}
-                  </span>
-                  <span
-                    className={
-                      "font-display text-[26px] font-extrabold " + (st.naira ? "text-naira" : "text-paper")
-                    }
+
+              {liveQuiz && (
+                <div className="mt-6 rounded-3xl border border-gold/40 bg-gold/10 p-5">
+                  <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gold">
+                    <LiveDot color="gold" /> Room live
+                  </p>
+                  <p className="mt-2 font-display text-lg font-semibold">{liveQuiz.title}</p>
+                  <p className="text-sm text-white/60">
+                    Code <span className="font-display text-cream">{liveQuiz.roomCode}</span> ·{" "}
+                    <Money value={liveQuiz.poolNaira} tone="dark" className="text-sm" /> pool
+                  </p>
+                  <Link
+                    to={`/instructor/live-room?room=${liveQuiz.roomId}`}
+                    className="mt-3 inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-ink press-3d"
+                    style={{ "--btn-deep-rgb": "var(--color-gold-dark)" } as CSSProperties}
                   >
-                    {st.v}
-                  </span>
+                    Open room <ArrowRight className="size-4" />
+                  </Link>
                 </div>
-              ))}
+              )}
             </div>
+          </section>
 
-            {/* body */}
-            <div className="flex flex-1 items-start gap-5">
-              {/* wallet card */}
-              <div className="flex w-[540px] flex-col gap-4 rounded-3xl border border-stroke bg-surface-2 p-[26px]">
-                <div className="font-body text-[11px] font-bold tracking-[0.14em] text-text-3">
-                  ASSIGNED WALLET · NGN
-                </div>
-                <div className="font-display text-[52px] font-extrabold leading-none text-naira">
-                  {naira(balance)}
-                </div>
-                <div className="font-body text-[14px] text-text-2">
-                  Available to fund quiz pools and pay winners.
-                </div>
-                <div className="h-px w-full bg-stroke" />
-                <div className="flex items-center justify-between">
-                  <span className="font-body text-[12px] text-text-3">Wallet ID</span>
-                  <span className="font-body text-[12px] font-bold text-paper">
-                    {walletView.data?.wallet.id ?? "kweeks_ngn_…"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-body text-[12px] text-text-3">BMONI rail</span>
-                  {walletView.data?.wallet.bmoniUserId ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-naira" />
-                      <span className="font-body text-[12px] font-bold text-naira">Provisioned</span>
+          {/* Your quizzes */}
+          <section className="space-y-6">
+            <div className="rounded-[2rem] border-2 border-ink/5 bg-cream p-6 sm:p-7">
+              <div className="flex items-center justify-between">
+                <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+                  <FileQuestion className="size-5 text-violet" /> Your quizzes
+                </h2>
+                <Link to="/instructor/history" className="flex items-center gap-1.5 text-sm font-bold text-violet hover:text-violet-dark">
+                  <History className="size-4" /> View history →
+                </Link>
+              </div>
+
+              <ul className="mt-5 space-y-3">
+                {quizzes.map((q) => (
+                  <li key={q.id} className="flex items-center gap-4 rounded-2xl border-2 border-ink/5 bg-white px-4 py-3.5">
+                    <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-violet/10 text-violet">
+                      <Trophy className="size-5" strokeWidth={2.2} />
                     </span>
-                  ) : (
-                    <button
-                      onClick={() => provision.mutate()}
-                      disabled={provision.isPending}
-                      className="rounded-full bg-surface px-3 py-1.5 font-body text-[12px] font-bold text-gold hover:opacity-80 disabled:opacity-40"
-                    >
-                      {provision.isPending ? "Provisioning…" : "Provision on BMONI"}
-                    </button>
-                  )}
-                </div>
-                {provision.error && (
-                  <div className="rounded-lg bg-surface px-3 py-2 font-body text-[12px] font-semibold text-red">
-                    {errText(provision.error)}
-                  </div>
-                )}
-                <div className="flex items-center gap-2.5">
-                  <button
-                    onClick={() => nav("/instructor/fund")}
-                    className="flex h-[52px] w-[200px] items-center justify-center rounded-2xl bg-gold font-body text-[14px] font-extrabold tracking-wide text-gold-ink hover:opacity-90"
-                  >
-                    FUND WALLET
-                  </button>
-                  <div className="flex items-center gap-2">
-                    {[
-                      ["Card", "text-text-2"],
-                      ["Transfer", "text-text-2"],
-                      ["Instant top-up", "text-naira"],
-                    ].map(([t, c]) => (
-                      <span
-                        key={t}
-                        className={"rounded-full bg-surface px-3 py-2 font-body text-[12px] " + c}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-bold">{q.title}</p>
+                      <p className="text-xs text-soft">
+                        {q.questionCount} questions · top {q.winnerCount} ·{" "}
+                        <Money value={q.poolNaira} className="text-xs" />
+                      </p>
+                    </div>
+                    {q.roomId ? (
+                      <Link
+                        to={`/instructor/live-room?room=${q.roomId}`}
+                        className="flex items-center gap-1.5 rounded-full bg-violet px-4 py-2 text-xs font-bold text-white press-3d"
+                        style={{ "--btn-deep-rgb": "var(--color-violet-dark)" } as CSSProperties}
                       >
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="font-body text-[12.5px] leading-snug text-text-3">
-                  Funds land instantly and settle in naira. Money is held in escrow only while a pool
-                  is live.
-                </div>
-              </div>
-
-              {/* your quizzes */}
-              <div className="flex flex-1 flex-col justify-between gap-4 rounded-3xl border border-stroke bg-surface p-[22px]">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-display text-[20px] font-extrabold text-paper">Your quizzes</h2>
-                  {live.length > 0 && (
-                    <span className="font-body text-[13px] font-bold text-text-3">
-                      {live.length} live
-                    </span>
-                  )}
-                </div>
-
-                {quizzes.length === 0 ? (
-                  <div className="flex flex-col items-center gap-2.5 rounded-2xl border border-dashed border-stroke bg-surface-2 px-6 py-10 text-center">
-                    <span className="text-[30px]">🎯</span>
-                    <span className="font-body text-[14px] font-bold text-paper">
-                      No quizzes yet — create your first
-                    </span>
-                    <span className="font-body text-[12.5px] text-text-3">
-                      Set a pool, write questions, open the room.
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2.5">
-                    {quizzes.map((q) => {
-                      const liveQuiz =
-                        Boolean(q.roomId && q.roomCode) &&
-                        (q.state === "lobby" || q.state === "live");
-                      return (
-                        <div
-                          key={q.id}
-                          className="flex flex-col gap-2.5 rounded-2xl border border-stroke bg-surface-2 p-4"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-body text-[15px] font-bold text-paper">
-                              {q.title}
-                            </span>
-                            {liveQuiz && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-surface px-2.5 py-1">
-                                <span className="h-2 w-2 rounded-full bg-naira" />
-                                <span className="font-body text-[11px] font-bold tracking-widest text-naira">
-                                  LIVE
-                                </span>
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="font-body text-[12.5px] text-text-3">
-                              {q.questionCount} questions · pool {naira(q.poolNaira)} ·{" "}
-                              {q.winnerCount} {q.winnerCount === 1 ? "winner" : "winners"}
-                              {q.roomCode ? ` · room ${q.roomCode}` : ""}
-                            </span>
-                            {liveQuiz && q.roomId && (
-                              <button
-                                onClick={() => nav(`/instructor/live-room?room=${q.roomId}`)}
-                                className="font-body text-[13px] font-bold text-gold"
-                              >
-                                Open room →
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        <Zap className="size-3.5" fill="currentColor" />
+                        {q.state === "live" ? "Live" : "Open room"}
+                      </Link>
+                    ) : (
+                      <Link
+                        to={`/instructor/quiz-builder?id=${q.id}`}
+                        className="text-xs font-bold text-soft underline-offset-2 hover:text-violet hover:underline"
+                      >
+                        Edit →
+                      </Link>
+                    )}
+                  </li>
+                ))}
+                {quizzes.length === 0 && (
+                  <li className="rounded-2xl border-2 border-dashed border-ink/15 bg-white px-6 py-10 text-center">
+                    <p className="font-display text-lg font-semibold">No quizzes yet</p>
+                    <p className="mt-1 text-sm text-soft">Build your first deck, fund a pool, and open a room.</p>
+                    <Button variant="violet" size="md" className="mt-4" onClick={() => navigate("/instructor/quiz-builder")}>
+                      <Plus className="size-4" /> Build your first quiz
+                    </Button>
+                  </li>
                 )}
-
-                <div className="flex items-center justify-between gap-3.5 rounded-2xl border border-gold bg-surface-2 p-4">
-                  <div>
-                    <div className="font-body text-[14px] font-bold text-paper">
-                      Start another live quiz
-                    </div>
-                    <div className="font-body text-[12.5px] text-text-3">
-                      Author questions, set a pool, invite a room.
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => nav("/instructor/quiz-builder")}
-                    className="rounded-xl bg-gold px-4 py-3 font-body text-[12.5px] font-extrabold tracking-wide text-gold-ink hover:opacity-90"
-                  >
-                    CREATE QUIZ
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="font-body text-[12.5px] text-text-3">
-                    Completed quizzes live in your history.
-                  </span>
-                  <button
-                    onClick={() => nav("/instructor/history")}
-                    className="font-body text-[12.5px] font-bold text-gold"
-                  >
-                    View history →
-                  </button>
-                </div>
-              </div>
+              </ul>
             </div>
-          </>
-        )}
+
+            <div className="flex items-start gap-4 rounded-3xl border-2 border-gold/30 bg-gold/10 p-5">
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-gold text-ink">
+                <Users className="size-5" strokeWidth={2.4} />
+              </span>
+              <p className="text-sm leading-relaxed text-ink">
+                <span className="font-bold">Players join with your room code.</span> Open a room from
+                any quiz above and share the code — no app, no install.
+              </p>
+            </div>
+          </section>
+        </div>
       </div>
-      <InstructorFooter />
-    </DesktopFrame>
+
+      <Footer className="mt-16" />
+    </main>
   );
 }

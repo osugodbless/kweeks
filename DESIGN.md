@@ -1,152 +1,179 @@
-# DESIGN — Kweeks "Money Match Arena"
+# DESIGN — Kweeks (live money quiz)
 
-Written from the built world in `designs/design.pen` (pen.dev). One design
-system, 15 top-level frames: 1 marketing landing page + 13 app pages + the
-Design System token row folded into the landing nav.
+Source of truth for the shipped frontend in `web/`. One design system, 14
+routes, TypeScript + Tailwind. Light theme, warm paper stage, playful
+game-show energy — with money handled like a ledger, never decoration.
 
 ## Direction contract
 
-- **THESIS.** A live money quiz should feel like a broadcast scoreboard in a
-  dim venue, not a Kahoot clone and not a generic fintech app. The prize is the
-  protagonist; speed + correctness are the sport.
-- **OWN-WORLD.** Deep arena-night plum ink (`#171220`) ground; surfaces lift
-  one step (`#211B2C`) to two (`#2B2438`); warm paper text (`#FBF7EE`).
-  Naira green `#2ED08F` is locked to money and correct answers only. Gold
-  `#FFC53D` is action/win/you. Red `#FF5A67` = wrong/live. Violet `#8B7CFF`
-  only for the instructor identity initial.
-- **TYPE.** Display = Bricolage Grotesque (heavy 700/800) for numbers, money,
-  question text. Body/UI = Work Sans. Display numerals carry the tension; body
-  stays quiet.
-- **SHAPING.** Radius 12–18 for cards/buttons, 8–14 for small chips; pill only
-  for live/status chips. No gradients, no glass, no drop shadows except
-  elevation borders. Money figures always render as `<font-display 800>` in
-  naira green.
+- **THESIS.** A live money quiz should feel like a high-energy quiz night in a
+  warm room, not a fintech dashboard and not a soulless Kahoot clone. The prize
+  pool is the protagonist; speed + correctness are the sport; the host is the
+  showrunner.
+- **OWN-WORLD.** Warm paper ground `#faf3e7` (canvas) with cream cards
+  `#fffaf0` lifting off it. Ink `#24163f` (deep plum) is the text/authority
+  color. Coral `#ff4d5f` is the primary action + brand dot; violet `#6c4cf1`
+  is the host identity + selection. Money is **always** naira green; gold is
+  reserved for wins and highlights.
+- **TYPE.** Display = Fredoka (rounded, chunky, confident) for headlines, money
+  figures, room codes, and big numbers. Body/UI = Karla (quirky grotesque,
+  quietly readable). Display numerals carry the tension; body stays quiet.
+- **SHAPING.** Radius 16–32 for cards, 8–16 for small chips; pill only for
+  chips and primary CTAs. Hard "press-3d" buttons (flat shadow, raise on hover,
+  press down on click). No gradients except the hero `text-shine`/`text-pop`
+  wordmarks; no glass; dots texture (`bg-dots`) for atmosphere; soft blurred
+  color glows behind content for depth.
+- **MOTION.** One orchestrated entrance per page (`rise`/`pop` with stagger),
+  `float` for decorations, `pulse-ring` for the lobby's waiting card, a gold
+  countdown bar on live questions. All disabled under `prefers-reduced-motion`.
 
-## System tokens (SetVariables)
+## System tokens
 
-Colors: bg, surface, surface2, stroke, paper, text2, text3, gold, gold-deep,
-gold-ink (text on gold), naira, naira-deep, red, violet. Type: font-display,
-font-body. Space scale 4/8/16/24/32. Radius 16/24.
+Colors (RGB-triplet CSS vars in `src/index.css`, mapped 1:1 in
+`tailwind.config.js` so alpha utilities work):
+
+| Token | Hex | Role |
+|---|---|---|
+| canvas | `#faf3e7` | page ground |
+| cream | `#fffaf0` | cards, elevated surfaces |
+| ink | `#24163f` | primary text / logo tile |
+| soft | `#6b5f8d` | secondary text |
+| coral | `#ff4d5f` | primary action / live / wrong |
+| coral-dark | `#e23a4b` | press depth |
+| violet | `#6c4cf1` | host identity / selection |
+| violet-dark | `#5133d6` | press depth |
+| mint | `#16c47f` | money / correct / secure |
+| mint-dark | `#0b9a62` | money text on light surfaces |
+| gold | `#f6a91b` | win / prize / highlight / countdown |
+| gold-dark | `#da8c05` | press depth / text-on-gold hover |
+| sky | `#38a8ff` | info / streak |
+| sky-dark | `#1785de` | text-on-sky |
+
+Type: `font-display` = Fredoka, `font-body` = Karla (Google Fonts in
+`index.html`). Space scale 4/8/16/24/32/48; radius 16 (cards), 24 (hero
+cards), pill (chips/CTAs).
+
+### Semantic rules (hard, enforced everywhere)
+- **Money is mint only.** Every naira figure renders through the `Money`
+  component (display typeface, grouped thousands). Mint appears nowhere except
+  money/correct/secure. Scores and points are gold/violet, never green.
+- **Coral = primary + live + wrong.** Primary CTAs, the wordmark dot, the LIVE
+  chip, incorrect answers.
+- **Violet = host + selection.** Instructor identity, auth CTAs, selected
+  options, focus rings.
+- **Gold = win/you/prize.** Podium highlight, "You" row, prize chips, the
+  countdown fill, the lobby waiting pulse.
 
 ## Signature
 
 The **pool as a live naira figure** is the running motif: on the player join
-screen as the entry stakes, on the instructor projector as the stage header
-(`₦50,000 POOL`), and at the podium as the personal `You banked ₦X`. The
-countdown ring/bar is the secondary motif (18s, gold fill) on question + stage
-frames.
+screen as the entry stakes (`₦50,000`), on the lobby as "On the line", on the
+podium as "You banked ₦X", and on the instructor wallet as the available
+balance. The **4-letter room code** is the entry artifact everywhere (join
+input, lobby pill, instructor live-room). The **gold countdown bar** is the
+live-question motif.
 
 ## Pages
 
-1. **Landing Page** (replaces the old token-frame slot) — the marketing frame
-   that tells instructors and players what Kweeks is and why to choose it.
-   Structure: top nav (KWEEKS + `live money quiz`, anchor pills For
-   instructors / For players / How it works / Security, gold START HOSTING +
-   LOG IN) → hero ("Run a quiz. Put real money on it." + live-room mock card:
-   `LIVE NOW · ROOM AB12`, ₦50,000 pool, 18s ring, avatar stack) → **For
-   instructors** (fund a pool in seconds / rooms players love / you decide the
-   winners / a clean ledger) → **For players** (real money real fast / join
-   with a code / every question is live / your win is yours) → **How it works**
-   (3 steps: create & fund → open the room → pay the podium) → **Security**
-   (naira only / escrow while live / winner-only claims / full history) →
-   closing CTA band + footer. Design-system tokens (wordmark, gold/dark chips,
-   money chip) were the prior occupant and are now described in the tokens
-   section above rather than as a standalone frame.
-2. **Player · Join** (desktop 1180) — top bar (wordmark, Room AB12 pill, LIVE)
-   + two-column body: left pool promo (`PRIZE POOL`, ₦50,000, "HOW IT PLAYS"
-   card) · right join card (avatar grid 2×6 with 🐙 gold-selected, nickname +
-   email fields, gold JOIN THE GAME). Same content as the mobile version,
-   re-composed for a wide screen.
-3. **Player · Lobby** (desktop 1180) — top bar (wordmark, Room AB12, WAITING) +
-   two-column: left hero (🐙, "You're in, Zainab", ₦50,000 on the line, prize
-   bar "1st place takes ₦25,000") · right IN THE ROOM roster chips + waiting
-   card with gold pulse.
-4. **Player · Question** (desktop 1180) — top bar (wordmark, "Question 3 of
-   10", 1,250 pts) + centered stage: 18s ring + gold bar, large question, 2×2
-   option tiles (one gold-selected). Footer pinned.
-5. **Player · Standings** (desktop 1180) — top bar (wordmark, Live standings,
-   LIVE) + heading ("After question 4 · 8 players") + wide leaderboard card:
-   pts colhint, 5 rows (Ada/Tobi/Zainab/Chidi/Uche), gold YOU row (bg gold,
-   gold-ink), you-pill at the base.
-6. **Player · Podium** (desktop 1180) — top bar (wordmark, Final standings,
-   GAME OVER) + two-column: left confetti hero (Unsplash, "2nd place · 8
-   players", ₦15,000, "You banked ₦15,000") · right Winners list
-   (Ada🦊/YOU🐙/Tobi🐼 with amounts), claim-code card (KWEEKS-7F3A-9Z, COPY),
-   gold REDEEM ₦15,000 NOW, and 3-step how-it-lands (Claim locked / Invite
-   sent / Paid).
-7. **Instructor · Quiz Builder** — nav w/ wallet balance, quiz title card with
-   Unsplash Lagos deck cover, pool slider, winner count segmented (3), pacing
-   segmented (manual), question editor with correct answer marked green,
-   question strip, open-room CTA.
-8. **Instructor · Live Room** — projector preview (Q3, ring, options, live
-   answer bar), join card (realistic Unsplash QR photo + kweeks.ng/r/AB12 +
-   avatars), manual control card (next → declare winners).
-9. **Instructor · Sign up** — split brand panel (KWEEKS wordmark, "Fund the
-   pool. Run the room. Pay the winners." lead, money chip) + 420-wide auth card
-   (full name / email / password, gold CREATE ACCOUNT, log-in link).
-10. **Instructor · Log in** — same split, email + password, gold LOG IN, sign-up
-    link; brand panel money chip reads `₦150,000 ready to host`.
-11. **Instructor · Wallet** (login landing / dashboard) — nav (KWEEKS / Wallet,
-    WALLET ₦150,000, avatar AP); greeting `Welcome back, Adeola` + gold
-    **CREATE A QUIZ** button; stats row (QUIZZES HOSTED 3, PLAYERS HOSTED 48,
-    WINNERS PAID 9, AVAILABLE ₦150,000); left balance card (`ASSIGNED WALLET ·
-    NGN`, wallet ID `kweeks_ngn_8f2c1a`, FUND WALLET, method chips Card /
-    Transfer / Instant top-up); right "Your quizzes" list (live quiz row with
-    OPEN ROOM →, start-another-quiz CTA, history link). This is where an
-    instructor lands after log in.
-12. **Instructor · Fund wallet** — nav + amount input (₦50,000), quick picks
-    ₦1k/₦5k/₦50k/₦100k (₦50k selected), funding methods (Wallet credit
-    selected, Debit card, Bank transfer), gold `FUND ₦50,000`, production note
-    ("Wallet credits post instantly to your available balance.").
-13. **Instructor · History** — the target of the wallet dashboard's
-    `View history →`. Nav (History active) + history table (Activity / Type /
-    Pool / Status columns) with 5 reconciled rows: wallet credit +₦200,000,
-    hosted quiz (live AB12), payout −₦50,000, two ended quizzes. Plus footer.
-14. **Instructor · History (empty)** — the no-history alternative: same nav
-    (History active) + centered empty state (🗂️ icon, "No history yet", CTA
-    CREATE A QUIZ) + footer.
+1. **Landing Page** `/` — public nav (wordmark, scroll anchors For players /
+   For instructors / How it works / Security, Play + Host links, Host login) →
+   hero ("Answer fast. Take the pool." + live-room mock card: `LIVE · Question
+   3`, room code AB12, `₦50,000` pool chip, leaderboard with lucide avatars,
+    gold countdown) → **How it works** (Create & fund / Open the room / Pay the
+   podium) → **For players** (real money fast: no app, join by code, live
+   questions, winner-only claims) → **For instructors** (fund a pool in
+   seconds / rooms players love / you decide the winners / a clean ledger) →
+   **Security** (naira only / escrow while live / winner-only claims / full
+   history) on an ink band → footer.
+2. **Player · Join** `/join` — player top bar (wordmark, room code pill) +
+   two-column: left pool promo (`PRIZE POOL`, live `₦`, "how it plays" steps,
+   payout-address note) · right join card (room code entry → room found →
+   nickname + email + avatar grid, coral JOIN THE GAME). Errors are friendly
+   and inline. Join persists the player session.
+3. **Player · Lobby** `/lobby` — waiting room: "You're in, {name}", "On the
+   line" pool card with prize-split chips (mirrors the backend weighted split),
+   copy-code button; right "In the room" roster chips + gold waiting card with
+   pulse-ring. Auto-advances to question on live.
+4. **Player · Question** `/question` — "Question N of M" + Standings link,
+   gold countdown bar (server timing), 2×2 option tiles (tap to lock), correct
+   = mint / wrong = coral feedback, then auto-advance to standings.
+5. **Player · Standings** `/standings` — "After question N · X players", "You
+  're {rank}" gold pill, wide leaderboard (correct count violet, speed), YOUR
+   row highlighted gold, auto-advances when the host opens the next question.
+6. **Player · Podium** `/podium` — "Final standings · Game over" top bar +
+   two-column: left ink hero (confetti, place chip, "You banked ₦X" or "Better
+   luck next time") · right winners list (rank, avatar, correct count, share)
+   + winner-only claim card (per-winner claim code, COPY, gold REDEEM, 3-step
+   how-it-lands). Redeem → claim code locked, green confirmation.
+7. **Instructor · Sign up** `/instructor/signup` — split layout: brand panel
+   (wordmark, "Fund the pool. Run the room. Pay the winners.", wallet-ready
+   chip) + cream card (full name / email / password, coral CREATE ACCOUNT,
+   sign-in link). Wallet is issued at signup.
+8. **Instructor · Log in** `/instructor/login` — same split, email + password,
+   violet LOG IN, sign-up link.
+9. **Instructor · Wallet (dashboard)** `/instructor/dashboard` — instructor
+   nav (Dashboard / Create quiz / History + wallet chip + avatar) → "Welcome
+   back, {name}" + gold CREATE A QUIZ; stats row (Quizzes hosted / Players
+   hosted / Winners paid / Available); left wallet card (`ASSIGNED WALLET ·
+   NGN`, balance, wallet id, FUND WALLET, method chips, live-room banner);
+   right "Your quizzes" list (open-room / edit actions) + history link.
+10. **Instructor · Fund wallet** `/instructor/fund` — amount field (₦), quick
+    picks ₦1k/₦5k/₦50k/₦100k, funding methods (Wallet credit / Debit card /
+    Bank transfer), mint FUND button, instant-credit note. 502 from card/rail
+    surfaces as a recoverable error pointing back to wallet credit.
+11. **Instructor · Quiz Builder** `/instructor/quiz-builder` — title, prize
+    pool slider (₦1k–₦200k), winner count (1/3/5), pacing (manual/auto),
+    default question time, per-question editor (prompt, 4 options with mint
+    correct ring, per-question time), add/delete, SAVE & OPEN ROOM. Accepts
+    `?id=…` to edit an existing quiz. Insufficient balance links to funding.
+12. **Instructor · Live Room** `/instructor/live-room?room=…` — projector
+    preview (question, gold countdown, option tiles, realtime-on chip),
+    join-card with the big room code + copy + player roster, control card
+    (START / NEXT / DECLARE WINNERS), live top-3 standings. Podium state shows
+    a room-ended panel linking to history.
+13. **Instructor · History** `/instructor/history` — unified ledger table
+    (Activity / Type / Amount / Status) with funding, hosted quizzes and paid
+    winners, newest first; money inflow green, outflow neutral.
+14. **Instructor · History (empty)** `/instructor/history-empty` — same nav +
+    centered empty state ("No history yet", CREATE A QUIZ) + footer. The
+    History page renders this when the ledger is empty.
 
 ### Navigation & footers (system-wide)
-- All six instructor desktop frames share the top nav: KWEEKS logo + link pills
-  (Dashboard / Create quiz / History) with the active page highlighted (gold
-  text on `$surface2` pill), plus right-side WALLET chip and avatar AP. Live
-  Room keeps its ● LIVE status chip beside the logo.
-- Every frame (all 14) carries a minimal footer: 1px stroke rule + `© 2026
-  Kweeks` · `Live money quiz · NGN` · `Support · Terms · Privacy`. Player
-  frames show a shortened footer (`live money quiz`, no legal links). Auth
-  frames (Sign up / Log in) keep the footer; the Design System token frame gets
-  one too.
+- Instructor pages share the top nav (Dashboard / Create quiz / History, active
+  pill violet, wallet chip, avatar AP, sign out) with a mobile bottom row.
+- Player pages share a player top bar (wordmark + room code pill + status chip
+  WAITING/LIVE/GAME OVER).
+- Footers: full variant (`kweeks. · Live money quiz · NGN` + legal links) and a
+  shortened player variant.
 
-### Auth & wallet flow (canonical demo story)
-Sign up → log in → the Wallet dashboard is the landing screen → a wallet was
-issued at signup (`kweeks_ngn_8f2c1a`) → fund it (instant wallet credit) →
-funds land in the wallet → the wallet funds the quiz pool when the room opens
-and pays winners at the podium. One instructor persona throughout: avatar AP,
-wallet ₦150,000, hosted quiz "Naija General Knowledge" (pool ₦50,000, 3
-winners). All auth/wallet copy reads production-ready — no sandbox or demo
-wording on any screen (infra is BMONI sandbox under the hood, but the UI never
-says so).
+### Player flow (auto-advance)
+Join → lobby (waiting) → question (lock-in, countdown) → standings (between
+questions) → … → podium + redeem. The frontend reacts to the server-owned room
+state; pacing is `manual` (host advances) or `auto` (scheduler). The player
+session persists across refresh.
 
-## Contrast (WCAG, computed)
+### Instructor flow
+Sign up → wallet issued → fund wallet → build quiz → open room (pool escrowed
+from the wallet) → run live room → declare podium → winners redeem with
+per-winner claim codes → all activity lands in History.
 
-All body/placeholder ≥ 4.5:1; paper/bg 17.2, text3/bg 5.2, gold-ink/gold 10.9,
-naira/surface 8.4. Green only money/correct; gold only action/you/win.
+## Contrast (computed)
+Body/placeholder text ≥ 4.5:1 on canvas/cream; ink/canvas ≈ 10.9:1;
+soft/canvas ≈ 4.7:1; mint-dark/canvas ≈ 3.3:1 (display figures only, always
+bold ≥ 18px → passes the large-text bar); white on coral ≈ 3.3:1 (large bold
+display CTA text); ink on gold ≈ 9:1; mint on ink ≈ 6.7:1 (dark chips).
 
-## Imagery & identity (fixed this pass)
-All three photos are real Unsplash (verified HTTP + orientation, no placeholders):
-- Podium hero = crowd confetti celebration (landscape 1.5 → `fill` crop into
-  the 350×150 banner).
-- Quiz Builder deck cover = Lagos Victoria Island (landscape).
-- Live Room join card = standalone Qr-style photo (not a hollow white box).
+## Imagery & identity
+Identity is zero-image: 16 lucide avatars (id + pastel bg + fg) picked at join,
+rendered from the id string the backend stores. Instructor identity = violet
+initial avatar. No photography; atmosphere comes from dots texture + color
+glows. Icons are lucide throughout — consistent 24px grid, no emoji-as-icon.
 
-Persona avatars stay emojis (🐙 Zainab) everywhere — the committed zero-image
-identity; the single photographed win/cover moments are where photography earns
-its place. Standings avatar mapping fixed so Zainab=🐙 and the podium winner
-avatars (Ada🦊, Zainab🐙, Tobi🐼) match the leaderboard.
-
-## Known swaps before dev
-- QR is a photoreal Unsplash stand-in — replace with a generated, scannable QR
-  encoding `kweeks.ng/r/AB12` before go-live.
-- Status-bar clock is a static `9:42` mock — real app shows the live time.
-- Podium/cover Unsplash photos are stock — swap for real venue/win imagery at
-  the exhibition if available.
+## Implementation notes
+- REST: `src/lib/api.ts` mirrors `web/docs/API_CONTRACT.md`; all requests go to
+  the Go backend (Vite dev proxy `:5173 → :8080`, ws enabled; production via
+  `KWEEKS_WEB_ROOT` same-origin SPA). No Supabase anywhere.
+- Server-authoritative: money math (`splitPodium` mirror), pacing, and
+  standings are backend-owned; the UI only renders public state and refetches
+  on socket events.
+- Gate: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`.

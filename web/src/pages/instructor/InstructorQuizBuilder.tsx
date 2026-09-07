@@ -1,465 +1,410 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { DesktopFrame } from "@/components/ui/desktop";
-import { InstructorNav, NavRight, InstructorFooter } from "@/components/ui/instructor-nav";
+import { Check, FileQuestion, Plus, Presentation, Trash2, Trophy } from "lucide-react";
+import { ApiError, type QuizDetail, type QuizQuestion } from "@/lib/api";
+import { useCreateQuiz, useOpenRoom, useQuiz, useUpdateQuiz } from "@/lib/hooks";
+import { naira } from "@/lib/player";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
+import { Field } from "@/components/ui/field";
+import { Footer } from "@/components/ui/footer";
+import { InstructorNav } from "@/components/ui/instructor-nav";
 import { cn } from "@/lib/cn";
-import { api, QuizDetail, QuizQuestion } from "@/lib/api";
-import { useCreateQuiz, useOpenRoom, useQuiz, qk } from "@/lib/hooks";
-import { fmtNaira, naira } from "@/lib/player";
 
-const LETTERS = ["A", "B", "C", "D"];
-
-const DEFAULT_TITLE = "Naija General Knowledge";
-const DEFAULT_DURATION_MS = 30000;
 const POOL_MIN = 1000;
-const POOL_MAX = 150000;
-const POOL_STEP = 1000;
+const POOL_MAX = 200000;
+const POOL_STEP = 500;
 
-interface DraftQuestion {
-  id: string;
-  prompt: string;
-  options: string[];
-  correctIndex: number;
-  durationMs: number;
-}
+const WINNER_COUNTS = [1, 3, 5];
+const PACING = [
+  { id: "manual", label: "Manual" },
+  { id: "auto", label: "Auto" },
+];
+const DURATIONS = [
+  { id: 10000, label: "10s" },
+  { id: 15000, label: "15s" },
+  { id: 20000, label: "20s" },
+  { id: 30000, label: "30s" },
+];
 
-function blankQuestion(overrides?: Partial<DraftQuestion>): DraftQuestion {
+function newQuestion(): QuizQuestion {
   return {
     id: crypto.randomUUID(),
     prompt: "",
     options: ["", "", "", ""],
     correctIndex: 0,
-    durationMs: DEFAULT_DURATION_MS,
-    ...overrides,
+    durationMs: 15000,
   };
-}
-
-const SEED_QUESTION = blankQuestion({
-  prompt: "Which Nigerian city is called the Centre of Excellence?",
-  options: ["Ibadan", "Lagos", "Abuja", "Enugu"],
-  correctIndex: 1,
-});
-
-function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : "Something went wrong.";
-}
-
-function shortLabel(prompt: string): string {
-  const t = prompt.trim();
-  if (!t) return "New question";
-  return t.length > 18 ? `${t.slice(0, 18)}…` : t;
 }
 
 export function InstructorQuizBuilder() {
-  const nav = useNavigate();
-  const [sp] = useSearchParams();
-  const quizId = sp.get("quiz") ?? undefined;
-  const editing = Boolean(quizId);
+  const [params] = useSearchParams();
+  const existingId = params.get("id") ?? undefined;
+  const { data: existing, isLoading } = useQuiz(existingId);
 
-  const quizQ = useQuiz(quizId);
-  const createQuiz = useCreateQuiz();
-  const openRoom = useOpenRoom();
-  const qc = useQueryClient();
-  const editingReady = editing && !quizQ.isError;
-  const busy = createQuiz.isPending || openRoom.isPending || (editing && quizQ.isPending);
-
-  const [title, setTitle] = useState(DEFAULT_TITLE);
-  const [pool, setPool] = useState(50000);
-  const [winnerCount, setWinnerCount] = useState(3);
-  const [pacing, setPacing] = useState<"auto" | "manual">("manual");
-  const [questions, setQuestions] = useState<DraftQuestion[]>([SEED_QUESTION]);
-  const [active, setActive] = useState(0);
-  const [appliedId, setAppliedId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const d = quizQ.data;
-    if (!d || !d.id || d.id === appliedId) return;
-    setAppliedId(d.id);
-    setTitle(d.title);
-    const p = parseInt(d.poolNaira || "", 10);
-    setPool(Number.isFinite(p) ? p : 50000);
-    setWinnerCount(d.winnerCount);
-    setPacing(d.pacing);
-    setQuestions(
-      d.questions.length > 0
-        ? d.questions.map((q: QuizQuestion) => ({
-            id: q.id,
-            prompt: q.prompt,
-            options:
-              q.options.length === 4 ? [...q.options] : [...q.options, ...Array(4 - q.options.length).fill("")].slice(0, 4),
-            correctIndex: q.correctIndex,
-            durationMs: q.durationMs,
-          }))
-        : [blankQuestion()],
-    );
-    setActive(0);
-  }, [quizQ.data, appliedId]);
-
-  const toQuizQuestion = (q: DraftQuestion) => ({
-    id: q.id,
-    prompt: q.prompt,
-    options: q.options,
-    correctIndex: q.correctIndex,
-    durationMs: q.durationMs,
-  });
-
-  const body = () => ({
-    title: title.trim() || DEFAULT_TITLE,
-    poolNaira: String(pool),
-    winnerCount,
-    pacing,
-    defaultDurationMs: DEFAULT_DURATION_MS,
-    questions: questions.map(toQuizQuestion),
-  });
-
-  const ensureSaved = async (): Promise<string> => {
-    if (editingReady && quizId) {
-      await api.put<{ id: string }>(`/quizzes/${quizId}`, body());
-      await qc.invalidateQueries({ queryKey: qk.quiz(quizId) });
-      await qc.invalidateQueries({ queryKey: qk.quizzes });
-      return quizId;
-    }
-    const payload: QuizDetail = { id: crypto.randomUUID(), ...body() };
-    const res = await createQuiz.mutateAsync(payload);
-    return res.id;
-  };
-
-  const handleSave = async () => {
-    setError(null);
-    try {
-      const id = await ensureSaved();
-      nav(`/instructor/live-room?quiz=${id}`);
-    } catch (e) {
-      setError(errMsg(e));
-    }
-  };
-
-  const handleOpen = async () => {
-    setError(null);
-    try {
-      const id = await ensureSaved();
-      const room = await openRoom.mutateAsync(id);
-      nav(`/instructor/live-room?room=${room.id}`);
-    } catch (e) {
-      setError(errMsg(e));
-    }
-  };
-
-  const setPrompt = (qi: number, v: string) =>
-    setQuestions((qs) => qs.map((q, i) => (i === qi ? { ...q, prompt: v } : q)));
-
-  const setOption = (qi: number, oi: number, v: string) =>
-    setQuestions((qs) =>
-      qs.map((q, i) => (i === qi ? { ...q, options: q.options.map((o, j) => (j === oi ? v : o)) } : q)),
-    );
-
-  const setCorrect = (qi: number, oi: number) =>
-    setQuestions((qs) => qs.map((q, i) => (i === qi ? { ...q, correctIndex: oi } : q)));
-
-  const addQuestion = () => {
-    const next = questions.length;
-    setQuestions((qs) => [...qs, blankQuestion()]);
-    setActive(next);
-  };
-
-  const removeQuestion = (qi: number) => {
-    if (questions.length <= 1) return;
-    const next = questions.filter((_, i) => i !== qi);
-    setQuestions(next);
-    let na = active;
-    if (active === qi) na = Math.min(qi, next.length - 1);
-    else if (active > qi) na = active - 1;
-    setActive(Math.max(0, Math.min(na, next.length - 1)));
-  };
-
-  const pct = Math.min(100, Math.max(0, ((pool - POOL_MIN) / (POOL_MAX - POOL_MIN)) * 100));
+  if (existingId && isLoading) {
+    return <BuilderLoading label="Loading your quiz…" />;
+  }
 
   return (
-    <DesktopFrame>
-      <InstructorNav activeKey="create" right={<NavRight />} />
-      <div className="flex flex-1 gap-6 bg-bg px-7 py-7">
-        <div className="flex w-[360px] shrink-0 flex-col gap-4">
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-stroke bg-surface">
-            <img
-              src="https://images.unsplash.com/photo-1710075769969-4b12fe6e223c?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&h=360&ixlib=rb-1.2.1&q=80&w=1080"
-              alt="Lagos"
-              className="h-24 w-full object-cover"
-            />
-            <div className="flex flex-col gap-2 px-5 py-4">
-              <span className="font-body text-[11px] font-bold tracking-[0.1em] text-text-3">
-                QUIZ TITLE
-              </span>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={DEFAULT_TITLE}
-                className="w-full bg-transparent font-body text-[15px] text-paper outline-none placeholder:text-text-3"
-              />
-              {editing && quizQ.isPending && (
-                <span className="font-body text-[11px] text-text-3">Loading quiz…</span>
-              )}
-            </div>
-          </div>
+    <BuilderForm
+      key={existing?.id ?? "new"}
+      existing={existing}
+      existingId={existingId}
+    />
+  );
+}
 
-          <div className="flex flex-col gap-3 rounded-2xl border border-stroke bg-surface px-5 py-4">
-            <span className="font-body text-[11px] font-bold tracking-[0.1em] text-text-3">
-              PRIZE POOL (FROM YOUR WALLET)
-            </span>
-            <div className="flex items-baseline gap-1">
-              <span className="font-display text-[24px] font-extrabold text-naira">₦</span>
-              <span className="font-display text-[32px] font-extrabold leading-none text-naira">
-                {fmtNaira(pool)}
-              </span>
-            </div>
-            <div className="relative h-[6px] w-full rounded-full bg-surface-2">
-              <div
-                className="absolute left-0 top-0 h-full rounded-full bg-naira"
-                style={{ width: `${pct}%` }}
+function BuilderLoading({ label }: { label: string }) {
+  return (
+    <main className="relative min-h-screen overflow-hidden">
+      <div className="bg-dots pointer-events-none absolute inset-0 opacity-40" />
+      <InstructorNav />
+      <div className="relative mx-auto flex w-full max-w-6xl justify-center px-4 pt-24 text-sm font-bold text-soft sm:px-6">
+        {label}
+      </div>
+    </main>
+  );
+}
+
+interface BuilderFormProps {
+  existing?: QuizDetail;
+  existingId?: string;
+}
+
+function BuilderForm({ existing, existingId }: BuilderFormProps) {
+  const navigate = useNavigate();
+  const createQuiz = useCreateQuiz();
+  const updateQuiz = useUpdateQuiz();
+  const openRoom = useOpenRoom();
+
+  const [title, setTitle] = useState(existing?.title ?? "");
+  const [poolNaira, setPoolNaira] = useState(existing?.poolNaira ?? "50000");
+  const [winnerCount, setWinnerCount] = useState(existing?.winnerCount ?? 3);
+  const [pacing, setPacing] = useState<"manual" | "auto">(existing?.pacing ?? "manual");
+  const [defaultDurationMs, setDefaultDurationMs] = useState(existing?.defaultDurationMs ?? 15000);
+  const [questions, setQuestions] = useState<QuizQuestion[]>(
+    existing?.questions.length ? existing.questions.map((q) => ({ ...q })) : [newQuestion()],
+  );
+  const [error, setError] = useState("");
+
+  const poolNum = useMemo(() => parseInt(poolNaira || "0", 10), [poolNaira]);
+
+  function updateQuestion(id: string, patch: Partial<QuizQuestion>) {
+    setQuestions((qs) => qs.map((q) => (q.id === id ? { ...q, ...patch } : q)));
+  }
+
+  function removeQuestion(id: string) {
+    setQuestions((qs) => qs.filter((q) => q.id !== id));
+  }
+
+  function addQuestion() {
+    setQuestions((qs) => [...qs, newQuestion()]);
+  }
+
+  function validate(): string | null {
+    if (!title.trim()) return "Give the quiz a title.";
+    if (poolNum < POOL_MIN) return `Pool must be at least ${naira(POOL_MIN)}.`;
+    if (questions.length === 0) return "Add at least one question.";
+    for (const q of questions) {
+      if (!q.prompt.trim()) return "Every question needs a prompt.";
+      const filled = q.options.filter((o) => o.trim());
+      if (filled.length < 2) return `"${q.prompt.trim() || "Untitled"}" needs at least 2 options.`;
+      if (q.options[q.correctIndex]?.trim() === "") return `Mark a valid correct answer for "${q.prompt.trim()}".`;
+    }
+    return null;
+  }
+
+  async function handleOpenRoom() {
+    setError("");
+    const problem = validate();
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    try {
+      const quiz = {
+        id: existingId ?? "",
+        title: title.trim(),
+        poolNaira: String(poolNum),
+        winnerCount,
+        pacing,
+        defaultDurationMs,
+        questions: questions.map((q) => ({
+          ...q,
+          options: q.options.map((o) => o.trim()),
+        })),
+      };
+      const created = existingId
+        ? await updateQuiz.mutateAsync({ ...quiz, id: existingId })
+        : await createQuiz.mutateAsync(quiz);
+      const room = await openRoom.mutateAsync(created.id);
+      navigate(`/instructor/live-room?room=${room.id}`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not open the room — try again.");
+    }
+  }
+
+  const saving = createQuiz.isPending || updateQuiz.isPending || openRoom.isPending;
+
+  return (
+    <main className="relative min-h-screen overflow-hidden pb-24">
+      <div className="bg-dots pointer-events-none absolute inset-0 opacity-40" />
+      <span className="pointer-events-none absolute -right-24 -top-10 size-80 rounded-full bg-violet/20 blur-3xl" />
+      <span className="pointer-events-none absolute -left-24 bottom-0 size-72 rounded-full bg-gold/15 blur-3xl" />
+
+      <InstructorNav />
+
+      <div className="relative mx-auto w-full max-w-4xl px-4 pt-12 sm:px-6 lg:pt-16">
+        <span className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-cream px-4 py-1.5 text-sm font-bold uppercase tracking-widest text-soft">
+          <FileQuestion className="size-4 text-violet" /> Quiz builder
+        </span>
+        <h1 className="mt-4 font-display text-4xl font-semibold leading-[1.02] tracking-tight sm:text-5xl">
+          Build your <span className="text-pop">quiz</span>
+        </h1>
+        <p className="mt-3 max-w-xl text-lg text-soft">
+          {existingId ? "Editing an existing deck — save and open a room when ready." : "Name the deck, set the prize, write the questions. Open the room when it's ready."}
+        </p>
+
+        {error && (
+          <div role="alert" className="mt-6 rounded-2xl border-2 border-coral/30 bg-coral/10 px-4 py-3 text-sm font-bold text-coral">
+            <p>{error}</p>
+            {error.toLowerCase().includes("insufficient") && (
+              <button
+                type="button"
+                onClick={() => navigate("/instructor/fund")}
+                className="mt-2 cursor-pointer rounded-full bg-coral px-4 py-2 text-xs font-bold text-white"
+              >
+                Fund wallet →
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Deck settings */}
+        <section className="mt-10 rounded-[2rem] border-2 border-ink/5 bg-cream p-7 card-3d">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="lg:col-span-2">
+              <Field
+                name="title"
+                label="Quiz title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value.slice(0, 60))}
+                placeholder="e.g. Naija General Knowledge"
+                autoComplete="off"
+                spellCheck="false"
               />
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <label htmlFor="pool" className="text-sm font-bold">Prize pool</label>
+                <Chip tone="mint"><Trophy className="size-3" /> {naira(poolNum)}</Chip>
+              </div>
               <input
+                id="pool"
                 type="range"
                 min={POOL_MIN}
                 max={POOL_MAX}
                 step={POOL_STEP}
-                value={pool}
-                onChange={(e) => setPool(parseInt(e.target.value, 10))}
-                aria-label="Prize pool in naira"
-                className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0"
+                value={Math.min(Math.max(poolNum, POOL_MIN), POOL_MAX)}
+                onChange={(e) => setPoolNaira(e.target.value)}
+                className="w-full accent-mint-dark"
               />
-              <div
-                className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-naira bg-gold"
-                style={{ left: `${pct}%` }}
-              />
+              <div className="mt-1 flex justify-between text-xs font-bold text-soft">
+                <span>{naira(POOL_MIN)}</span>
+                <span>{naira(POOL_MAX)}</span>
+              </div>
             </div>
-            <div className="flex justify-between font-body text-[11px] text-text-3">
-              <span>₦1k</span>
-              <span>₦50k</span>
-              <span>₦150k</span>
-            </div>
-            <span className="font-body text-[12px] leading-snug text-text-3">
-              Pool is deducted when the room opens and held until winners redeem.
-            </span>
-          </div>
 
-          <div className="flex flex-col gap-3 rounded-2xl border border-stroke bg-surface px-5 py-4">
-            <span className="font-body text-[11px] font-bold tracking-[0.1em] text-text-3">
-              WINNERS
-            </span>
-            <div className="flex gap-1.5">
-              {[1, 2, 3, 5].map((w) => (
-                <button
-                  key={w}
-                  onClick={() => setWinnerCount(w)}
-                  className={cn(
-                    "flex h-9 flex-1 items-center justify-center rounded-full font-display text-[16px] font-bold",
-                    winnerCount === w ? "bg-gold text-gold-ink" : "bg-surface-2 text-text-2",
-                  )}
-                >
-                  {w}
-                </button>
-              ))}
+            <div>
+              <p className="text-sm font-bold">Winner count</p>
+              <div className="mt-2 flex gap-2">
+                {WINNER_COUNTS.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setWinnerCount(n)}
+                    className={cn(
+                      "cursor-pointer rounded-full border-2 px-4 py-2 text-sm font-bold transition-all",
+                      winnerCount === n
+                        ? "border-gold bg-gold text-ink"
+                        : "border-ink/10 bg-white text-soft hover:border-gold hover:text-gold-dark",
+                    )}
+                  >
+                    {n} {n === 1 ? "winner" : "winners"}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-3 rounded-2xl border border-stroke bg-surface px-5 py-4">
-            <span className="font-body text-[11px] font-bold tracking-[0.1em] text-text-3">
-              PACING
-            </span>
-            <div className="flex gap-1.5">
-              {(["auto", "manual"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPacing(p)}
-                  className={cn(
-                    "flex h-9 flex-1 items-center justify-center rounded-full font-body text-[13px] font-bold",
-                    pacing === p ? "bg-gold text-gold-ink" : "bg-surface-2 text-text-2",
-                  )}
-                >
-                  {p.toUpperCase()}
-                </button>
-              ))}
+            <div>
+              <p className="text-sm font-bold">Pacing</p>
+              <div className="mt-2 flex gap-2">
+                {PACING.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPacing(p.id as "manual" | "auto")}
+                    className={cn(
+                      "cursor-pointer rounded-full border-2 px-4 py-2 text-sm font-bold transition-all",
+                      pacing === p.id
+                        ? "border-violet bg-violet text-white"
+                        : "border-ink/10 bg-white text-soft hover:border-violet hover:text-violet",
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <span className="font-body text-[12.5px] leading-snug text-text-2">
-              Auto advances on a timer. Manual = you tap next. Venue mode: Manual.
-            </span>
+
+            <div>
+              <p className="text-sm font-bold">Default question time</p>
+              <div className="mt-2 flex gap-2">
+                {DURATIONS.map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setDefaultDurationMs(d.id)}
+                    className={cn(
+                      "cursor-pointer rounded-full border-2 px-4 py-2 text-sm font-bold transition-all",
+                      defaultDurationMs === d.id
+                        ? "border-sky bg-sky text-white"
+                        : "border-ink/10 bg-white text-soft hover:border-sky hover:text-sky-dark",
+                    )}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
+        </section>
+
+        {/* Questions */}
+        <div className="mt-10 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+            <Presentation className="size-5 text-violet" /> Questions ({questions.length})
+          </h2>
+          <Button variant="outline" size="sm" icon={<Plus className="size-4" />} onClick={addQuestion}>
+            Add question
+          </Button>
         </div>
 
-        <div className="flex flex-1 flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-[20px] font-extrabold text-paper">Questions</h2>
-            <button
-              onClick={addQuestion}
-              className="flex items-center gap-1.5 rounded-xl bg-gold px-4 py-2.5 font-body text-[14px] font-extrabold text-gold-ink"
-            >
-              <span className="font-display text-[18px]">+</span>Add question
-            </button>
-          </div>
-
-          {editing && quizQ.isError && (
-            <div className="rounded-2xl border border-red/40 bg-surface px-5 py-4 font-body text-[13.5px] text-red">
-              Couldn't load that quiz ({errMsg(quizQ.error)}). You can keep editing below — saving
-              will create a fresh quiz.
-            </div>
-          )}
-
-          <div className="flex flex-col gap-3">
-            {questions.map((q, qi) => {
-              const on = active === qi;
-              return (
-                <div
-                  key={q.id}
-                  onClick={() => setActive(qi)}
-                  className={cn(
-                    "flex cursor-pointer flex-col gap-4 rounded-2xl border bg-surface px-6 py-5",
-                    on ? "border-gold" : "border-stroke",
-                  )}
+        <div className="mt-5 space-y-6">
+          {questions.map((q, qi) => (
+            <section key={q.id} className="rounded-[2rem] border-2 border-ink/5 bg-cream p-6 sm:p-7">
+              <div className="flex items-start justify-between gap-4">
+                <span className="flex items-center gap-2 font-display text-lg font-semibold">
+                  <span className="grid size-8 place-items-center rounded-xl bg-violet/10 text-violet-dark">{qi + 1}</span>
+                  Question {qi + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeQuestion(q.id)}
+                  disabled={questions.length === 1}
+                  aria-label={`Delete question ${qi + 1}`}
+                  className="grid size-9 cursor-pointer place-items-center rounded-xl text-soft transition-colors hover:bg-coral/10 hover:text-coral disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-body text-[11px] font-bold tracking-[0.1em] text-text-3">
-                      QUESTION {qi + 1} · {Math.round(q.durationMs / 1000)}s
-                    </span>
-                    {questions.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeQuestion(qi);
-                        }}
-                        className="font-body text-[12px] font-bold text-text-3 transition-colors hover:text-red"
+                  <Trash2 className="size-4.5" />
+                </button>
+              </div>
+
+              <Field
+                name={`prompt-${q.id}`}
+                label="Prompt"
+                value={q.prompt}
+                onChange={(e) => updateQuestion(q.id, { prompt: e.target.value })}
+                placeholder="Which city is Nigeria's federal capital?"
+                autoComplete="off"
+                spellCheck="false"
+                className="mt-4"
+              />
+
+              <div className="mt-4">
+                <p className="mb-2 text-sm font-bold">Options — tap the ring to mark the correct answer</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {q.options.map((opt, oi) => {
+                    const isCorrect = q.correctIndex === oi;
+                    return (
+                      <div
+                        key={oi}
+                        className={cn(
+                          "flex items-center gap-3 rounded-2xl border-2 bg-white px-3 py-1.5 transition-colors",
+                          isCorrect ? "border-mint/60 bg-mint/5" : "border-ink/10",
+                        )}
                       >
-                        REMOVE
-                      </button>
-                    )}
-                  </div>
-                  <textarea
-                    rows={2}
-                    value={q.prompt}
-                    onChange={(e) => setPrompt(qi, e.target.value)}
-                    placeholder="Type the question…"
-                    className="w-full resize-none bg-transparent font-display text-[20px] font-extrabold leading-snug text-paper outline-none placeholder:text-text-3"
-                  />
-                  <div className="grid grid-cols-2 gap-3">
-                    {[0, 1, 2, 3].map((oi) => {
-                      const correct = q.correctIndex === oi;
-                      return (
-                        <div
-                          key={oi}
-                          onClick={() => setCorrect(qi, oi)}
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={isCorrect}
+                          aria-label={`Mark option ${String.fromCharCode(65 + oi)} as correct`}
+                          onClick={() => updateQuestion(q.id, { correctIndex: oi })}
                           className={cn(
-                            "flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3",
-                            correct ? "border-naira bg-surface-2" : "border-stroke bg-surface",
+                            "grid size-6 shrink-0 cursor-pointer place-items-center rounded-full border-2 transition-colors",
+                            isCorrect ? "border-mint bg-mint text-white" : "border-ink/20 hover:border-mint",
                           )}
                         >
-                          <span
-                            className={cn(
-                              "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-2 text-[12px]",
-                              correct ? "text-gold-ink" : "text-paper",
-                            )}
-                          >
-                            {LETTERS[oi]}
-                          </span>
-                          <input
-                            value={q.options[oi]}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => setOption(qi, oi, e.target.value)}
-                            placeholder={`Option ${LETTERS[oi]}`}
-                            className={cn(
-                              "w-full min-w-0 bg-transparent font-body text-[15px] outline-none placeholder:text-text-3",
-                              correct ? "font-semibold text-naira" : "text-paper",
-                            )}
-                          />
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCorrect(qi, oi);
-                            }}
-                            className={cn(
-                              "ml-auto flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold",
-                              correct ? "bg-surface text-naira" : "bg-surface-2 text-text-3",
-                            )}
-                          >
-                            {correct ? "✓ correct" : "mark ✓"}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
+                          {isCorrect && <Check className="size-3.5" strokeWidth={3.5} />}
+                        </button>
+                        <input
+                          value={opt}
+                          onChange={(e) => {
+                            const options = [...q.options];
+                            options[oi] = e.target.value;
+                            updateQuestion(q.id, { options });
+                          }}
+                          placeholder={`Option ${String.fromCharCode(65 + oi)}`}
+                          className="w-full bg-transparent py-2.5 font-bold text-ink outline-none placeholder:font-normal placeholder:text-soft/50"
+                          maxLength={80}
+                          autoComplete="off"
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
+              </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            {questions.map((q, qi) => (
-              <button
-                key={q.id}
-                onClick={() => setActive(qi)}
-                className={cn(
-                  "flex flex-col items-center rounded-xl border px-4 py-2",
-                  active === qi ? "border-gold bg-surface-2" : "border-stroke bg-surface",
-                )}
-              >
-                <span
-                  className={cn(
-                    "font-display text-[15px] font-extrabold",
-                    active === qi ? "text-gold" : "text-text-2",
-                  )}
-                >
-                  {qi + 1}
-                </span>
-                <span
-                  className={cn(
-                    "font-body text-[10px]",
-                    active === qi ? "text-text-2" : "text-text-3",
-                  )}
-                >
-                  {shortLabel(q.prompt)}
-                </span>
-              </button>
-            ))}
-            <button
-              onClick={addQuestion}
-              className="flex flex-col items-center rounded-xl border border-stroke bg-surface px-4 py-2"
-            >
-              <span className="font-display text-[15px] font-extrabold text-text-2">+</span>
-              <span className="font-body text-[10px] text-text-2">add</span>
-            </button>
-          </div>
+              <div className="mt-4 flex items-center gap-2">
+                <p className="text-sm font-bold text-soft">Time limit</p>
+                <div className="flex gap-1.5">
+                  {DURATIONS.map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => updateQuestion(q.id, { durationMs: d.id })}
+                      className={cn(
+                        "cursor-pointer rounded-full border px-3 py-1 text-xs font-bold transition-colors",
+                        q.durationMs === d.id
+                          ? "border-sky bg-sky text-white"
+                          : "border-ink/10 bg-white text-soft hover:border-sky hover:text-sky-dark",
+                      )}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+          ))}
+        </div>
 
-          {error && (
-            <div className="rounded-2xl border border-red/40 bg-surface px-5 py-4 font-body text-[13.5px] text-red">
-              {error}
-            </div>
-          )}
-
-          <div className="mt-auto flex items-center justify-between gap-4">
-            <span className="font-body text-[13px] text-text-3">
-              {questions.length} questions · pool {naira(pool)} · {winnerCount} winners · {pacing}
-            </span>
-            <div className="flex items-center gap-2.5">
-              <button
-                onClick={handleSave}
-                disabled={busy}
-                className="rounded-2xl border border-naira bg-transparent px-6 py-3 font-body text-[15px] font-extrabold text-naira transition-colors hover:bg-naira/10 disabled:opacity-50"
-              >
-                {busy ? "WORKING…" : editingReady ? "SAVE QUIZ" : "CREATE QUIZ"}
-              </button>
-              <button
-                onClick={handleOpen}
-                disabled={busy}
-                className="rounded-2xl bg-gold px-6 py-3 font-body text-[15px] font-extrabold text-gold-ink transition-opacity hover:opacity-90 disabled:opacity-50"
-              >
-                {busy ? "WORKING…" : "Open room →"}
-              </button>
-            </div>
-          </div>
+        <div className="mt-8 rounded-[2rem] border-2 border-gold/30 bg-gold/10 p-6 text-center">
+          <p className="font-display text-xl font-semibold text-ink">
+            Ready? Open the room and put <Chip tone="mint"><Trophy className="size-3" /> {naira(poolNum)}</Chip> on the line.
+          </p>
+          <p className="mt-1 text-sm text-soft">
+            The pool is funded from your wallet when the room opens. Players join with a code, no app needed.
+          </p>
+          <Button variant="coral" size="lg" loading={saving} onClick={() => void handleOpenRoom()} className="mt-5">
+            {saving ? "Opening room…" : "Save & open room"}
+            <Presentation className="size-5" />
+          </Button>
         </div>
       </div>
-      <InstructorFooter />
-    </DesktopFrame>
+
+      <Footer className="mt-16" />
+    </main>
   );
 }

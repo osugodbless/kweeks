@@ -1,221 +1,148 @@
 import { useEffect } from "react";
+import type { CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  PlayerDesktop,
-  PlayerTopBar,
-  PlayerFooter,
-  KweeksBrand,
-} from "@/components/ui/player-desktop";
-import { cn } from "@/lib/cn";
+import { Crown, Medal, Trophy, Users } from "lucide-react";
 import { useRoom, useStandings } from "@/lib/hooks";
-import { fmtNaira, usePlayer } from "@/lib/player";
-
-function ptsFor(s: { correctCount: number; totalLatencyMs: number }): number {
-  if (s.correctCount <= 0) return 0;
-  const speed = Math.max(0, 1 - s.totalLatencyMs / (30_000 * s.correctCount));
-  return s.correctCount * 1000 + Math.round(250 * speed);
-}
-
-function ordinal(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
-}
+import { usePlayer } from "@/lib/player";
+import { Avatar } from "@/components/ui/avatar";
+import { Chip, LiveDot } from "@/components/ui/chip";
+import { Footer } from "@/components/ui/footer";
+import { PlayerTopBar } from "@/components/ui/player-topbar";
+import { cn } from "@/lib/cn";
 
 export function PlayerStandings() {
-  const nav = useNavigate();
-  const player = usePlayer();
-  const roomId = player.roomId ?? undefined;
-
-  const roomQ = useRoom(roomId);
-  const room = roomQ.data;
-  const standingsQ = useStandings(roomId);
-  const standings = standingsQ.data;
+  const navigate = useNavigate();
+  const { roomId, participantId, lastAnsweredIndex } = usePlayer();
+  const { data: room } = useRoom(roomId ?? undefined);
+  const { data: standings = [] } = useStandings(roomId ?? undefined);
 
   useEffect(() => {
-    if (!room) return;
-    if (room.state === "podium") nav("/podium");
-    else if (room.state === "live" && room.currentQuestion && room.currentQuestion.remainingMs > 0) {
-      nav("/question");
+    if (!roomId) {
+      navigate("/join", { replace: true });
+      return;
     }
-  }, [
-    room,
-    room?.state,
-    room?.currentQuestion?.id,
-    room?.currentQuestion?.remainingMs,
-    nav,
-  ]);
+    if (room?.state === "lobby") navigate("/lobby");
+    else if (room?.state === "podium" || room?.state === "ended") navigate("/podium");
+    else if (
+      room?.state === "live" &&
+      room.currentQuestion &&
+      (lastAnsweredIndex == null || room.currentQuestion.index > lastAnsweredIndex)
+    ) {
+      navigate("/question");
+    }
+  }, [room?.state, room?.currentQuestion, lastAnsweredIndex, roomId, navigate]);
 
-  if (!roomId) {
-    return (
-      <PlayerDesktop>
-        <PlayerTopBar left={<KweeksBrand />} />
-        <div className="flex flex-1 flex-col items-center justify-center gap-4">
-          <h1 className="font-display text-[30px] font-extrabold text-paper">
-            You're not in a room yet
-          </h1>
-          <button
-            onClick={() => nav("/join")}
-            className="flex h-[54px] items-center justify-center rounded-2xl bg-gold px-7 font-body text-[15px] font-extrabold tracking-wide text-gold-ink hover:opacity-90"
-          >
-            JOIN A ROOM
-          </button>
-        </div>
-        <PlayerFooter />
-      </PlayerDesktop>
-    );
-  }
-
-  if (roomQ.isError && !room) {
-    return (
-      <PlayerDesktop>
-        <PlayerTopBar left={<KweeksBrand />} />
-        <div className="flex flex-1 flex-col items-center justify-center gap-4">
-          <h1 className="font-display text-[30px] font-extrabold text-paper">
-            Lost the connection to this room
-          </h1>
-          <button
-            onClick={() => nav("/join")}
-            className="flex h-[50px] items-center justify-center rounded-2xl bg-gold px-6 font-body text-[14px] font-extrabold tracking-wide text-gold-ink hover:opacity-90"
-          >
-            BACK TO JOIN
-          </button>
-        </div>
-        <PlayerFooter />
-      </PlayerDesktop>
-    );
-  }
-
-  const loading = !standings;
-  const rows = standings ?? [];
-  const ended = room?.state === "ended";
-  const total = room?.participantCount ?? rows.length;
-  const after = room ? room.currentIndex + 1 : 0;
-  const questionsLeft = room ? Math.max(0, room.questionCount - room.currentIndex - 1) : 0;
-  const winners = room?.winnerCount ?? 0;
-  const nickname = player.nickname ?? "you";
-
-  const myRow = rows.findIndex((s) => s.participantId === player.participantId);
-  const rank = myRow >= 0 ? myRow + 1 : null;
-
-  const pill =
-    rank == null || !room ? (
-      <div className="mt-1 rounded-2xl bg-surface-2 px-4 py-3.5 text-center font-body text-[14px] font-semibold text-text-2">
-        Finding your spot…
-      </div>
-    ) : (
-      <div className="mt-1 rounded-2xl bg-surface-2 px-4 py-3.5 text-center font-body text-[14px] font-semibold text-paper">
-        {player.avatar ?? "🐙"} You're {ordinal(rank)} —{" "}
-        {room?.state === "ended"
-          ? "the game wrapped up. No winners this time."
-          : room?.state === "live" && questionsLeft === 0
-            ? "the last question is in. Results are being tallied."
-            : `${questionsLeft} ${questionsLeft === 1 ? "question" : "questions"} left. Top ${winners} cash out.`}
-      </div>
-    );
+  const afterQuestion = room && room.currentIndex >= 0 ? room.currentIndex + 1 : 1;
+  const myRow = standings.find((s) => s.participantId === participantId);
+  const myRank = myRow ? standings.indexOf(myRow) + 1 : null;
 
   return (
-    <PlayerDesktop>
-      <PlayerTopBar
-        left={
-          <>
-            <KweeksBrand />
-            <span className="font-body text-[14px] text-text-3">/ Live standings</span>
-          </>
-        }
-        right={
-          ended ? (
-            <span className="inline-flex items-center gap-[5px] rounded-full bg-surface-2 px-3 py-2">
-              <span className="h-2 w-2 rounded-full bg-text-3" />
-              <span className="font-body text-[11px] font-bold tracking-widest text-text-3">
-                FINAL
-              </span>
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-[5px] rounded-full bg-surface-2 px-3 py-2">
-              <span className="h-2 w-2 rounded-full bg-red" />
-              <span className="font-body text-[11px] font-bold tracking-widest text-red">LIVE</span>
-            </span>
-          )
-        }
-      />
+    <main className="relative min-h-screen overflow-hidden">
+      <div className="bg-dots pointer-events-none absolute inset-0 opacity-40" />
+      <span className="pointer-events-none absolute -left-24 top-32 size-72 rounded-full bg-sky/20 blur-3xl" />
+      <span className="pointer-events-none absolute -right-24 bottom-24 size-80 rounded-full bg-violet/20 blur-3xl" />
 
-      <div className="flex flex-col gap-1.5 px-16 pt-7">
-        <h1 className="font-display text-[30px] font-extrabold text-paper">Live standings</h1>
-        <div className="font-body text-[14px] text-text-3">
-          After question {after} · {total} players
-        </div>
-      </div>
+      <PlayerTopBar status="standings" code={room?.code} />
 
-      <div className="flex justify-center px-16 py-5">
-        <div className="flex w-[760px] flex-col gap-2.5 rounded-[22px] border border-stroke bg-surface p-[26px]">
-          <div className="flex justify-end pb-1 font-body text-[12px] text-text-3">
-            pts = speed × correct · you play as {nickname}
+      <div className="relative mx-auto w-full max-w-4xl px-4 py-12 sm:px-6 lg:py-16">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-cream px-4 py-1.5 text-sm font-bold uppercase tracking-widest text-soft">
+              <Trophy className="size-4 text-gold" /> Live standings
+            </span>
+            <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight sm:text-5xl">
+              After question {afterQuestion}
+              {room && <span className="text-soft"> · {room.participantCount} players</span>}
+            </h1>
           </div>
-          {standingsQ.isError && !standings ? (
-            <div className="rounded-2xl bg-surface-2 px-4 py-4 text-center font-body text-[13px] text-text-2">
-              Couldn't load the board right now — retrying…
-            </div>
-          ) : loading
-            ? [0, 1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="flex h-[62px] animate-pulse items-center gap-[18px] rounded-2xl bg-surface-2 px-4"
-                />
-              ))
-            : rows.map((s, i) => {
-                const you = s.participantId === player.participantId;
-                const lead = i === 0;
-                return (
-                  <div
-                    key={s.participantId}
+          {myRank && (
+            <span className="flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 font-display text-lg font-semibold text-ink">
+              <Crown className="size-5" /> You&apos;re {myRank}{myRank === 1 ? "st" : myRank === 2 ? "nd" : myRank === 3 ? "rd" : "th"}
+            </span>
+          )}
+        </div>
+
+        <div className="mt-10 overflow-hidden rounded-[2rem] border-2 border-ink/5 bg-cream card-3d">
+          <div className="grid grid-cols-[3rem_1fr_5rem_6rem] items-center gap-3 border-b border-ink/5 px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-soft sm:grid-cols-[4rem_1fr_5rem_7rem]">
+            <span>#</span>
+            <span>Player</span>
+            <span className="text-right">Correct</span>
+            <span className="text-right">Speed</span>
+          </div>
+          <ul>
+            {standings.map((row, i) => {
+              const isMe = row.participantId === participantId;
+              return (
+                <li
+                  key={row.participantId}
+                  className={cn(
+                    "grid grid-cols-[3rem_1fr_5rem_6rem] items-center gap-3 px-6 py-4 sm:grid-cols-[4rem_1fr_5rem_7rem]",
+                    i > 0 && "border-t border-ink/5",
+                    isMe && "bg-gold",
+                  )}
+                >
+                  <span className="grid size-8 place-items-center font-display text-lg font-semibold">
+                    {i === 0 ? (
+                      <Trophy className="size-5 text-gold-dark" fill="currentColor" />
+                    ) : i === 1 ? (
+                      <Medal className="size-5 text-soft" />
+                    ) : i === 2 ? (
+                      <Medal className="size-5 text-gold/70" />
+                    ) : (
+                      <span className={isMe ? "text-ink" : "text-soft"}>{i + 1}</span>
+                    )}
+                  </span>
+                  <span className="flex min-w-0 items-center gap-3">
+                    <Avatar id={row.avatar} className="size-10" />
+                    <span className="truncate font-bold">{row.nickname}</span>
+                    {isMe && (
+                      <span className="rounded-full bg-ink px-2.5 py-0.5 text-[10px] font-bold uppercase text-cream">You</span>
+                    )}
+                  </span>
+                  <span
                     className={cn(
-                      "flex items-center gap-[18px] rounded-2xl px-4 py-3",
-                      you ? "bg-gold" : "bg-surface-2",
+                      "text-right font-display text-lg font-semibold",
+                      isMe ? "text-ink" : "text-violet-dark",
                     )}
                   >
-                    <span
-                      className={cn(
-                        "w-9 font-display text-[18px] font-extrabold",
-                        you ? "text-gold-ink" : lead ? "text-gold" : "text-text-2",
-                      )}
-                    >
-                      {i + 1}
-                    </span>
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-[22px]">
-                      {s.avatar}
-                    </div>
-                    <div className="flex flex-1 items-center gap-2">
-                      <span
-                        className={cn(
-                          "font-body text-[17px] font-semibold",
-                          you ? "text-gold-ink" : "text-paper",
-                        )}
-                      >
-                        {s.nickname}
-                      </span>
-                      {you && (
-                        <span className="rounded-full bg-surface px-2 py-0.5 font-body text-[10px] font-extrabold tracking-wide text-gold-ink">
-                          YOU
-                        </span>
-                      )}
-                    </div>
-                    <span
-                      className={cn(
-                        "font-display text-[20px] font-extrabold",
-                        you ? "text-gold-ink" : lead ? "text-gold" : "text-paper",
-                      )}
-                    >
-                      {fmtNaira(ptsFor(s))}
-                    </span>
-                  </div>
-                );
-              })}
-          {!(standingsQ.isError && !standings) && pill}
+                    {row.correctCount}
+                  </span>
+                  <span className={cn("text-right text-sm font-bold", isMe ? "text-ink/80" : "text-soft")}>
+                    {(row.totalLatencyMs / 1000).toFixed(1)}s
+                  </span>
+                </li>
+              );
+            })}
+            {standings.length === 0 && (
+              <li className="px-6 py-10 text-center text-sm font-bold text-soft">
+                No scores yet — be the first to answer.
+              </li>
+            )}
+          </ul>
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          {room?.state === "live" && (
+            <button
+              type="button"
+              onClick={() => navigate("/question")}
+              className="flex cursor-pointer items-center gap-2 rounded-full bg-violet px-6 py-3 text-sm font-bold text-white press-3d"
+              style={{ "--btn-deep-rgb": "var(--color-violet-dark)" } as CSSProperties}
+            >
+              Back to question
+            </button>
+          )}
+          <span className="flex items-center gap-2 text-sm font-bold text-soft">
+            <LiveDot color="coral" />
+            Next question starts on the host&apos;s signal
+          </span>
+          <Chip tone="soft">
+            <Users className="size-3.5" /> {room?.participantCount ?? 0} playing
+          </Chip>
         </div>
       </div>
 
-      <PlayerFooter />
-    </PlayerDesktop>
+      <Footer variant="player" />
+    </main>
   );
 }

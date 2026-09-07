@@ -1,94 +1,78 @@
-import { type ButtonHTMLAttributes, forwardRef } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { LoaderCircle } from "lucide-react";
 
-type Variant = "gold" | "dark" | "outline" | "naira";
+type Variant = "coral" | "violet" | "gold" | "mint" | "ink" | "ghost" | "outline";
 type Size = "sm" | "md" | "lg";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
+  loading?: boolean;
+  icon?: ReactNode;
 }
 
-const variantCls: Record<Variant, string> = {
-  gold: "bg-gold text-gold-ink",
-  dark: "bg-surface text-paper",
-  outline: "bg-surface-2 text-paper border border-stroke",
-  naira: "bg-naira text-gold-ink",
+const DEEP: Record<Variant, string> = {
+  coral: "var(--color-coral-dark)",
+  violet: "var(--color-violet-dark)",
+  gold: "var(--color-gold-dark)",
+  mint: "var(--color-mint-dark)",
+  ink: "var(--color-ink)",
+  ghost: "var(--color-coral-dark)",
+  outline: "var(--color-coral-dark)",
 };
 
-const sizeCls: Record<Size, string> = {
-  sm: "h-9 px-4 text-[12.5px] font-extrabold tracking-wide rounded-xl",
-  md: "h-[52px] px-6 text-[14px] font-extrabold tracking-wide rounded-2xl",
-  lg: "h-[56px] px-7 text-[15px] font-extrabold tracking-[0.02em] rounded-2xl",
+const SOLID: Record<Variant, string> = {
+  coral: "bg-coral text-white",
+  violet: "bg-violet text-white",
+  gold: "bg-gold text-ink",
+  mint: "bg-mint text-white",
+  ink: "bg-ink text-cream",
+  ghost: "bg-cream text-ink",
+  outline: "bg-cream text-ink",
 };
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "gold", size = "md", ...props }, ref) => (
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { className, variant = "coral", size = "md", loading, icon, children, disabled, ...props },
+  ref,
+) {
+  const sizes: Record<Size, string> = {
+    sm: "px-4 py-2 text-sm gap-2",
+    md: "px-5 py-3 text-sm gap-2",
+    lg: "px-8 py-4 font-display text-lg gap-2.5",
+  };
+
+  const isSolid = variant !== "ghost" && variant !== "outline";
+
+  return (
     <button
       ref={ref}
+      disabled={disabled || loading}
       className={cn(
-        "inline-flex items-center justify-center gap-2 font-body transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40",
-        variantCls[variant],
-        sizeCls[size],
+        "inline-flex cursor-pointer items-center justify-center rounded-full font-bold transition-all duration-150",
+        "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet/30 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
+        "disabled:cursor-not-allowed disabled:opacity-75",
+        SOLID[variant],
+        isSolid && "press-3d",
+        variant === "ghost" && "hover:bg-ink/5",
+        variant === "outline" && "border-2 border-ink/10 hover:border-violet hover:text-violet",
+        sizes[size],
         className,
       )}
+      style={{ "--btn-deep-rgb": DEEP[variant] } as CSSProperties}
       {...props}
-    />
-  ),
-);
-Button.displayName = "Button";
-
-export function NavLinkPill({
-  label,
-  active,
-  onClick,
-  className,
-}: {
-  label: string;
-  active?: boolean;
-  onClick?: () => void;
-  className?: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "inline-flex items-center rounded-full px-[13px] py-[9px] font-body text-[13px] font-bold transition-colors",
-        active ? "bg-surface-2 text-gold" : "bg-surface text-text-2 hover:text-paper",
-        className,
-      )}
     >
-      {label}
+      {loading ? (
+        <>
+          <LoaderCircle className="size-4.5 animate-spin" aria-hidden />
+          <span>{typeof children === "string" ? children : "Please wait…"}</span>
+        </>
+      ) : (
+        <>
+          {icon}
+          {children}
+        </>
+      )}
     </button>
   );
-}
-
-export function Chip({
-  label,
-  className,
-  children,
-}: {
-  label?: string;
-  className?: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-[12px] py-[8px] font-body text-[12px] font-semibold",
-        className,
-      )}
-    >
-      {children ?? label}
-    </span>
-  );
-}
-
-export function LiveDot({ className }: { className?: string }) {
-  return (
-    <span className={cn("inline-flex items-center gap-[5px]", className)}>
-      <span className="h-[8px] w-[8px] rounded-full bg-red" />
-      <span className="font-body text-[11px] font-bold tracking-widest text-red">LIVE</span>
-    </span>
-  );
-}
+});

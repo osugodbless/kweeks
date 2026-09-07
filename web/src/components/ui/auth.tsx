@@ -1,57 +1,56 @@
-export function AuthShell({
-  lead,
-  sub,
-  chipLabel,
-  foot,
-  children,
-}: {
-  lead: string;
-  sub: string;
-  chipLabel: string;
-  foot: string;
-  children: React.ReactNode;
-}) {
+import type { ReactNode } from "react";
+import { Coins } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { Money } from "@/components/ui/money";
+import { Wordmark } from "@/components/ui/wordmark";
+
+interface AuthShellProps {
+  children: ReactNode;
+  tagline?: string;
+  chipAmount?: string;
+  className?: string;
+}
+
+export function AuthShell({ children, tagline, chipAmount, className }: AuthShellProps) {
   return (
-    <div className="flex min-h-screen w-full flex-col bg-bg">
-      <div className="mx-auto flex w-full max-w-[1180px] flex-1">
-        {/* brand panel */}
-        <aside className="flex w-[430px] flex-col justify-between bg-surface px-9 py-11">
-          <div>
-            <div className="font-display text-[30px] font-extrabold tracking-wide text-paper">
-              KWEEKS
-            </div>
-            <div className="mt-1 font-body text-[13px] font-semibold text-naira">
-              host a live money quiz
-            </div>
-          </div>
-          <div className="flex flex-col gap-5">
-            <h1 className="font-display text-[30px] font-extrabold leading-[1.15] text-paper">
-              {lead}
+    <main className="relative flex min-h-screen items-center overflow-hidden py-14">
+      <div className="bg-dots pointer-events-none absolute inset-0 opacity-40" />
+      <span className="pointer-events-none absolute -left-24 top-16 size-72 rounded-full bg-violet/20 blur-3xl" />
+      <span className="pointer-events-none absolute -right-24 bottom-16 size-80 rounded-full bg-coral/20 blur-3xl" />
+      <span className="pointer-events-none absolute left-1/2 top-0 size-64 rounded-full bg-gold/10 blur-3xl" />
+
+      <div className="relative mx-auto grid w-full max-w-5xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr]">
+        {/* Brand panel */}
+        <aside className="relative hidden overflow-hidden rounded-[2.5rem] bg-ink p-10 text-cream lg:block">
+          <span className="pointer-events-none absolute inset-0 bg-dots-light" />
+          <div className="relative">
+            <Wordmark to="/" dot={false} />
+            <h1 className="mt-8 font-display text-4xl font-semibold leading-tight tracking-tight">
+              Fund the pool. <br />
+              Run the room. <br />
+              <span className="text-shine">Pay the winners.</span>
             </h1>
-            <p className="font-body text-[14px] leading-relaxed text-text-2">{sub}</p>
-            <div className="flex w-fit items-center gap-1 rounded-full bg-surface-2 px-3.5 py-2.5">
-              <span className="font-display text-[16px] font-extrabold text-naira">₦</span>
-              <span className="font-body text-[13px] font-semibold text-text-2">{chipLabel}</span>
+            <p className="mt-4 max-w-sm text-white/60">
+              One instructor account holds your wallet, your quizzes and your full
+              payout history in one place.
+            </p>
+            <div className="mt-10 flex items-center gap-3 rounded-3xl border border-white/10 bg-white/5 p-5">
+              <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-gold text-ink">
+                <Coins className="size-6" fill="currentColor" />
+              </span>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-white/50">{tagline ?? "Wallet ready"}</p>
+                <Money value={chipAmount ?? "0"} tone="dark" className="text-2xl" />
+              </div>
             </div>
-            <p className="font-body text-[12px] text-text-3">{foot}</p>
           </div>
         </aside>
 
-        {/* form column */}
-        <div className="flex flex-1 items-center justify-center bg-bg px-16 py-10">
-          <div className="w-[420px] rounded-3xl border border-stroke bg-surface-2 px-8 py-9">
-            {children}
-          </div>
-        </div>
+        {/* Form */}
+        <section className={cn("relative w-full max-w-md justify-self-center lg:justify-self-stretch", className)}>
+          {children}
+        </section>
       </div>
-      {/* footer */}
-      <footer className="w-full">
-        <div className="mx-auto flex h-[44px] w-full max-w-[1180px] items-center justify-between border-t border-stroke px-6">
-          <span className="font-body text-[12px] text-text-3">© 2026 Kweeks</span>
-          <span className="font-body text-[12px] text-text-3">Live money quiz · NGN</span>
-          <span className="font-body text-[12px] text-text-3">Support · Terms · Privacy</span>
-        </div>
-      </footer>
-    </div>
+    </main>
   );
 }

@@ -1,204 +1,142 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  PlayerDesktop,
-  PlayerTopBar,
-  PlayerFooter,
-  RoomPill,
-  KweeksBrand,
-} from "@/components/ui/player-desktop";
+import { Copy, Timer, Trophy, Users } from "lucide-react";
 import { useRoom } from "@/lib/hooks";
-import { naira, usePlayer } from "@/lib/player";
-
-const MAX_BADGES = 5;
-
-function splitPoolNaira(pool: number, n: number): number[] {
-  if (n <= 0 || pool <= 0) return [];
-  if (n === 1) return [pool];
-  const sum = (n * (n + 1)) / 2;
-  const shares = [] as number[];
-  for (let i = 0; i < n; i++) {
-    shares.push(Math.floor((pool * (n - i)) / sum));
-  }
-  shares[0] += pool - shares.reduce((a, b) => a + b, 0);
-  return shares;
-}
+import { splitPodium, usePlayer } from "@/lib/player";
+import { Avatar } from "@/components/ui/avatar";
+import { Chip } from "@/components/ui/chip";
+import { Footer } from "@/components/ui/footer";
+import { Money } from "@/components/ui/money";
+import { PlayerTopBar } from "@/components/ui/player-topbar";
 
 export function PlayerLobby() {
-  const nav = useNavigate();
-  const player = usePlayer();
-  const roomId = player.roomId ?? undefined;
-  const roomQ = useRoom(roomId);
-  const room = roomQ.data;
-
-  const state = room?.state;
+  const navigate = useNavigate();
+  const { roomId, code, nickname, participantId } = usePlayer();
+  const { data: room, isLoading } = useRoom(roomId ?? undefined);
 
   useEffect(() => {
-    if (!state) return;
-    if (state === "live") nav("/question");
-    else if (state === "podium") nav("/podium");
-    else if (state === "ended") nav("/standings");
-  }, [state, nav]);
+    if (!roomId) {
+      navigate("/join", { replace: true });
+      return;
+    }
+    if (room?.state === "live") navigate("/question");
+    else if (room?.state === "podium" || room?.state === "ended") navigate("/podium");
+  }, [room?.state, roomId, navigate]);
 
-  if (!roomId) {
-    return (
-      <PlayerDesktop>
-        <PlayerTopBar left={<KweeksBrand />} />
-        <div className="flex flex-1 flex-col items-center justify-center gap-4">
-          <h1 className="font-display text-[30px] font-extrabold text-paper">
-            You're not in a room yet
-          </h1>
-          <button
-            onClick={() => nav("/join")}
-            className="flex h-[54px] items-center justify-center rounded-2xl bg-gold px-7 font-body text-[15px] font-extrabold tracking-wide text-gold-ink hover:opacity-90"
-          >
-            JOIN A ROOM
-          </button>
-        </div>
-        <PlayerFooter />
-      </PlayerDesktop>
-    );
+  const pool = room?.poolNaira ?? "0";
+  const winnerCount = room?.winnerCount ?? 3;
+  const shares = splitPodium(pool, winnerCount);
+  const youName = nickname ?? "Player";
+
+  async function copyCode() {
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      /* clipboard unavailable */
+    }
   }
-
-  if (roomQ.isPending && !room) {
-    return (
-      <PlayerDesktop>
-        <PlayerTopBar left={<KweeksBrand />} />
-        <div className="flex flex-1 items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <span className="relative flex h-3 w-3">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gold opacity-60" />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-gold" />
-            </span>
-            <span className="font-body text-[13px] text-text-2">Connecting to room…</span>
-          </div>
-        </div>
-        <PlayerFooter />
-      </PlayerDesktop>
-    );
-  }
-
-  if (roomQ.isError && !room) {
-    return (
-      <PlayerDesktop>
-        <PlayerTopBar left={<KweeksBrand />} />
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-20 text-center">
-          <h1 className="font-display text-[30px] font-extrabold text-paper">
-            Lost the connection to this room
-          </h1>
-          <p className="font-body text-[14px] text-text-2">
-            The room may have closed, or the network hiccuped.
-          </p>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => void roomQ.refetch()}
-              className="flex h-[50px] items-center justify-center rounded-2xl bg-gold px-6 font-body text-[14px] font-extrabold tracking-wide text-gold-ink hover:opacity-90"
-            >
-              RETRY
-            </button>
-            <button
-              onClick={() => nav("/join")}
-              className="flex h-[50px] items-center justify-center rounded-2xl border border-stroke bg-surface px-6 font-body text-[14px] font-extrabold tracking-wide text-paper"
-            >
-              BACK TO JOIN
-            </button>
-          </div>
-        </div>
-        <PlayerFooter />
-      </PlayerDesktop>
-    );
-  }
-
-  const roster = (room?.participants ?? []).slice(0, MAX_BADGES);
-  const extra = Math.max(0, (room?.participants ?? []).length - roster.length);
-  const poolN = parseInt(room?.poolNaira ?? "0", 10) || 0;
-  const shares = room && room.winnerCount >= 1 ? splitPoolNaira(poolN, room.winnerCount) : [];
-  const heroAvatar = player.avatar ?? "🐙";
-  const who = player.nickname
-    ? `you are ${player.nickname}${player.avatar ? ` ${player.avatar}` : ""}`
-    : "you are in the room";
 
   return (
-    <PlayerDesktop>
-      <PlayerTopBar
-        left={
-          <>
-            <KweeksBrand />
-            {room && <RoomPill code={room.code} />}
-          </>
-        }
-        right={
-          <span className="font-body text-[12px] font-bold tracking-[0.18em] text-text-3">
-            WAITING
-          </span>
-        }
-      />
+    <main className="relative min-h-screen overflow-hidden">
+      <div className="bg-dots pointer-events-none absolute inset-0 opacity-40" />
+      <span className="pointer-events-none absolute -left-24 top-24 size-72 rounded-full bg-gold/20 blur-3xl" />
+      <span className="pointer-events-none absolute -right-24 bottom-24 size-80 rounded-full bg-violet/20 blur-3xl" />
 
-      <div className="flex flex-1 items-center justify-center gap-14 px-20">
-        <div className="flex w-[520px] flex-col gap-[18px]">
-          <span className="text-[64px] leading-none">{heroAvatar}</span>
-          <h1 className="font-display text-[38px] font-extrabold text-paper">
-            You're in{player.nickname ? `, ${player.nickname}` : ""}
-          </h1>
-          <div className="font-body text-[18px] font-semibold text-naira">
-            {room ? naira(room.poolNaira) : "₦0"} on the line
-          </div>
-          <p className="font-body text-[15px] leading-relaxed text-text-2">
-            The host starts in a moment. Keep this tab open — questions move fast.
-          </p>
-          {room && shares.length > 0 ? (
-            <div className="flex items-center justify-between rounded-2xl border border-stroke bg-surface px-5 py-[18px]">
-              <span className="font-body text-[15px] text-text-2">1st place takes</span>
-              <span className="font-display text-[24px] font-extrabold text-naira">
-                {naira(shares[0])}
-              </span>
+      <PlayerTopBar status="lobby" code={room?.code ?? code} />
+
+      <div className="relative mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 lg:py-16">
+        <div className="grid items-start gap-12 lg:grid-cols-[1.05fr_0.95fr]">
+          {/* Left: you're in */}
+          <div className="lg:sticky lg:top-24">
+            <h1 className="font-display text-5xl font-semibold leading-[1.02] tracking-tight sm:text-6xl">
+              You&apos;re in, <span className="text-pop">{youName}</span>
+            </h1>
+            <p className="mt-4 max-w-md text-lg leading-relaxed text-soft">
+              {room ? `"${room.title}" is almost live. Keep this tab open — the first question drops the second the host hits start.` : "Waiting for the host to open the room…"}
+            </p>
+
+            <div className="mt-8 rounded-[2rem] border-2 border-mint/30 bg-mint/10 p-6">
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-mint-dark">On the line</p>
+              <Money value={pool} className="mt-1 block text-5xl" />
+              <p className="mt-2 text-sm leading-relaxed text-ink">
+                Pool split across the top <span className="font-bold">{winnerCount}</span> finisher{winnerCount === 1 ? "" : "s"}.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {shares.map((s, i) => (
+                  <Chip key={i} tone="gold">
+                    {i + 1}
+                    {i === 0 ? "st" : i === 1 ? "nd" : i === 2 ? "rd" : "th"} takes <Money value={s} className="text-xs" />
+                  </Chip>
+                ))}
+              </div>
             </div>
-          ) : null}
-        </div>
 
-        <div className="flex w-[440px] flex-col gap-[18px]">
-          <div className="font-body text-[12px] font-bold tracking-[0.18em] text-text-3">
-            IN THE ROOM
-          </div>
-          <div className="flex items-center gap-2.5">
-            {roster.map((p) => (
-              <div
-                key={p.id}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-2 text-[24px]"
+            {room?.code && (
+              <button
+                type="button"
+                onClick={copyCode}
+                className="mt-6 flex cursor-pointer items-center gap-2 rounded-full border-2 border-ink/10 bg-cream px-5 py-2.5 text-sm font-bold text-ink transition-colors hover:border-violet hover:text-violet"
               >
-                {p.avatar}
-              </div>
-            ))}
-            {roster.length === 0 && (
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-2 text-[16px] text-text-3">
-                …
-              </div>
+                <Copy className="size-4" />
+                Copy room code {room.code}
+              </button>
             )}
           </div>
-          <div className="font-body text-[13px] text-text-3">
-            {extra > 0 ? `+ ${extra} more · ` : ""}
-            {who}
-          </div>
 
-          <div className="flex flex-col gap-3 rounded-3xl border border-stroke bg-surface p-6">
-            <div className="flex items-center gap-2.5">
-              <span className="relative flex h-3 w-3">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gold opacity-60" />
-                <span className="relative inline-flex h-3 w-3 rounded-full bg-gold" />
-              </span>
-              <h2 className="font-display text-[18px] font-extrabold text-paper">
-                The host hasn't started yet
+          {/* Right: in the room */}
+          <section className="rounded-[2rem] border-2 border-ink/5 bg-cream p-6 card-3d sm:p-8">
+            <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+                <Users className="size-5 text-violet" /> In the room
               </h2>
+              <span className="rounded-full bg-ink/5 px-3 py-1 text-xs font-bold text-soft">
+                {room?.participantCount ?? 1} player{room?.participantCount === 1 ? "" : "s"}
+              </span>
             </div>
-            <p className="font-body text-[13.5px] leading-relaxed text-text-2">
-              When the first question drops, everyone in this room sees it at the same second.
-              Correct + fast = climb. No answer, no points.
-            </p>
-          </div>
+
+            <ul className="mt-5 flex flex-wrap gap-2.5">
+              {room?.participants.map((p) => (
+                <li
+                  key={p.id}
+                  className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-bold ${
+                    p.id === participantId
+                      ? "border-violet bg-violet/10 text-violet-dark"
+                      : "border-ink/10 bg-white text-soft"
+                  }`}
+                >
+                  <Avatar id={p.avatar} className="size-6" />
+                  {p.nickname}
+                  {p.id === participantId && (
+                    <span className="rounded-full bg-violet px-2 py-0.5 text-[10px] font-bold uppercase text-white">You</span>
+                  )}
+                </li>
+              ))}
+              {!room && !isLoading && (
+                <li className="text-sm font-bold text-soft">{nickname ?? "You"} are first in — invite friends with the code.</li>
+              )}
+            </ul>
+
+            <div className="mt-6 rounded-3xl border-2 border-gold/40 bg-gold/10 p-6 text-center">
+              <div className="mx-auto grid size-14 animate-pulse-ring place-items-center rounded-full bg-gold text-ink">
+                <Trophy className="size-7" />
+              </div>
+              <p className="mt-4 font-display text-xl font-semibold">Waiting for the host…</p>
+              <p className="mx-auto mt-1 max-w-xs text-sm leading-relaxed text-soft">
+                {room?.participantCount && room.participantCount > 1
+                  ? `${room.participantCount} players are in. The room fires on the host's signal.`
+                  : "Share the code so more players can jump in before the room goes live."}
+              </p>
+              <p className="mt-4 flex items-center justify-center gap-2 text-sm font-bold text-soft">
+                <Timer className="size-4 text-coral" />
+                Rounds start automatically once the host hits start
+              </p>
+            </div>
+          </section>
         </div>
       </div>
 
-      <PlayerFooter />
-    </PlayerDesktop>
+      <Footer variant="player" />
+    </main>
   );
 }

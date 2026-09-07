@@ -1,272 +1,278 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import {
-  PlayerDesktop,
-  PlayerTopBar,
-  PlayerFooter,
-  RoomPill,
-  KweeksBrand,
-} from "@/components/ui/player-desktop";
-import { ApiError } from "@/lib/api";
-import { cn } from "@/lib/cn";
-import { useJoinRoom, useRoomByCode } from "@/lib/hooks";
-import { AVATARS, naira, usePlayer } from "@/lib/player";
+import type { FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { Check, Coins, Hash, Mail, ShieldCheck, Sparkles, Timer, Trophy, UserRound, Users } from "lucide-react";
+import { api, ApiError, type PublicRoom } from "@/lib/api";
+import { useJoinRoom } from "@/lib/hooks";
+import { usePlayer } from "@/lib/player";
+import { AvatarPicker } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
+import { Field } from "@/components/ui/field";
+import { Footer } from "@/components/ui/footer";
+import { Money } from "@/components/ui/money";
+import { PlayerTopBar } from "@/components/ui/player-topbar";
 
-const ROWS = [AVATARS.slice(0, 6), AVATARS.slice(6, 12)];
-const EMAIL_RE = /^\S+@\S+\.\S+$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-const HOW = [
-  "Same question, same second, everyone in the room.",
-  "Correct + fast = points. No answer, no points.",
-  "Top 3 take the pool — paid from their own screen.",
+const HOW_PLAYS = [
+  { Icon: Hash, text: "Your host shares a 4-letter room code on screen." },
+  { Icon: Users, text: "Pick an avatar and a nickname — that is your leaderboard face." },
+  { Icon: Trophy, text: "Answer fast and correct; the podium splits the pool." },
 ];
 
-function stateLabel(state: string): { text: string; dot: string; on: boolean } {
-  if (state === "live") return { text: "LIVE", dot: "bg-red", on: true };
-  if (state === "lobby") return { text: "WAITING", dot: "bg-gold", on: false };
-  if (state === "podium") return { text: "PODIUM", dot: "bg-naira", on: false };
-  return { text: "ENDED", dot: "bg-surface-2", on: false };
-}
-
 export function PlayerJoin() {
-  const nav = useNavigate();
-  const player = usePlayer();
-  const [sp] = useSearchParams();
-  const urlCode = (sp.get("code") ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  const navigate = useNavigate();
+  const { setRoom, setParticipant } = usePlayer();
+  const joinRoom = useJoinRoom();
 
-  const [code, setCode] = useState(urlCode || player.code || "");
-  const [avatar, setAvatar] = useState(player.avatar ?? "🐙");
-  const [nick, setNick] = useState(player.nickname ?? "");
-  const [email, setEmail] = useState(player.email ?? "");
+  const [code, setCode] = useState("");
+  const [room, setRoomData] = useState<PublicRoom | null>(null);
+  const [lookupError, setLookupError] = useState("");
+  const [lookingUp, setLookingUp] = useState(false);
 
-  const lookup = useRoomByCode(code.length === 4 ? code : undefined);
-  const room = lookup.data;
+  const [nickname, setNickname] = useState("");
+  const [email, setEmail] = useState("");
+  const [avatarId, setAvatarId] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [joinError, setJoinError] = useState("");
+  const [joining, setJoining] = useState(false);
 
-  const join = useJoinRoom();
-  const joining = join.isPending;
-
-  const codeOk = code.length === 4;
-  const roomOk = Boolean(room);
-  const nickOk = nick.trim().length > 0;
-  const emailOk = EMAIL_RE.test(email.trim());
-  const canJoin = codeOk && roomOk && nickOk && emailOk && !joining;
-
-  const notFound =
-    codeOk && !room && lookup.isError && lookup.error instanceof ApiError && lookup.error.status === 404;
-  const roomError =
-    codeOk && !room && lookup.isError && !(lookup.error instanceof ApiError && lookup.error.status === 404);
-
-  function doJoin() {
-    if (!canJoin || !room) return;
-    join.mutate(
-      {
-        roomId: room.id,
-        email: email.trim(),
-        nickname: nick.trim(),
-        avatar,
-      },
-      {
-        onSuccess: (p) => {
-          player.setRoom({ roomId: p.roomId, code: room.code });
-          player.setParticipant({
-            id: p.id,
-            email: p.email,
-            nickname: p.nickname,
-            avatar: p.avatar,
-          });
-          nav("/lobby");
-        },
-      },
-    );
+  async function lookup(event?: FormEvent) {
+    event?.preventDefault();
+    const value = code.trim().toUpperCase();
+    if (value.length < 4) {
+      setLookupError("Room codes are 4 letters.");
+      return;
+    }
+    setLookupError("");
+    setLookingUp(true);
+    try {
+      const found = await api.get<PublicRoom>(`/lookup/${value}`);
+      setRoomData(found);
+    } catch (err) {
+      setRoomData(null);
+      setLookupError(err instanceof ApiError && err.message ? err.message : "We could not find that room.");
+    } finally {
+      setLookingUp(false);
+    }
   }
 
-  const st = room ? stateLabel(room.state) : null;
+  function validate() {
+    const next: Record<string, string> = {};
+    if (!nickname.trim()) next.nickname = "Pick a nickname for the leaderboard.";
+    else if (nickname.trim().length > 16) next.nickname = "Keep it under 16 characters.";
+    if (!email.trim()) next.email = "We need this to send your winnings.";
+    else if (!EMAIL_RE.test(email.trim())) next.email = "That email does not look right.";
+    if (!avatarId) next.avatar = "Choose your player avatar.";
+    return next;
+  }
+
+  async function handleJoin(event: FormEvent) {
+    event.preventDefault();
+    if (!room) return;
+    const next = validate();
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
+
+    setJoinError("");
+    setJoining(true);
+    try {
+      const participant = await joinRoom.mutateAsync({
+        roomId: room.id,
+        email: email.trim().toLowerCase(),
+        nickname: nickname.trim(),
+        avatar: avatarId!,
+      });
+      setRoom(room.id, room.code);
+      setParticipant({
+        participantId: participant.id,
+        roomId: room.id,
+        email: participant.email,
+        nickname: participant.nickname,
+        avatar: participant.avatar,
+      });
+      navigate("/lobby");
+    } catch (err) {
+      setJoinError(err instanceof ApiError ? err.message : "Could not join — try again.");
+    } finally {
+      setJoining(false);
+    }
+  }
 
   return (
-    <PlayerDesktop>
-      <PlayerTopBar
-        left={
-          <>
-            <KweeksBrand />
-            {room && <RoomPill code={room.code} />}
-          </>
-        }
-        right={
-          room ? (
-            <span className="font-body text-[12.5px] text-text-3">
-              {room.questionCount} questions · fastest wins
-            </span>
-          ) : null
-        }
-      />
+    <main className="relative overflow-hidden">
+      <div className="bg-dots pointer-events-none absolute inset-0 opacity-40" />
+      <span className="pointer-events-none absolute -left-24 top-24 size-72 rounded-full bg-sky/20 blur-3xl" />
+      <span className="pointer-events-none absolute -right-24 top-1/2 size-80 rounded-full bg-coral/20 blur-3xl" />
+      <span className="pointer-events-none absolute bottom-0 left-1/3 size-72 rounded-full bg-mint/15 blur-3xl" />
 
-      <div className="flex flex-1 items-center justify-center gap-14 px-20">
-        <div className="flex w-[430px] flex-col gap-4">
-          <div className="font-body text-[12px] font-bold tracking-[0.18em] text-text-3">
-            PRIZE POOL
-          </div>
-          <div className="font-display text-[76px] font-extrabold leading-none text-naira">
-            {room ? naira(room.poolNaira) : "—"}
-          </div>
-          {room && st ? (
-            <>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1.5">
-                  <span className={cn("h-2 w-2 rounded-full", st.dot)} />
-                  <span className={cn("font-body text-[11px] font-bold tracking-widest", st.on ? "text-red" : "text-text-2")}>
-                    {st.text}
-                  </span>
-                </span>
-                <span className="font-body text-[15px] font-semibold text-paper">{room.title}</span>
-              </div>
-              <p className="font-body text-[13.5px] text-text-2">
-                {room.questionCount} questions · top {room.winnerCount} share the pool · join below
-              </p>
-            </>
-          ) : (
-            <p className="font-body text-[18px] leading-normal text-text-2">
-              You're in the arena. Type your room code, pick a face and grab a seat.
+      <PlayerTopBar status="join" code={room?.code} />
+
+      <div className="relative mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 lg:py-16">
+        <div className="grid items-start gap-12 lg:grid-cols-[0.92fr_1.08fr]">
+          {/* Left: pool promo */}
+          <div className="lg:sticky lg:top-24">
+            <h1 className="font-display text-5xl font-semibold leading-[1.02] tracking-tight sm:text-6xl">
+              Ready to <span className="text-pop">play?</span>
+            </h1>
+            <p className="mt-4 max-w-md text-lg leading-relaxed text-soft">
+              Grab the code your host is showing, claim your spot on the leaderboard, and
+              answer fast enough to take a cut of the pool.
             </p>
-          )}
-          <div className="flex flex-col gap-3 rounded-2xl border border-stroke bg-surface p-[22px]">
-            <div className="font-body text-[11px] font-bold tracking-[0.14em] text-text-3">
-              HOW IT PLAYS
-            </div>
-            {HOW.map((t) => (
-              <p key={t} className="font-body text-[13.5px] leading-relaxed text-text-2">
-                • {t}
+
+            <div className="mt-8 rounded-[2rem] border-2 border-mint/30 bg-mint/10 p-6">
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-mint-dark">Prize pool</p>
+              <Money value={room?.poolNaira ?? "50000"} className="mt-1 block text-5xl" />
+              <p className="mt-2 text-sm leading-relaxed text-ink">
+                {room
+                  ? `Live in "${room.title}" · ${room.participantCount} player${room.participantCount === 1 ? "" : "s"} in the room.`
+                  : "Enter the code on your host's screen to see tonight's pool."}
               </p>
-            ))}
+            </div>
+
+            <ol className="mt-8 space-y-4">
+              {HOW_PLAYS.map((step, i) => (
+                <li key={step.text} className="flex items-start gap-4">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-cream text-violet shadow-[0_4px_0_rgba(108,76,241,0.15)]">
+                    <step.Icon className="size-5" strokeWidth={2.4} />
+                  </span>
+                  <div>
+                    <p className="font-display text-lg font-semibold">
+                      <span className="mr-2 text-soft/70">{String(i + 1).padStart(2, "0")}</span>
+                      {i === 0 ? "Enter the room code" : i === 1 ? "Pick an avatar & nickname" : "Answer fast, cash out"}
+                    </p>
+                    <p className="text-[15px] text-soft">{step.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+
+            <div className="mt-9 flex items-start gap-4 rounded-3xl border-2 border-gold/30 bg-gold/10 p-5">
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-gold text-ink">
+                <Coins className="size-5" strokeWidth={2.4} />
+              </span>
+              <p className="text-sm leading-relaxed text-ink">
+                <span className="font-bold">Your email is your payout address.</span> Winnings
+                from every room are sent to the address you join with — keep it accurate.
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="flex w-[560px] flex-col gap-[18px] rounded-3xl border border-stroke bg-surface p-[30px]">
-          <h1 className="font-display text-[24px] font-extrabold text-paper">Join the room</h1>
-          <label className="block">
-            <span className="mb-1.5 block font-body text-[11px] font-bold tracking-[0.12em] text-text-3">
-              ROOM CODE
+
+          {/* Right: join card */}
+          <section className="relative rounded-[2rem] border-2 border-ink/5 bg-cream p-6 card-3d sm:p-9">
+            <span className="inline-flex items-center gap-2 rounded-full bg-coral/10 px-4 py-1.5 text-sm font-bold uppercase tracking-widest text-coral">
+              <Sparkles className="size-4" /> Join a game
             </span>
-            <div
-              className={cn(
-                "flex h-[54px] items-center rounded-[14px] border bg-surface-2 px-4",
-                codeOk ? "border-gold" : "border-stroke",
-              )}
-            >
-              <input
-                value={code}
-                onChange={(e) =>
-                  setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4))
-                }
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                }}
-                placeholder="AB12"
-                autoComplete="off"
-                spellCheck={false}
-                className="w-full bg-transparent pl-[0.4em] text-center font-display text-[26px] font-extrabold tracking-[0.4em] text-gold outline-none placeholder:font-body placeholder:text-[16px] placeholder:font-semibold placeholder:text-text-3"
-              />
-            </div>
-          </label>
-          {notFound ? (
-            <div className="-mt-2 font-body text-[12.5px] font-semibold text-red">
-              Room not found — check the code and try again.
-            </div>
-          ) : roomError ? (
-            <div className="-mt-2 font-body text-[12.5px] font-semibold text-red">
-              Couldn't reach the server — is the host running?
-            </div>
-          ) : !codeOk ? (
-            <div className="-mt-2 font-body text-[12.5px] text-text-3">
-              Type the 4-letter code your host shared.
-            </div>
-          ) : lookup.isFetching && !room ? (
-            <div className="-mt-2 font-body text-[12.5px] text-text-3">Looking up room…</div>
-          ) : room ? (
-            <div className="-mt-2 font-body text-[12.5px] text-text-2">
-              {room.poolNaira ? `${naira(room.poolNaira)} pool · ` : ""}
-              {room.questionCount} questions · top {room.winnerCount} paid
-            </div>
-          ) : null}
+            <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+              {room ? `Join "${room.title}"` : "Enter the room code"}
+            </h2>
+            <p className="mt-1.5 text-[15px] text-soft">
+              {room
+                ? `Hosted by ${room.host?.name || "your host"} · ${room.questionCount} questions · top ${room.winnerCount} split the pool`
+                : "All fields needed before the clock starts."}
+            </p>
 
-          <div className="font-body text-[13px] font-semibold text-text-2">Pick your avatar</div>
-          <div className="flex flex-col gap-2">
-            {ROWS.map((row, ri) => (
-              <div key={ri} className="flex gap-2">
-                {row.map((e) => (
-                  <button
-                    key={e}
-                    type="button"
-                    onClick={() => setAvatar(e)}
-                    className={cn(
-                      "flex h-16 w-16 items-center justify-center rounded-full text-[30px] transition",
-                      avatar === e
-                        ? "bg-gold ring-1 ring-gold"
-                        : "bg-surface-2 ring-1 ring-stroke",
+            {!room ? (
+              <form onSubmit={lookup} noValidate className="mt-8 space-y-5">
+                <Field
+                  name="code"
+                  label="Room code"
+                  icon={<Hash className="size-5" />}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4))}
+                  placeholder="e.g. AB12"
+                  error={lookupError}
+                  autoComplete="off"
+                  spellCheck="false"
+                  maxLength={4}
+                />
+                <Button type="submit" size="lg" loading={lookingUp} className="w-full">
+                  Find room
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleJoin} noValidate className="mt-8 space-y-6">
+                <div className="flex items-center gap-2 rounded-2xl border-2 border-mint/30 bg-mint/10 px-4 py-3 text-sm font-bold text-mint-dark">
+                  <Check className="size-4" strokeWidth={3} />
+                  Room found — pool locked at <Money value={room.poolNaira} className="text-sm" />
+                </div>
+
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <Field
+                    name="nickname"
+                    label="Nickname"
+                    icon={<UserRound className="size-5" />}
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value.slice(0, 16))}
+                    placeholder="e.g. QuizWizard"
+                    error={errors.nickname}
+                    maxLength={16}
+                    autoComplete="off"
+                    spellCheck="false"
+                  />
+                  <Field
+                    name="email"
+                    label="Email"
+                    icon={<Mail className="size-5" />}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    error={errors.email}
+                    autoComplete="email"
+                    spellCheck="false"
+                  />
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <label htmlFor="avatar-grid" className="block text-sm font-bold">
+                      Pick your player
+                    </label>
+                    {avatarId && (
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-violet-dark">
+                        <Check className="size-3.5" strokeWidth={3} />
+                        Avatar selected
+                      </span>
                     )}
-                  >
-                    {e}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-          <div className="font-body text-[12.5px] text-text-3">
-            One tap. It's how the room will know you.
-          </div>
-          <div className="flex items-center gap-3">
-            <label className="block flex-1">
-              <span className="mb-1.5 block font-body text-[11px] font-bold tracking-[0.12em] text-text-3">
-                NICKNAME
-              </span>
-              <div className="flex h-[50px] items-center rounded-[14px] border border-stroke bg-surface-2 px-4">
-                <input
-                  value={nick}
-                  onChange={(e) => setNick(e.target.value)}
-                  placeholder="e.g. FastestZebra"
-                  className="w-full bg-transparent font-body text-[15px] text-paper outline-none placeholder:text-text-3"
-                />
-              </div>
-            </label>
-            <label className="block flex-1">
-              <span className="mb-1.5 block font-body text-[11px] font-bold tracking-[0.12em] text-text-3">
-                EMAIL (FOR YOUR PRIZE)
-              </span>
-              <div className="flex h-[50px] items-center rounded-[14px] border border-stroke bg-surface-2 px-4">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void doJoin();
-                  }}
-                  placeholder="you@example.com"
-                  className="w-full bg-transparent font-body text-[15px] text-paper outline-none placeholder:text-text-3"
-                />
-              </div>
-            </label>
-          </div>
+                  </div>
+                  <AvatarPicker value={avatarId} onChange={setAvatarId} error={errors.avatar} />
+                </div>
 
-          {join.isError ? (
-            <div className="font-body text-[12.5px] font-semibold text-red">
-              {join.error instanceof Error
-                ? join.error.message
-                : "Couldn't join — check your details."}
+                {joinError && (
+                  <p role="alert" className="rounded-2xl border-2 border-coral/30 bg-coral/10 px-4 py-3 text-sm font-bold text-coral">
+                    {joinError}
+                  </p>
+                )}
+
+                <Button type="submit" size="lg" loading={joining} icon={<Trophy className="size-5" />} className="w-full">
+                  {joining ? "Joining…" : "Join the game"}
+                </Button>
+
+                <p className="flex items-start gap-2 text-xs leading-relaxed text-soft">
+                  <ShieldCheck className="mt-0.5 size-4 shrink-0 text-mint-dark" />
+                  By joining you accept the official rules. Winnings are paid to the payout
+                  email above — keep it accurate.
+                </p>
+              </form>
+            )}
+
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm font-bold text-soft">
+              <Chip tone="gold">
+                <Trophy className="size-3.5" /> Top {room?.winnerCount ?? 3} paid
+              </Chip>
             </div>
-          ) : null}
-
-          <button
-            onClick={() => void doJoin()}
-            disabled={!canJoin}
-            className="flex h-[58px] w-full items-center justify-center rounded-2xl bg-gold font-body text-[16px] font-extrabold tracking-wide text-gold-ink hover:opacity-90 disabled:opacity-40"
-          >
-            {joining ? "JOINING…" : "JOIN THE GAME"}
-          </button>
-          <div className="text-center font-body text-[12.5px] text-text-3">
-            Winnings land in your email · protected by claim code
-          </div>
+          </section>
         </div>
+
+        <p className="mt-12 flex items-center justify-center gap-2 text-sm font-bold text-soft">
+          <Timer className="size-4 text-coral" />
+          First question drops seconds after you join — no app download needed.
+        </p>
       </div>
 
-      <PlayerFooter />
-    </PlayerDesktop>
+      <Footer variant="player" />
+    </main>
   );
 }

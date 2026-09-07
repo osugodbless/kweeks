@@ -6,6 +6,8 @@ import {
   ClaimResult,
   DashboardStat,
   HistoryItem,
+  Instructor,
+  isAuthed,
   Participant,
   PublicRoom,
   QuizDetail,
@@ -28,12 +30,12 @@ export const qk = {
   standings: (roomId: string) => ["standings", roomId] as const,
 };
 
-const authed = () => Boolean(localStorage.getItem("kweeks.token"));
+const authed = () => isAuthed();
 
 export function useMe() {
   return useQuery({
     queryKey: qk.me,
-    queryFn: () => api.get<{ instructor: import("@/lib/api").Instructor; wallet: import("@/lib/api").Wallet }>("/auth/me"),
+    queryFn: () => api.get<{ instructor: Instructor; wallet: Wallet }>("/auth/me"),
     enabled: authed(),
   });
 }
@@ -65,28 +67,28 @@ export function useFundWallet() {
   });
 }
 
-export function useProvisionWallet() {
-  const qc = useQueryClient();
-  const setWallet = useAuth((s) => s.setWallet);
-  return useMutation({
-    mutationFn: () => api.post<{ wallet: Wallet }>("/wallet/provision"),
-    onSuccess: (res) => {
-      if (res?.wallet) setWallet(res.wallet);
-      void qc.invalidateQueries({ queryKey: qk.wallet });
-    },
+export function useDashboard() {
+  return useQuery({
+    queryKey: qk.dashboard,
+    queryFn: () => api.get<DashboardStat>("/instructor/dashboard"),
+    enabled: authed(),
   });
 }
 
-export function useDashboard() {
-  return useQuery({ queryKey: qk.dashboard, queryFn: () => api.get<DashboardStat>("/instructor/dashboard"), enabled: authed() });
-}
-
 export function useHistory() {
-  return useQuery({ queryKey: qk.history, queryFn: () => api.get<HistoryItem[]>("/instructor/history"), enabled: authed() });
+  return useQuery({
+    queryKey: qk.history,
+    queryFn: () => api.get<HistoryItem[]>(`/instructor/history`),
+    enabled: authed(),
+  });
 }
 
 export function useQuizzes() {
-  return useQuery({ queryKey: qk.quizzes, queryFn: () => api.get<QuizListItem[]>("/quizzes"), enabled: authed() });
+  return useQuery({
+    queryKey: qk.quizzes,
+    queryFn: () => api.get<QuizListItem[]>("/quizzes"),
+    enabled: authed(),
+  });
 }
 
 export function useQuiz(id: string | undefined) {
@@ -100,9 +102,21 @@ export function useQuiz(id: string | undefined) {
 export function useCreateQuiz() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (q: QuizDetail) => api.post<{ id: string }>("/quizzes", q),
+    mutationFn: (quiz: QuizDetail) => api.post<{ id: string }>("/quizzes", quiz),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.quizzes });
+      void qc.invalidateQueries({ queryKey: qk.dashboard });
+    },
+  });
+}
+
+export function useUpdateQuiz() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (q: QuizDetail) => api.put<{ id: string }>(`/quizzes/${q.id}`, q),
+    onSuccess: (_d, q) => {
+      void qc.invalidateQueries({ queryKey: qk.quizzes });
+      void qc.invalidateQueries({ queryKey: qk.quiz(q.id) });
       void qc.invalidateQueries({ queryKey: qk.dashboard });
     },
   });
@@ -160,7 +174,12 @@ export function useJoinRoom() {
 export function useSubmitAnswer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { roomId: string; participantId: string; questionId: string; optionIndex: number }) =>
+    mutationFn: (v: {
+      roomId: string;
+      participantId: string;
+      questionId: string;
+      optionIndex: number;
+    }) =>
       api.post<AnswerReceipt>(`/rooms/${v.roomId}/answer`, {
         participantId: v.participantId,
         questionId: v.questionId,
@@ -206,23 +225,24 @@ export function useRedeem() {
   });
 }
 
-// ---- Realtime ----
-
 export interface WsEvent<T = unknown> {
   type: string;
   data: T;
 }
 
-const WS_BASE = () => {
+function wsBase(): string {
   const base = import.meta.env.VITE_API_BASE ?? "/api";
-  const wsBase = base.startsWith("http")
-    ? base.replace(/^http/, "ws").replace(/\/api$/, "")
-    : `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
-  return wsBase;
-};
+  if (base.startsWith("http")) {
+    return base.replace(/^http/, "ws").replace(/\/api$/, "");
+  }
+  return `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
+}
 
 /** Subscribes to a room's websocket and returns the latest event + connection state. */
-export function useRoomSocket(roomId: string | undefined) {
+export function useRoomSocket(roomId: string | undefined): {
+  event: WsEvent | null;
+  connected: boolean;
+} {
   const [event, setEvent] = useState<WsEvent | null>(null);
   const [connected, setConnected] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -236,11 +256,11 @@ export function useRoomSocket(roomId: string | undefined) {
 
     const open = () => {
       if (closed) return;
-      ws = new WebSocket(`${WS_BASE()}/api/rooms/${roomId}/ws`);
+      ws = new WebSocket(`${wsBase()}/api/rooms/${roomId}/ws`);
       ws.onopen = () => setConnected(true);
       ws.onmessage = (m) => {
         try {
-          const j = JSON.parse(m.data as string);
+          const j = JSON.parse(m.data as string) as WsEvent;
           setEvent(j);
         } catch {
           /* ignore malformed frame */
@@ -252,11 +272,10 @@ export function useRoomSocket(roomId: string | undefined) {
       };
       ws.onerror = () => ws?.close();
     };
-    // Defer one tick so React StrictMode's dev double-mount cleanup (which
-    // runs synchronously after the first effect) happens before any socket is
-    // opened. Without this, the phantom first socket is closed mid-handshake
-    // and the browser logs "closed before the connection is established".
+    // Defer one tick so StrictMode's double-mount cleanup happens before a
+    // socket is opened (avoids "closed before the connection was established").
     openTimer = setTimeout(open, 0);
+
     return () => {
       closed = true;
       clearTimeout(openTimer);

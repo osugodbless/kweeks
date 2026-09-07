@@ -1,84 +1,99 @@
-import { cn } from "@/lib/cn";
 import { NavLink } from "react-router-dom";
+import { FileQuestion, History, LayoutDashboard, LogOut, Wallet } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { naira } from "@/lib/player";
+import { cn } from "@/lib/cn";
+import { Money } from "@/components/ui/money";
+import { InstructorAvatar } from "@/components/ui/avatar";
+import { Chip } from "@/components/ui/chip";
 
-export const INSTRUCTOR_LINKS = [
-  { label: "Dashboard", to: "/instructor/dashboard", activeKey: "dashboard" },
-  { label: "Create quiz", to: "/instructor/quiz-builder", activeKey: "create" },
-  { label: "History", to: "/instructor/history", activeKey: "history" },
+const NAV = [
+  { label: "Dashboard", to: "/instructor/dashboard", Icon: LayoutDashboard },
+  { label: "Create quiz", to: "/instructor/quiz-builder", Icon: FileQuestion },
+  { label: "History", to: "/instructor/history", Icon: History },
 ];
 
-export function InstructorNav({
-  activeKey,
-  right,
-  liveLabel,
-}: {
-  activeKey?: string;
-  right?: React.ReactNode;
-  liveLabel?: string;
-}) {
+export function InstructorNav({ active }: { active?: string }) {
+  const { instructor, wallet, logout } = useAuth();
+
   return (
-    <header className="flex h-16 w-full shrink-0 items-center justify-between bg-surface px-7">
-      <div className="flex items-center gap-2">
-        <span className="font-display text-[22px] font-extrabold text-paper">KWEEKS</span>
-        {liveLabel && (
-          <span className="ml-1 inline-flex items-center gap-[5px] rounded-full bg-surface px-2.5 py-1">
-            <span className="h-2 w-2 rounded-full bg-red" />
-            <span className="font-body text-[11px] font-bold tracking-widest text-red">
-              {liveLabel}
+    <header className="sticky top-0 z-50 border-b border-ink/5 bg-canvas/85 backdrop-blur-md">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+        <div className="flex items-center gap-5">
+          <NavLink to="/instructor/dashboard" className="flex items-center gap-2.5">
+            <span className="grid size-9 place-items-center rounded-xl bg-ink text-cream">
+              <Wallet className="size-5" strokeWidth={2.5} />
             </span>
-          </span>
-        )}
-        <nav className="ml-5 flex items-center gap-1">
-          {INSTRUCTOR_LINKS.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              className={cn(
-                "rounded-full px-[13px] py-[9px] font-body text-[13px] font-bold transition-colors",
-                activeKey === l.activeKey
-                  ? "bg-surface-2 text-gold"
-                  : "bg-surface text-text-2 hover:text-paper",
-              )}
-            >
-              {l.label}
-            </NavLink>
-          ))}
-        </nav>
+            <span className="hidden font-display text-2xl font-semibold tracking-tight sm:block">
+              kweeks<span className="text-coral">.</span>
+            </span>
+          </NavLink>
+
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Instructor navigation">
+            {NAV.map(({ label, to, Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-colors",
+                    isActive || active === to
+                      ? "bg-violet text-white"
+                      : "text-soft hover:bg-ink/5 hover:text-ink",
+                  )
+                }
+              >
+                <Icon className="size-4" strokeWidth={2.5} />
+                {label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <div className="hidden items-center gap-2 rounded-full border border-mint/30 bg-mint/10 py-1.5 pl-3 pr-4 sm:flex">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-mint-dark">Wallet</span>
+            <Money value={wallet?.balanceNaira ?? "0"} className="text-sm" />
+          </div>
+          {instructor && (
+            <div className="flex items-center gap-2.5">
+              <InstructorAvatar name={instructor.name} className="size-9" />
+              <button
+                type="button"
+                onClick={logout}
+                aria-label="Sign out"
+                title="Sign out"
+                className="grid size-9 cursor-pointer place-items-center rounded-full border-2 border-ink/10 bg-cream text-soft transition-colors hover:border-coral hover:text-coral"
+              >
+                <LogOut className="size-4" strokeWidth={2.5} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-3.5">{right}</div>
+
+      <div className="border-t border-ink/5 md:hidden">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-4 py-2 sm:px-6">
+          <nav className="flex items-center gap-1">
+            {NAV.map(({ label, to }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  cn(
+                    "rounded-full px-3 py-1.5 text-xs font-bold",
+                    isActive || active === to ? "bg-violet text-white" : "text-soft",
+                  )
+                }
+              >
+                {label}
+              </NavLink>
+            ))}
+          </nav>
+          <Chip tone="mint">
+            <Money value={wallet?.balanceNaira ?? "0"} className="text-xs" />
+          </Chip>
+        </div>
+      </div>
     </header>
-  );
-}
-
-export function NavRight({ amount, center, initials }: { amount?: string; center?: React.ReactNode; initials?: string }) {
-  const wallet = useAuth((s) => s.wallet);
-  const instructor = useAuth((s) => s.instructor);
-  const shown = amount ?? (wallet ? naira(wallet.balanceNaira) : "₦0");
-  const avatar = initials ?? instructor?.avatar ?? "AP";
-  return (
-    <div className="flex items-center gap-3.5">
-      {center}
-      <div className="flex items-center gap-1 rounded-full bg-surface-2 px-3 py-2">
-        <span className="font-body text-[11px] font-bold tracking-widest text-text-3">WALLET</span>
-        <span className="font-display text-[15px] font-extrabold text-naira">{shown}</span>
-      </div>
-      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2">
-        <span className="font-body text-[13px] font-extrabold text-violet">{avatar}</span>
-      </div>
-    </div>
-  );
-}
-
-export function InstructorFooter() {
-  return (
-    <footer className="w-full border-t border-stroke bg-bg">
-      <div className="mx-auto flex h-[44px] w-full max-w-[1180px] items-center justify-between px-6">
-        <span className="font-body text-[12px] text-text-3">© 2026 Kweeks</span>
-        <span className="font-body text-[12px] text-text-3">Live money quiz · NGN</span>
-        <span className="font-body text-[12px] text-text-3">Support · Terms · Privacy</span>
-      </div>
-    </footer>
   );
 }
