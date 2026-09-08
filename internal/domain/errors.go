@@ -38,6 +38,7 @@ var (
 var (
 	ErrEmailTaken          = errors.New("email already registered")
 	ErrBadCredentials      = errors.New("invalid email or password")
+	ErrBadPhone            = errors.New("enter a valid phone number (E.164, e.g. +2348012345678)")
 	ErrSessionExpired      = errors.New("session expired")
 	ErrInsufficientBalance = errors.New("insufficient wallet balance")
 	ErrRoomCodeTaken       = errors.New("room code already in use")

@@ -135,7 +135,7 @@ func writeErr(w http.ResponseWriter, err error) {
 		errors.Is(err, domain.ErrCorrectOptionInvalid), errors.Is(err, domain.ErrInvalidWinnerCount),
 		errors.Is(err, domain.ErrInvalidPacing), errors.Is(err, domain.ErrClaimExists),
 		errors.Is(err, domain.ErrNoWinners), errors.Is(err, domain.ErrDuplicateParticipant),
-		errors.Is(err, domain.ErrInvalidTransition):
+		errors.Is(err, domain.ErrInvalidTransition), errors.Is(err, domain.ErrBadPhone):
 		code = http.StatusBadRequest
 	}
 	writeJSON(w, code, map[string]string{"error": err.Error()})

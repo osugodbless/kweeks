@@ -35,7 +35,7 @@ export function InstructorSignup() {
       return;
     }
     if (!PHONE_RE.test(phone.trim())) {
-      setError("Enter your phone number (E.164, e.g. +2348012345678).");
+      setError("Enter a valid phone number (e.g. +2348012345678 or 08012345678).");
       return;
     }
     if (password.length < 6) {

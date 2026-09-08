@@ -14,10 +14,14 @@ Non-2xx returns `{"error": "..."}`. 401 = not authed, 403 = forbidden,
 
 ### POST /api/auth/signup
 Body: `{"name":"Adeola Peters","email":"host@kweeks.ng","phone":"+2348012345678","password":"secret"}`
-Creates the instructor AND issues a NGN wallet immediately. `phone` is the
-host's own E.164 number and becomes their distinct BMONI user identity, so two
-hosts never share a wallet. Optional but strongly recommended; without it a
-deterministic unique phone is derived at provisioning.
+Creates the instructor AND issues a NGN wallet immediately. `phone` is
+optional but strongly recommended; it is the host's own number, normalized
+server-side to E.164 (any of `+2348012345678`, `2348012345678`, `08012345678`,
+`8012345678` are accepted) and becomes their distinct BMONI user identity, so
+two hosts never share a wallet. Without a phone a deterministic unique phone
+is derived at provisioning. An unparseable phone returns 400 `{"error":"enter
+a valid phone number (E.164, e.g. +2348012345678)"}` — never the 401
+"invalid email or password".
 Returns: `{"token":"...","instructor":{"id","name","email","phone","avatar"},"wallet":{"id":"kweeks_ngn_8f2c1a","balanceNaira":"150000"}}`
 
 ### POST /api/auth/login

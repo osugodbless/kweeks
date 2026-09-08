@@ -70,12 +70,19 @@ type SignupResult struct {
 func (a *Auth) Signup(ctx context.Context, name, email, phone, password string) (*SignupResult, error) {
 	name = strings.TrimSpace(name)
 	email = strings.TrimSpace(strings.ToLower(email))
-	phone = strings.TrimSpace(phone)
 	if name == "" || !strings.Contains(email, "@") || len(password) < 6 {
 		return nil, domain.ErrBadCredentials
 	}
-	if phone != "" && !strings.HasPrefix(phone, "+") {
-		return nil, domain.ErrBadCredentials
+	// The phone becomes the host's BMONI user identity, so it must be a real
+	// E.164 number. Accept whatever everyday format the host types (080...,
+	// 234..., +234 ...) and normalize it; never hide a bad phone behind the
+	// generic "invalid email or password".
+	if phone = strings.TrimSpace(phone); phone != "" {
+		normalized, err := domain.NormalizePhone(phone)
+		if err != nil {
+			return nil, err
+		}
+		phone = normalized
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
