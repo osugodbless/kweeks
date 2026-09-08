@@ -59,6 +59,7 @@ func bearerToken(r *http.Request) string {
 type credentialsReq struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
+	Phone    string `json:"phone"`
 	Password string `json:"password"`
 }
 
@@ -68,7 +69,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, domain.ErrBadCredentials)
 		return
 	}
-	res, err := s.auth.Signup(r.Context(), req.Name, req.Email, req.Password)
+	res, err := s.auth.Signup(r.Context(), req.Name, req.Email, req.Phone, req.Password)
 	if err != nil {
 		writeErr(w, err)
 		return
@@ -95,7 +96,8 @@ func (s *Server) writeAuthResult(w http.ResponseWriter, res *app.SignupResult) {
 		"token": res.Token,
 		"instructor": map[string]any{
 			"id": res.Instructor.ID, "name": res.Instructor.Name,
-			"email": res.Instructor.Email, "avatar": res.Instructor.Avatar,
+			"email": res.Instructor.Email, "phone": res.Instructor.Phone,
+			"avatar": res.Instructor.Avatar,
 		},
 		"wallet": walletJSON(res.Wallet),
 	})
@@ -110,7 +112,8 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"instructor": map[string]any{
 			"id": instructor.ID, "name": instructor.Name,
-			"email": instructor.Email, "avatar": instructor.Avatar,
+			"email": instructor.Email, "phone": instructor.Phone,
+			"avatar": instructor.Avatar,
 		},
 		"wallet": walletJSON(wallet),
 	})

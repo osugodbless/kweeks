@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Lock, Mail, ShieldCheck, UserPlus, UserRound } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, Phone, ShieldCheck, UserPlus, UserRound } from "lucide-react";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AuthShell } from "@/components/ui/auth";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const PHONE_RE = /^\+?\d{10,15}$/;
 
 export function InstructorSignup() {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ export function InstructorSignup() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -32,6 +34,10 @@ export function InstructorSignup() {
       setError("Enter a valid email address.");
       return;
     }
+    if (!PHONE_RE.test(phone.trim())) {
+      setError("Enter your phone number (E.164, e.g. +2348012345678).");
+      return;
+    }
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
@@ -39,7 +45,7 @@ export function InstructorSignup() {
 
     setSubmitting(true);
     try {
-      await signup(name.trim(), email.trim().toLowerCase(), password);
+      await signup(name.trim(), email.trim().toLowerCase(), phone.trim(), password);
       navigate("/instructor/dashboard", { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Sign up failed — try again.");
@@ -49,7 +55,7 @@ export function InstructorSignup() {
   }
 
   return (
-    <AuthShell tagline="Your wallet is issued at signup">
+    <AuthShell tagline="Your own wallet is issued at signup">
       <div
         className="rounded-[2rem] border-2 border-ink/5 bg-cream p-7 card-3d sm:p-9"
         style={{ animation: "rise 0.6s cubic-bezier(0.16,1,0.3,1) both" }}
@@ -79,6 +85,17 @@ export function InstructorSignup() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             autoComplete="email"
+            spellCheck="false"
+          />
+          <Field
+            name="phone"
+            label="Phone number"
+            type="tel"
+            icon={<Phone className="size-5" />}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, "").slice(0, 16))}
+            placeholder="+2348012345678"
+            autoComplete="tel"
             spellCheck="false"
           />
           <Field
@@ -126,7 +143,8 @@ export function InstructorSignup() {
       </div>
 
       <p className="mt-6 text-center text-xs leading-relaxed text-soft">
-        Host accounts are free. Players always play free. By continuing you agree to the platform rules.
+        Host accounts are free. Players always play free. Your phone number is your private BMONI
+        wallet identity — it is never shared with players.
       </p>
     </AuthShell>
   );

@@ -2,7 +2,10 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -56,10 +59,12 @@ func (w *Wallet) PersonaConfigured() bool {
 // records the external ids on their wallet row. Idempotent: a wallet that is
 // already provisioned is left untouched.
 //
-// The BMONI user is created with the instructor's own email (so each host has
-// a distinct account) and the persona's name/phone/BVN (so sandbox KYC
-// verification matches). A 409 from a prior successful create is recovered by
-// searching the partner's users for the persona phone or the instructor email.
+// Every instructor provisions a DISTINCT BMONI user: the BMONI user is created
+// with the instructor's own email + phone (falling back to a deterministic
+// unique phone derived from their id) and the persona's name/BVN/DOB/address so
+// sandbox KYC verification matches. The shared persona phone must never be used
+// for create-user, or every signup on a shared key resolves to the first
+// user's BMONI identity and all wallets share one money identity.
 func (w *Wallet) Provision(ctx context.Context, instructorID string) (*domain.Wallet, error) {
 	if w.money == nil {
 		return nil, errors.New("wallet provisioning unavailable: money rail not configured")
@@ -74,11 +79,16 @@ func (w *Wallet) Provision(ctx context.Context, instructorID string) (*domain.Wa
 	if wallet.BmoniUserID != "" {
 		return wallet, nil // already provisioned
 	}
-	// Use the instructor's own email for the BMONI user so repeated signups
-	// never collide on a fixed persona email.
 	persona := w.persona
-	if instructor, err := w.store.GetInstructor(ctx, instructorID); err == nil && instructor.Email != "" {
-		persona.Email = instructor.Email
+	if instructor, err := w.store.GetInstructor(ctx, instructorID); err == nil {
+		if instructor.Email != "" {
+			persona.Email = instructor.Email
+		}
+		if instructor.Phone != "" {
+			persona.Phone = instructor.Phone
+		} else {
+			persona.Phone = uniquePhoneFor(instructor.ID)
+		}
 	}
 	ext, err := w.money.Provision(ctx, persona)
 	if err != nil {
@@ -88,6 +98,15 @@ func (w *Wallet) Provision(ctx context.Context, instructorID string) (*domain.Wa
 		return nil, err
 	}
 	return w.store.GetWalletByInstructor(ctx, instructorID)
+}
+
+// uniquePhoneFor derives a deterministic E.164 phone from an instructor id so
+// repeated provisioning of the same instructor reuses the same BMONI user while
+// different instructors never collide on the shared persona phone.
+func uniquePhoneFor(instructorID string) string {
+	h := sha256.Sum256([]byte("kweeks-phone:" + instructorID))
+	n := binary.BigEndian.Uint64(h[:8]) % 1000000000
+	return fmt.Sprintf("+2347%09d", n)
 }
 
 // Fund credits an instructor's wallet. The `credit` method is the instant

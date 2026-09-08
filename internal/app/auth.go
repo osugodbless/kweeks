@@ -64,11 +64,17 @@ type SignupResult struct {
 	ProvisionErr error
 }
 
-// Signup creates an instructor and immediately issues a NGN wallet.
-func (a *Auth) Signup(ctx context.Context, name, email, password string) (*SignupResult, error) {
+// Signup creates an instructor and immediately issues a NGN wallet. phone is
+// the host's own E.164 number; it becomes their BMONI user identity so every
+// host provisions a distinct wallet (never the shared persona phone).
+func (a *Auth) Signup(ctx context.Context, name, email, phone, password string) (*SignupResult, error) {
 	name = strings.TrimSpace(name)
 	email = strings.TrimSpace(strings.ToLower(email))
+	phone = strings.TrimSpace(phone)
 	if name == "" || !strings.Contains(email, "@") || len(password) < 6 {
+		return nil, domain.ErrBadCredentials
+	}
+	if phone != "" && !strings.HasPrefix(phone, "+") {
 		return nil, domain.ErrBadCredentials
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -79,6 +85,7 @@ func (a *Auth) Signup(ctx context.Context, name, email, password string) (*Signu
 		ID:           newID(),
 		Name:         name,
 		Email:        email,
+		Phone:        phone,
 		PasswordHash: string(hash),
 		Avatar:       initials(name),
 		CreatedAt:    a.nowTime(),

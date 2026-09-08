@@ -537,9 +537,9 @@ func (s *Store) ListClaimsByQuizIDs(ctx context.Context, quizIDs []string) ([]do
 
 func (s *Store) CreateInstructor(ctx context.Context, i *domain.Instructor) error {
 	_, err := s.pool.Exec(ctx, `
-		insert into instructors (id, name, email, password_hash, avatar, created_at)
-		values ($1,$2,$3,$4,$5,$6)`,
-		i.ID, i.Name, i.Email, i.PasswordHash, i.Avatar, i.CreatedAt)
+		insert into instructors (id, name, email, phone, password_hash, avatar, created_at)
+		values ($1,$2,$3,$4,$5,$6,$7)`,
+		i.ID, i.Name, i.Email, i.Phone, i.PasswordHash, i.Avatar, i.CreatedAt)
 	if isUniqueViolation(err) {
 		return domain.ErrEmailTaken
 	}
@@ -548,7 +548,7 @@ func (s *Store) CreateInstructor(ctx context.Context, i *domain.Instructor) erro
 
 func scanInstructor(row pgx.Row) (*domain.Instructor, error) {
 	var i domain.Instructor
-	if err := row.Scan(&i.ID, &i.Name, &i.Email, &i.PasswordHash, &i.Avatar, &i.CreatedAt); err != nil {
+	if err := row.Scan(&i.ID, &i.Name, &i.Email, &i.Phone, &i.PasswordHash, &i.Avatar, &i.CreatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrInstructorNotFound
 		}
@@ -559,13 +559,13 @@ func scanInstructor(row pgx.Row) (*domain.Instructor, error) {
 
 func (s *Store) GetInstructorByEmail(ctx context.Context, email string) (*domain.Instructor, error) {
 	return scanInstructor(s.pool.QueryRow(ctx, `
-		select id, name, email, password_hash, avatar, created_at
+		select id, name, email, phone, password_hash, avatar, created_at
 		from instructors where email=$1`, email))
 }
 
 func (s *Store) GetInstructor(ctx context.Context, id string) (*domain.Instructor, error) {
 	return scanInstructor(s.pool.QueryRow(ctx, `
-		select id, name, email, password_hash, avatar, created_at
+		select id, name, email, phone, password_hash, avatar, created_at
 		from instructors where id=$1`, id))
 }
 

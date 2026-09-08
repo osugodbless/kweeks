@@ -13,9 +13,12 @@ Non-2xx returns `{"error": "..."}`. 401 = not authed, 403 = forbidden,
 ## Auth (instructor, multi-user)
 
 ### POST /api/auth/signup
-Body: `{"name":"Adeola Peters","email":"host@kweeks.ng","password":"secret"}`
-Creates the instructor AND issues a NGN wallet immediately.
-Returns: `{"token":"...","instructor":{"id","name","email","avatar"},"wallet":{"id":"kweeks_ngn_8f2c1a","balanceNaira":"150000"}}`
+Body: `{"name":"Adeola Peters","email":"host@kweeks.ng","phone":"+2348012345678","password":"secret"}`
+Creates the instructor AND issues a NGN wallet immediately. `phone` is the
+host's own E.164 number and becomes their distinct BMONI user identity, so two
+hosts never share a wallet. Optional but strongly recommended; without it a
+deterministic unique phone is derived at provisioning.
+Returns: `{"token":"...","instructor":{"id","name","email","phone","avatar"},"wallet":{"id":"kweeks_ngn_8f2c1a","balanceNaira":"150000"}}`
 
 ### POST /api/auth/login
 Body: `{"email","password"}` → same shape as signup.
@@ -149,10 +152,12 @@ Frontend refetches the matching REST resource on each event for the authoritativ
 ## Notes / decisions
 - Wallet is a real instructor-scoped ledger. At signup the host gets a real
   BMONI user + CNGN smart wallet + NGN rail (create-user → KYC → owner-proof →
-  create-managed → start-nigeria). `credit` funding is the instant local-ledger
-  credit used by the demo; production funding happens by bank-transferring to
-  the host's NGN virtual bank account (`GET /api/wallet/deposit`), which BMONI
-  credits to the wallet.
+  create-managed → start-nigeria). Each instructor provisions a DISTINCT BMONI
+  user using their own email + phone (never the shared persona phone), so no
+  two hosts share a money identity. `credit` funding is the instant
+  local-ledger credit used by the demo; production funding happens by
+  bank-transferring to the host's NGN virtual bank account
+  (`GET /api/wallet/deposit`), which BMONI credits to the wallet.
 - Winners are paid by the host wallet via the BMONI offramp (verify → register
   → offramp → approve → sign), not by a pre-provisioned persona. The claim code
   is emailed immediately and is the only capability that authorizes the payout.

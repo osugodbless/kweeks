@@ -8,6 +8,7 @@ type Instructor struct {
 	ID           string    `json:"id"`
 	Name         string    `json:"name"`
 	Email        string    `json:"email"`
+	Phone        string    `json:"phone,omitempty"` // E.164; the host's own BMONI user identity
 	PasswordHash string    `json:"-"`
 	Avatar       string    `json:"avatar"`
 	CreatedAt    time.Time `json:"createdAt"`
