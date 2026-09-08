@@ -171,6 +171,15 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
     setStep(3);
   }
 
+  // Finishing verification submits the KYC profile (PATCH /kyc) regardless of
+  // whether documents were uploaded — the NGN rail verifies by BVN.
+  async function finishVerification() {
+    await submitKYC.mutateAsync(kyc);
+    setBvn(kyc.bvn);
+    setStep(4);
+    void refetch();
+  }
+
   // Step 3: upload the required documents (with their metadata), then submit
   // the KYC profile (strict submit order: documents → PATCH /kyc).
   async function handleSubmitDocs(event: FormEvent) {
@@ -189,12 +198,21 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
         documentNumber: idDocNumber.trim(), issuingCountry: "NGA",
       });
       await uploadKYC.mutateAsync({ kind: "proof-of-address", file: poaFile!, type: poaDocType });
-      await submitKYC.mutateAsync(kyc);
-      setBvn(kyc.bvn);
-      setStep(4);
-      void refetch();
+      await finishVerification();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not submit your documents — try again.");
+    }
+  }
+
+  // The NGN rail verifies by BVN and activates without documents (the sandbox
+  // rejects document uploads for freshly created NGN-only accounts). Offer an
+  // explicit skip so the host is never blocked.
+  async function handleSkipDocs() {
+    setError("");
+    try {
+      await finishVerification();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not submit your identity — try again.");
     }
   }
 
@@ -449,14 +467,23 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
           </div>
         )}
 
-        {/* Step 3: Upload documents (required, before PATCH /kyc) */}
+        {/* Step 3: Upload documents (before PATCH /kyc) */}
         {!done && activeStep === 3 && railOn && !needsUser && (
           <form onSubmit={handleSubmitDocs} noValidate className="space-y-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-soft">Step 3 · Upload your documents</p>
               <p className="mt-1 text-sm leading-relaxed text-soft">
-                Both documents are required and are uploaded before your identity profile is
-                submitted for verification.
+                Add your identification and proof of address to complete full verification. The
+                NGN rail itself verifies by BVN, so this step can be skipped.
+              </p>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-2xl border-2 border-gold/30 bg-gold/10 p-4">
+              <FileCheck className="mt-0.5 size-5 shrink-0 text-gold-dark" />
+              <p className="text-sm leading-relaxed text-ink">
+                <span className="font-bold">Need documents?</span> The NGN rail activates by BVN
+                alone. Uploading documents is optional for it; they are required only if you later
+                add USD / international verification.
               </p>
             </div>
 
@@ -525,10 +552,16 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
             )}
 
             <Button type="submit" variant="violet" size="lg" loading={submitting} icon={<ShieldCheck className="size-5" />} disabled={docsMissing && !submitting} className="w-full">
-              {submitting ? "Submitting…" : "Submit documents & finish verification"}
+              {submitting ? "Submitting…" : "Upload documents & finish verification"}
             </Button>
-            {docsMissing && (
-              <p className="text-center text-xs font-bold text-soft">Add both documents to continue.</p>
+            {docsMissing && !submitting && (
+              <button
+                type="button"
+                onClick={() => void handleSkipDocs()}
+                className="w-full cursor-pointer text-center text-sm font-bold text-violet underline-offset-2 hover:text-violet-dark hover:underline"
+              >
+                Continue without documents — NGN activates by BVN
+              </button>
             )}
           </form>
         )}
