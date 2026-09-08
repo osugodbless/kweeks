@@ -36,14 +36,24 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (tok) headers.Authorization = `Bearer ${tok}`;
 
   let payload: string | undefined;
+  let isFormData = false;
   if (body !== undefined) {
-    headers["Content-Type"] = "application/json";
-    payload = JSON.stringify(body);
+    if (body instanceof FormData) {
+      // Let the browser set the multipart boundary; do not set Content-Type.
+      isFormData = true;
+    } else {
+      headers["Content-Type"] = "application/json";
+      payload = JSON.stringify(body);
+    }
   }
 
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, { method, headers, body: payload });
+    res = await fetch(`${BASE}${path}`, {
+      method,
+      headers,
+      body: isFormData ? (body as FormData) : payload,
+    });
   } catch {
     throw new ApiError(0, "Network error — is the kweeks backend running on :8080?");
   }
@@ -83,8 +93,34 @@ export interface Wallet {
   id: string;
   balanceNaira: string;
   bmoniUserId?: string;
+  bmoniKycSubmitted?: boolean;
   bmoniWalletId?: string;
   bmoniWalletAddress?: string;
+  bmoniRailActive?: boolean;
+}
+
+export type WalletSetupStage = "unprovisioned" | "kyc" | "wallet" | "rail" | "ready";
+
+export interface WalletSetup {
+  stage: WalletSetupStage;
+  bmoniUserId: string;
+  kycSubmitted: boolean;
+  bmoniWalletId: string;
+  bmoniWalletAddress: string;
+  railActive: boolean;
+  depositAccount: { accountNumber: string; bankName: string };
+}
+
+export interface KYCInput {
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  gender: string;
+  bvn: string;
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
 }
 
 export interface AuthResult {

@@ -462,6 +462,51 @@ func (s *Store) SetWalletBmoni(ctx context.Context, walletID string, external *d
 	return nil
 }
 
+func (s *Store) SetWalletBmoniUser(ctx context.Context, walletID, userID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	w, ok := s.wallets[walletID]
+	if !ok {
+		return domain.ErrWalletNotFound
+	}
+	w.BmoniUserID = userID
+	return nil
+}
+
+func (s *Store) SetWalletKYC(ctx context.Context, walletID string, submitted bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	w, ok := s.wallets[walletID]
+	if !ok {
+		return domain.ErrWalletNotFound
+	}
+	w.BmoniKYCSubmitted = submitted
+	return nil
+}
+
+func (s *Store) SetWalletBmoniWallet(ctx context.Context, walletID, walletIDExt, addr string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	w, ok := s.wallets[walletID]
+	if !ok {
+		return domain.ErrWalletNotFound
+	}
+	w.BmoniWalletID = walletIDExt
+	w.BmoniWalletAddr = addr
+	return nil
+}
+
+func (s *Store) SetWalletRailActive(ctx context.Context, walletID string, active bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	w, ok := s.wallets[walletID]
+	if !ok {
+		return domain.ErrWalletNotFound
+	}
+	w.BmoniRailActive = active
+	return nil
+}
+
 func (s *Store) ListClaimsByQuizIDs(ctx context.Context, quizIDs []string) ([]domain.Claim, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -167,22 +168,159 @@ func (s *Server) handleFundWallet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"wallet": walletJSON(wallet)})
 }
 
-func (s *Server) handleProvisionWallet(w http.ResponseWriter, r *http.Request) {
+// handleWalletSetup reports where the wallet is in the strict provisioning
+// flow and what the wizard should ask for next.
+func (s *Server) handleWalletSetup(w http.ResponseWriter, r *http.Request) {
 	if s.wallet == nil {
-		writeErr(w, errors.New("wallet rail not configured on this server"))
+		writeErr(w, errors.New("wallet service not configured"))
 		return
 	}
-	instructorID := instructorFrom(r)
-	if !s.wallet.PersonaConfigured() {
-		writeErr(w, errors.New("BMONI persona not configured — cannot provision a wallet"))
+	instructor, _, err := s.auth.Resolve(r.Context(), bearerToken(r))
+	if err != nil {
+		writeErr(w, err)
 		return
 	}
-	wallet, err := s.wallet.Provision(r.Context(), instructorID)
+	st, err := s.wallet.SetupStatus(r.Context(), instructor.ID)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"stage": st.Stage, "bmoniUserId": st.BmoniUserID,
+		"kycSubmitted": st.KYCSubmitted, "bmoniWalletId": st.BmoniWalletID,
+		"bmoniWalletAddress": st.BmoniWalletAddr, "railActive": st.RailActive,
+		"depositAccount": map[string]string{
+			"accountNumber": st.DepositAccountNumber, "bankName": st.DepositBank,
+		},
+	})
+}
+
+type kycReq struct {
+	FirstName   string `json:"firstName"`
+	LastName    string `json:"lastName"`
+	DateOfBirth string `json:"dateOfBirth"`
+	Gender      string `json:"gender"`
+	BVN         string `json:"bvn"`
+	Street      string `json:"street"`
+	City        string `json:"city"`
+	State       string `json:"state"`
+	PostalCode  string `json:"postalCode"`
+}
+
+// handleSubmitKYC submits the host's KYC profile (strict flow step 2).
+func (s *Server) handleSubmitKYC(w http.ResponseWriter, r *http.Request) {
+	if s.wallet == nil {
+		writeErr(w, errors.New("wallet service not configured"))
+		return
+	}
+	instructor, _, err := s.auth.Resolve(r.Context(), bearerToken(r))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	var req kycReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, domain.ErrBadCredentials)
+		return
+	}
+	wallet, err := s.wallet.SubmitKYC(r.Context(), instructor.ID, domain.KYCProfile{
+		FirstName: req.FirstName, LastName: req.LastName, DateOfBirth: req.DateOfBirth,
+		Gender: req.Gender, BVN: req.BVN, Street: req.Street,
+		City: req.City, State: req.State, PostalCode: req.PostalCode,
+	})
 	if err != nil {
 		writeErr(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"wallet": walletJSON(wallet)})
+}
+
+// handleCreateWallet provisions the CNGN smart wallet (strict flow steps 3-4).
+func (s *Server) handleCreateWallet(w http.ResponseWriter, r *http.Request) {
+	if s.wallet == nil {
+		writeErr(w, errors.New("wallet service not configured"))
+		return
+	}
+	instructor, _, err := s.auth.Resolve(r.Context(), bearerToken(r))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	wallet, err := s.wallet.CreateWallet(r.Context(), instructor.ID)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"wallet": walletJSON(wallet)})
+}
+
+type activateRailReq struct {
+	BVN string `json:"bvn"`
+}
+
+// handleActivateRail activates the NGN rail (strict flow step 5).
+func (s *Server) handleActivateRail(w http.ResponseWriter, r *http.Request) {
+	if s.wallet == nil {
+		writeErr(w, errors.New("wallet service not configured"))
+		return
+	}
+	instructor, _, err := s.auth.Resolve(r.Context(), bearerToken(r))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	var req activateRailReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, domain.ErrBadCredentials)
+		return
+	}
+	wallet, err := s.wallet.ActivateRail(r.Context(), instructor.ID, req.BVN)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"wallet": walletJSON(wallet)})
+}
+
+// handleUploadKYC forwards a KYC document image (identification /
+// proof-of-address / biometric) to the rail.
+func (s *Server) handleUploadKYC(w http.ResponseWriter, r *http.Request) {
+	if s.wallet == nil {
+		writeErr(w, errors.New("wallet service not configured"))
+		return
+	}
+	kind := r.PathValue("kind")
+	switch kind {
+	case "identification", "proof-of-address", "biometric":
+	default:
+		writeErr(w, domain.ErrBadCredentials)
+		return
+	}
+	instructor, _, err := s.auth.Resolve(r.Context(), bearerToken(r))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	if err := r.ParseMultipartForm(6 << 20); err != nil {
+		writeErr(w, errors.New("upload a document image (JPEG/PNG)"))
+		return
+	}
+	file, hdr, err := r.FormFile("file")
+	if err != nil {
+		writeErr(w, errors.New("upload a document image (JPEG/PNG)"))
+		return
+	}
+	defer file.Close()
+	data := make([]byte, hdr.Size)
+	if _, err := io.ReadFull(file, data); err != nil {
+		writeErr(w, errors.New("could not read the uploaded document"))
+		return
+	}
+	if err := s.wallet.UploadKYC(r.Context(), instructor.ID, kind, data, hdr.Filename); err != nil {
+		writeErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // handleDepositAccount returns the host's NGN virtual bank account (number +
@@ -211,8 +349,9 @@ func walletJSON(w *domain.Wallet) map[string]any {
 	}
 	return map[string]any{
 		"id": w.ID, "balanceNaira": w.Balance.DisplayString(),
-		"bmoniUserId": w.BmoniUserID, "bmoniWalletId": w.BmoniWalletID,
-		"bmoniWalletAddress": w.BmoniWalletAddr,
+		"bmoniUserId": w.BmoniUserID, "bmoniKycSubmitted": w.BmoniKYCSubmitted,
+		"bmoniWalletId": w.BmoniWalletID, "bmoniWalletAddress": w.BmoniWalletAddr,
+		"bmoniRailActive": w.BmoniRailActive,
 	}
 }
 

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -18,11 +16,15 @@ const (
 	knownDigest     = "8f5156823a5c2cdc7bedc12253e49e4946c6fff0273034eb485750035d21ad31"
 )
 
-func testPersona() domain.BmoniPersona {
-	return domain.BmoniPersona{
-		FirstName: "Samson", LastName: "Jabo", Email: "samson@example.com",
-		Phone: "+2348000000001", BVN: "22222222222", DOB: "1990-01-15",
-		Address: "15 Admiralty Way", City: "Lagos", State: "Lagos",
+func testIdentity() domain.UserIdentity {
+	return domain.UserIdentity{FirstName: "Samson", LastName: "Jabo", Email: "samson@example.com", Phone: "+2348000000001"}
+}
+
+func testKYC() domain.KYCProfile {
+	return domain.KYCProfile{
+		FirstName: "Samson", LastName: "Jabo", Phone: "+2348000000001",
+		DateOfBirth: "1990-01-15", Gender: "male", BVN: "22222222222",
+		Street: "15 Admiralty Way", City: "Lagos", State: "Lagos", PostalCode: "101241",
 	}
 }
 
@@ -37,7 +39,7 @@ func newMockRail(t *testing.T, handler func(w http.ResponseWriter, r *http.Reque
 		case strings.HasSuffix(r.URL.Path, "/v1/users") && r.Method == http.MethodPost:
 			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write([]byte(`{"user":{"bmoniUserId":"usr_demo_1"}}`))
-		case strings.HasSuffix(r.URL.Path, "/kyc"):
+		case strings.HasSuffix(r.URL.Path, "/kyc") && r.Method == http.MethodPatch:
 			_, _ = w.Write([]byte(`{}`))
 		case strings.HasSuffix(r.URL.Path, "/owner-proof-challenges"):
 			_, _ = w.Write([]byte(`{"challengeId":"ch_1","message":"please prove you own this key"}`))
@@ -45,10 +47,6 @@ func newMockRail(t *testing.T, handler func(w http.ResponseWriter, r *http.Reque
 			_, _ = w.Write([]byte(`{"id":"wal_1","currency":"NGN","walletAddress":"0xRecipientAddress","isActive":true}`))
 		case strings.HasSuffix(r.URL.Path, "/onboarding/start-nigeria"):
 			_, _ = w.Write([]byte(`{}`))
-		case strings.HasSuffix(r.URL.Path, "/smart-wallets/account/wallets"):
-			_, _ = w.Write([]byte(`[]`))
-		case strings.HasSuffix(r.URL.Path, "/onboarding/status"):
-			_, _ = w.Write([]byte(`{"status":"active"}`))
 		case strings.Contains(r.URL.Path, "/kyc/documents/"):
 			_, _ = w.Write([]byte(`{}`))
 		case strings.HasSuffix(r.URL.Path, "/bank-accounts/nigerian-banks"):
@@ -57,8 +55,6 @@ func newMockRail(t *testing.T, handler func(w http.ResponseWriter, r *http.Reque
 			_, _ = w.Write([]byte(`{"accountHolderName":"Jane Doe"}`))
 		case strings.HasSuffix(r.URL.Path, "/bank-accounts/withdrawal-accounts/nigeria"):
 			_, _ = w.Write([]byte(`{"id":"ba_1"}`))
-		case strings.HasSuffix(r.URL.Path, "/onramp/vba/nigeria"):
-			_, _ = w.Write([]byte(`{}`))
 		case strings.HasSuffix(r.URL.Path, "/bank-accounts/deposit-accounts/NGN"):
 			_, _ = w.Write([]byte(`{"accounts":[{"id":"vba_1","accountNumber":"0123456789","bankName":"Providus Bank","currency":"NGN","targetCurrency":"NGN"}]}`))
 		case strings.HasSuffix(r.URL.Path, "/offramp/nigeria"):
@@ -78,31 +74,68 @@ func newMockRail(t *testing.T, handler func(w http.ResponseWriter, r *http.Reque
 	return srv, c
 }
 
-func TestProvisionHappyPath(t *testing.T) {
+func TestCreateUser(t *testing.T) {
 	srv, c := newMockRail(t, nil)
 	defer srv.Close()
-
-	ext, err := c.Provision(context.Background(), testPersona())
-	if err != nil {
-		t.Fatalf("provision: %v", err)
-	}
-	if ext.UserID != "usr_demo_1" || ext.WalletID != "wal_1" || ext.Address != "0xRecipientAddress" {
-		t.Fatalf("provision result mismatch: %+v", ext)
+	userID, err := c.CreateUser(context.Background(), testIdentity())
+	if err != nil || userID != "usr_demo_1" {
+		t.Fatalf("create user: %v id=%q", err, userID)
 	}
 }
 
-func TestCreateUserConflictIsSurfaced(t *testing.T) {
+func TestCreateUserConflictRecoversExisting(t *testing.T) {
+	var gotBody map[string]string
 	srv, c := newMockRail(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusConflict)
-		_, _ = w.Write([]byte(`{"statusCode":409,"message":"User already exists with this phoneNumber","error":"Conflict"}`))
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/v1/users") && r.Method == http.MethodPost:
+			w.WriteHeader(http.StatusConflict)
+			_, _ = w.Write([]byte(`{"message":"User already exists with this phone","error":"Conflict","statusCode":409}`))
+		case strings.HasSuffix(r.URL.Path, "/v1/users") && r.Method == http.MethodGet:
+			_ = json.NewDecoder(r.Body).Decode(&gotBody)
+			_, _ = w.Write([]byte(`{"users":[{"bmoniUserId":"usr_recovered","phoneNumber":"+2348000000001","email":"samson@example.com"}]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
 	})
 	defer srv.Close()
-	if _, err := c.CreateUser(context.Background(), testPersona()); err == nil {
-		t.Fatalf("expected conflict error")
+	userID, err := c.CreateUser(context.Background(), testIdentity())
+	if err != nil {
+		t.Fatalf("recover on conflict: %v", err)
+	}
+	if userID != "usr_recovered" {
+		t.Fatalf("recovered user = %q", userID)
 	}
 }
 
-func TestProvisionWalletSignsOwnerProofEIP191(t *testing.T) {
+func TestSubmitKYC(t *testing.T) {
+	var got map[string]any
+	srv, c := newMockRail(t, func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/kyc") && r.Method == http.MethodPatch {
+			_ = json.NewDecoder(r.Body).Decode(&got)
+		}
+		_, _ = w.Write([]byte(`{}`))
+	})
+	defer srv.Close()
+	if err := c.SubmitKYC(context.Background(), "usr_demo_1", testKYC()); err != nil {
+		t.Fatalf("submit kyc: %v", err)
+	}
+	ident, _ := got["identificationNumbers"].([]any)
+	if len(ident) != 1 {
+		t.Fatalf("missing bvn identification: %v", got)
+	}
+}
+
+func TestSubmitKYCRejectsBadBVN(t *testing.T) {
+	srv, c := newMockRail(t, nil)
+	defer srv.Close()
+	k := testKYC()
+	k.BVN = "123"
+	if err := c.SubmitKYC(context.Background(), "usr_demo_1", k); err == nil {
+		t.Fatalf("expected bvn length error")
+	}
+}
+
+func TestCreateWalletSignsOwnerProofEIP191(t *testing.T) {
 	var gotProof string
 	srv, c := newMockRail(t, func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/create-managed") {
@@ -111,8 +144,6 @@ func TestProvisionWalletSignsOwnerProofEIP191(t *testing.T) {
 			gotProof = body["ownerProofSignature"]
 		}
 		switch {
-		case strings.HasSuffix(r.URL.Path, "/smart-wallets/account/wallets"):
-			_, _ = w.Write([]byte(`[]`))
 		case strings.HasSuffix(r.URL.Path, "/owner-proof-challenges"):
 			_, _ = w.Write([]byte(`{"challengeId":"ch_1","message":"prove it"}`))
 		default:
@@ -121,18 +152,45 @@ func TestProvisionWalletSignsOwnerProofEIP191(t *testing.T) {
 	})
 	defer srv.Close()
 
-	if _, _, err := c.ProvisionWallet(context.Background(), "usr_demo_1"); err != nil {
-		t.Fatalf("provision wallet: %v", err)
+	walletID, addr, err := c.CreateWallet(context.Background(), "usr_demo_1")
+	if err != nil {
+		t.Fatalf("create wallet: %v", err)
+	}
+	if walletID != "wal_1" || addr != "0xRecipientAddress" {
+		t.Fatalf("wallet mismatch: %q %q", walletID, addr)
 	}
 	if !strings.HasPrefix(gotProof, "0x") || len(gotProof) != 132 {
 		t.Fatalf("ownerProofSignature malformed: %q", gotProof)
 	}
 }
 
+func TestActivateRail(t *testing.T) {
+	srv, c := newMockRail(t, nil)
+	defer srv.Close()
+	if err := c.ActivateRail(context.Background(), "usr_demo_1", "0xRecipientAddress", "22222222222"); err != nil {
+		t.Fatalf("activate rail: %v", err)
+	}
+	if err := c.ActivateRail(context.Background(), "usr_demo_1", "0xRecipientAddress", "bad"); err == nil {
+		t.Fatalf("expected bvn length error")
+	}
+}
+
+func TestUploadKycDocumentMultipart(t *testing.T) {
+	srv, c := newMockRail(t, func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
+			t.Fatalf("expected multipart upload, got %q", r.Header.Get("Content-Type"))
+		}
+		_, _ = w.Write([]byte(`{}`))
+	})
+	defer srv.Close()
+	if err := c.UploadKycDocument(context.Background(), "usr_demo_1", "identification", []byte("fakejpeg"), "id.jpg"); err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+}
+
 func TestListNigerianBanks(t *testing.T) {
 	srv, c := newMockRail(t, nil)
 	defer srv.Close()
-
 	banks, err := c.ListNigerianBanks(context.Background(), "usr_demo_1")
 	if err != nil {
 		t.Fatalf("banks: %v", err)
@@ -145,12 +203,10 @@ func TestListNigerianBanks(t *testing.T) {
 func TestVerifyAndRegisterNigerianAccount(t *testing.T) {
 	srv, c := newMockRail(t, nil)
 	defer srv.Close()
-
 	holder, err := c.VerifyNigerianAccount(context.Background(), "usr_demo_1", "0123456789", "058")
 	if err != nil || holder != "Jane Doe" {
 		t.Fatalf("verify: %v holder=%q", err, holder)
 	}
-
 	id, err := c.RegisterNigerianWithdrawalAccount(context.Background(), "usr_demo_1", domain.NigerianAccount{
 		AccountNumber: "0123456789", BankCode: "058", BankName: "Guaranty Trust Bank", AccountHolderName: "Jane Doe",
 	})
@@ -193,42 +249,14 @@ func TestPayWinnerToNigerianBankOfframp(t *testing.T) {
 	}
 }
 
-func TestPayWinnerToNigerianBankRequiresProvisionedWallet(t *testing.T) {
-	srv, c := newMockRail(t, nil)
-	defer srv.Close()
-	if _, err := c.PayWinnerToNigerianBank(context.Background(), &domain.WalletExternal{}, "ba_1", 2500); err == nil {
-		t.Fatalf("expected provisioning error for empty wallet")
-	}
-}
-
 func TestDepositAccount(t *testing.T) {
 	srv, c := newMockRail(t, nil)
 	defer srv.Close()
-
 	number, bank, err := c.DepositAccount(context.Background(), "usr_demo_1", "wal_1")
 	if err != nil {
 		t.Fatalf("deposit account: %v", err)
 	}
 	if number != "0123456789" || bank != "Providus Bank" {
 		t.Fatalf("deposit mismatch: %q %q", number, bank)
-	}
-}
-
-func TestUploadDocumentMultipart(t *testing.T) {
-	srv, c := newMockRail(t, func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
-			t.Fatalf("expected multipart upload, got %q", r.Header.Get("Content-Type"))
-		}
-		_, _ = w.Write([]byte(`{}`))
-	})
-	defer srv.Close()
-
-	dir := t.TempDir()
-	path := filepath.Join(dir, "id.jpg")
-	if err := os.WriteFile(path, []byte("fakejpeg"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := c.UploadDocument(context.Background(), "usr_demo_1", "identification", path); err != nil {
-		t.Fatalf("upload: %v", err)
 	}
 }

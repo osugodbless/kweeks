@@ -17,37 +17,40 @@ type fakeMoney struct {
 	bankAccountID string
 	holderName    string
 	payoutRef     string
-	provisioned   *domain.WalletExternal
 	payErr        error
 	lastAmount    domain.Amount
 }
 
-func (f *fakeMoney) Provision(ctx context.Context, p domain.BmoniPersona) (*domain.WalletExternal, error) {
-	return &domain.WalletExternal{UserID: "usr_host", WalletID: "wal_host", Address: "0xhost"}, nil
+func (f *fakeMoney) CreateUser(ctx context.Context, id domain.UserIdentity) (string, error) {
+	return "usr_host", nil
 }
 
+func (f *fakeMoney) SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error { return nil }
+func (f *fakeMoney) UploadKycDocument(ctx context.Context, userID, kind string, data []byte, filename string) error {
+	return nil
+}
+func (f *fakeMoney) CreateWallet(ctx context.Context, userID string) (string, string, error) {
+	return "wal_host", "0xhost", nil
+}
+func (f *fakeMoney) ActivateRail(ctx context.Context, userID, walletAddr, bvn string) error { return nil }
+func (f *fakeMoney) DepositAccount(ctx context.Context, userID, walletID string) (string, string, error) {
+	return "0123456789", "Providus", nil
+}
 func (f *fakeMoney) ListNigerianBanks(ctx context.Context, userID string) ([]domain.NigerianBank, error) {
 	return []domain.NigerianBank{{Code: "058", Name: "GTB"}, {Code: "044", Name: "Access"}}, nil
 }
-
 func (f *fakeMoney) VerifyNigerianAccount(ctx context.Context, userID, accountNumber, bankCode string) (string, error) {
 	return f.holderName, nil
 }
-
 func (f *fakeMoney) RegisterNigerianWithdrawalAccount(ctx context.Context, userID string, acct domain.NigerianAccount) (string, error) {
 	return f.bankAccountID, nil
 }
-
 func (f *fakeMoney) PayWinnerToNigerianBank(ctx context.Context, from *domain.WalletExternal, bankAccountID string, amount domain.Amount) (string, error) {
 	f.lastAmount = amount
 	if f.payErr != nil {
 		return "", f.payErr
 	}
 	return f.payoutRef, nil
-}
-
-func (f *fakeMoney) DepositAccount(ctx context.Context, userID, walletID string) (string, string, error) {
-	return "0123456789", "Providus", nil
 }
 
 var _ ports.Money = (*fakeMoney)(nil)

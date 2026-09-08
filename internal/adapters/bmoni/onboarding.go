@@ -9,26 +9,16 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/osugodbless/kweeks/internal/domain"
 )
 
-// Onboarding holds the external BMONI ids created for a kweeks instructor.
-type Onboarding struct {
-	UserID          string
-	SmartWalletID   string
-	SmartWalletAddr string
-	OwnerAddress    string
-}
-
-// CreateUser registers a user with BMONI and returns the bmoniUserId.
-// A 409 (already exists) is treated as success from a prior attempt per the
-// retries-and-duplicates guidance: the caller recovers the existing user via
-// the same phone.
-func (c *Client) CreateUser(ctx context.Context, p domain.BmoniPersona) (string, error) {
+// CreateUser registers a BMONI user from the host's real identity and returns
+// the bmoniUserId. A 409 (already exists) is handled per the
+// retries-and-duplicates guidance: the existing user is recovered by
+// phone/email rather than retried, so re-provisioning an instructor reuses
+// their own user (never someone else's).
+func (c *Client) CreateUser(ctx context.Context, id domain.UserIdentity) (string, error) {
 	var resp struct {
 		BmoniUserID string `json:"bmoniUserId"`
 		User        struct {
@@ -39,10 +29,17 @@ func (c *Client) CreateUser(ctx context.Context, p domain.BmoniPersona) (string,
 		} `json:"data"`
 	}
 	err := c.do(ctx, http.MethodPost, "/v1/users", map[string]any{
-		"firstName": p.FirstName, "lastName": p.LastName,
-		"email": p.Email, "phoneNumber": p.Phone,
+		"firstName": id.FirstName, "lastName": id.LastName,
+		"email": id.Email, "phoneNumber": id.Phone,
 	}, &resp)
 	if err != nil {
+		var apiErr *APIError
+		if errors.As(err, &apiErr) && apiErr.Status == 409 {
+			recovered, rerr := c.findExistingUser(ctx, id.Phone, id.Email)
+			if rerr == nil {
+				return recovered, nil
+			}
+		}
 		return "", err
 	}
 	if resp.BmoniUserID != "" {
@@ -57,27 +54,106 @@ func (c *Client) CreateUser(ctx context.Context, p domain.BmoniPersona) (string,
 	return "", errors.New("bmoni: create-user returned no user id")
 }
 
-// SubmitKYC posts the persona KYC profile ahead of rail activation. Field
+// findExistingUser recovers the existing BMONI user for a 409 on create-user
+// by searching the partner's users for the phone or email.
+func (c *Client) findExistingUser(ctx context.Context, phone, email string) (string, error) {
+	var resp struct {
+		Users []struct {
+			BmoniUserID string `json:"bmoniUserId"`
+			PhoneNumber string `json:"phoneNumber"`
+			Email       string `json:"email"`
+		} `json:"users"`
+		Data struct {
+			Users []struct {
+				BmoniUserID string `json:"bmoniUserId"`
+				PhoneNumber string `json:"phoneNumber"`
+				Email       string `json:"email"`
+			} `json:"users"`
+		} `json:"data"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/v1/users?limit=100", nil, &resp); err != nil {
+		return "", err
+	}
+	src := resp.Users
+	if len(src) == 0 {
+		src = resp.Data.Users
+	}
+	for _, u := range src {
+		if u.BmoniUserID == "" {
+			continue
+		}
+		if u.PhoneNumber == phone || (email != "" && u.Email == email) {
+			return u.BmoniUserID, nil
+		}
+	}
+	return "", errors.New("bmoni: create-user returned 409 but existing user could not be recovered")
+}
+
+// SubmitKYC writes the host's KYC profile ahead of rail activation. Field
 // names follow the KYC — Nigeria requirements page (personalInfo + address
-// with streetLine1, city, state, postalCode, countryCode + bvn). BVN
-// verification during start-nigeria auto-populates the profile; the submitted
-// name must match the persona.
-func (c *Client) SubmitKYC(ctx context.Context, userID string, p domain.BmoniPersona) error {
+// with streetLine1/city/state/postalCode/countryCode + identificationNumbers
+// bvn). BVN verification during start-nigeria auto-populates the profile; the
+// submitted name must match the persona.
+func (c *Client) SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error {
+	if len(k.BVN) != 11 {
+		return errors.New("bmoni: bvn must be exactly 11 digits")
+	}
 	body := map[string]any{
 		"personalInfo": map[string]any{
-			"firstName": p.FirstName, "lastName": p.LastName,
-			"phoneNumber": p.Phone, "dateOfBirth": p.DOB, "gender": "male",
+			"firstName": k.FirstName, "lastName": k.LastName,
+			"dateOfBirth": k.DateOfBirth, "gender": k.Gender,
 		},
 		"address": map[string]any{
-			"streetLine1": p.Address, "city": p.City, "state": p.State,
-			"postalCode": "101241", "countryCode": "NGA",
+			"streetLine1": k.Street, "city": k.City, "state": k.State,
+			"postalCode": k.PostalCode, "countryCode": "NGA",
 		},
 		"identificationNumbers": []map[string]any{
-			{"type": "bvn", "number": p.BVN, "issuingCountryCode": "NGA"},
+			{"type": "bvn", "number": k.BVN, "issuingCountryCode": "NGA"},
 		},
 		"sourceOfFunds": "salary", "accountPurpose": "personal", "actingAsIntermediary": false,
 	}
+	if k.Phone != "" {
+		body["personalInfo"].(map[string]any)["phoneNumber"] = k.Phone
+	}
 	return c.do(ctx, http.MethodPatch, "/v1/users/"+userID+"/kyc", body, nil)
+}
+
+// UploadKycDocument submits one KYC document image (multipart) for the user.
+func (c *Client) UploadKycDocument(ctx context.Context, userID, kind string, data []byte, filename string) error {
+	if len(data) == 0 {
+		return errors.New("bmoni: empty document upload")
+	}
+	if filename == "" {
+		filename = kind + ".jpg"
+	}
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	part, err := mw.CreateFormFile("file", filename)
+	if err != nil {
+		return err
+	}
+	if _, err := part.Write(data); err != nil {
+		return err
+	}
+	_ = mw.Close()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+"/v1/users/"+userID+"/kyc/documents/"+kind, &buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("x-api-key", c.apiKey)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("bmoni upload %s: %w", kind, err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("bmoni upload %s: status %d: %s", kind, resp.StatusCode, truncate(string(raw), 300))
+	}
+	return nil
 }
 
 // ownerAddress derives the EVM address for c.ownerKey.
@@ -89,20 +165,13 @@ func (c *Client) ownerAddress() (string, error) {
 	return addr, nil
 }
 
-// ProvisionWallet provisions a CNGN smart wallet owned by c.ownerKey. It first
-// checks the user's existing wallets and reuses one when present (wallet
-// creation has no uniqueness guard, so read-before-create is required).
+// CreateWallet provisions a CNGN smart wallet owned by c.ownerKey, following
+// the documented handshake: owner-proof challenge → EIP-191 sign → create-managed.
 // Returns the smart wallet id + address.
-func (c *Client) ProvisionWallet(ctx context.Context, userID string) (walletID, addr string, err error) {
+func (c *Client) CreateWallet(ctx context.Context, userID string) (walletID, addr string, err error) {
 	if c.ownerKey == "" {
 		return "", "", errors.New("bmoni: owner key required to provision a wallet")
 	}
-	if walletID, addr, ok, err := c.existingCNGNWallet(ctx, userID); err != nil {
-		return "", "", err
-	} else if ok {
-		return walletID, addr, nil
-	}
-
 	owner, err := c.ownerAddress()
 	if err != nil {
 		return "", "", err
@@ -170,113 +239,19 @@ func (c *Client) ProvisionWallet(ctx context.Context, userID string) (walletID, 
 	return walletID, addr, nil
 }
 
-// existingCNGNWallet returns the user's NGN/CNGN wallet when one exists.
-// The account/wallets endpoint 400s with "No embedded smart wallet group found
-// for this user" before a wallet is created; that is treated as no wallet
-// rather than an error, so the caller proceeds to create-managed.
-func (c *Client) existingCNGNWallet(ctx context.Context, userID string) (id, addr string, ok bool, err error) {
-	var wallets []struct {
-		ID            string `json:"id"`
-		Currency      string `json:"currency"`
-		WalletAddress string `json:"walletAddress"`
-		IsActive      bool   `json:"isActive"`
+// ActivateRail runs POST /onboarding/start-nigeria: activates the NGN rail
+// against the wallet address using the host's BVN. BVN verification happens in
+// this call and auto-populates the KYC profile.
+func (c *Client) ActivateRail(ctx context.Context, userID, walletAddr, bvn string) error {
+	if len(bvn) != 11 {
+		return errors.New("bmoni: bvn must be exactly 11 digits")
 	}
-	if err := c.do(ctx, http.MethodGet,
-		"/v1/users/"+userID+"/smart-wallets/account/wallets", nil, &wallets); err != nil {
-		var apiErr *APIError
-		if errors.As(err, &apiErr) && apiErr.Status == 400 &&
-			strings.Contains(apiErr.Body, "No embedded smart wallet group") {
-			return "", "", false, nil
-		}
-		return "", "", false, err
-	}
-	for _, w := range wallets {
-		if w.Currency == "NGN" || w.Currency == "CNGN" {
-			return w.ID, w.WalletAddress, true, nil
-		}
-	}
-	return "", "", false, nil
-}
-
-// StartNigeria activates the NGN rail against the provisioned wallet. BVN is
-// verified during the flow and auto-populates KYC.
-func (c *Client) StartNigeria(ctx context.Context, userID, walletAddr, bvn string) error {
 	if err := c.do(ctx, http.MethodPost,
 		"/v1/users/"+userID+"/onboarding/start-nigeria",
 		map[string]any{
 			"bvn": bvn, "ngnWalletAddress": walletAddr, "ngnWalletIndex": 0,
 		}, nil); err != nil {
 		return err
-	}
-	return nil
-}
-
-// OnboardingStatus returns whether the NGN rail is active for the user. The
-// live sandbox nests per-currency activity (anchor = the NGN local rail);
-// `active` there means start-nigeria succeeded.
-func (c *Client) OnboardingStatus(ctx context.Context, userID string) (string, error) {
-	var resp struct {
-		Status        string `json:"status"`
-		AnchorStatus  string `json:"anchorStatus"`
-		BridgeStatus  string `json:"bridgeStatus"`
-		PaytrieStatus string `json:"paytrieStatus"`
-		Data          struct {
-			Status        string `json:"status"`
-			AnchorStatus  string `json:"anchorStatus"`
-			BridgeStatus  string `json:"bridgeStatus"`
-			PaytrieStatus string `json:"paytrieStatus"`
-		} `json:"data"`
-	}
-	if err := c.do(ctx, http.MethodGet, "/v1/users/"+userID+"/onboarding/status", nil, &resp); err != nil {
-		return "", err
-	}
-	status := firstNonEmpty(resp.Status, resp.AnchorStatus, resp.BridgeStatus, resp.PaytrieStatus,
-		resp.Data.Status, resp.Data.AnchorStatus, resp.Data.BridgeStatus, resp.Data.PaytrieStatus)
-	if status == "" {
-		return "pending", nil
-	}
-	return status, nil
-}
-
-// UploadDocument submits one KYC document image (multipart) for the user.
-// Uploads are the operator step of NGN onboarding; skip by not configuring
-// file paths.
-func (c *Client) UploadDocument(ctx context.Context, userID, kind, filePath string) error {
-	if filePath == "" {
-		return nil
-	}
-	f, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("bmoni: open %s doc %s: %w", kind, filePath, err)
-	}
-	defer f.Close()
-
-	var buf bytes.Buffer
-	mw := multipart.NewWriter(&buf)
-	part, err := mw.CreateFormFile("file", filepath.Base(filePath))
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(part, f); err != nil {
-		return err
-	}
-	_ = mw.Close()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.baseURL+"/v1/users/"+userID+"/kyc/documents/"+kind, &buf)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("x-api-key", c.apiKey)
-	req.Header.Set("Content-Type", mw.FormDataContentType())
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return fmt.Errorf("bmoni upload %s: %w", kind, err)
-	}
-	defer resp.Body.Close()
-	raw, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("bmoni upload %s: status %d: %s", kind, resp.StatusCode, truncate(string(raw), 300))
 	}
 	return nil
 }

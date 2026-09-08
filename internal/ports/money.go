@@ -6,22 +6,35 @@ import (
 	"github.com/osugodbless/kweeks/internal/domain"
 )
 
-// Money is the BMONI boundary. The application layer only knows it can
-// provision a user + CNGN wallet for an instructor, and pay a winner's prize
-// to a Nigerian bank account through the host's wallet (verify -> register ->
-// offramp). How that happens (owner-proof, create-managed,
-// proposal/approve/sign/send) is the adapter's problem. A nil Money on a
-// service means the rail is disabled and callers degrade to the local ledger.
+// Money is the BMONI boundary. It mirrors the strict server-side flow from the
+// docs: create user → submit KYC → owner-proof → create-managed → start-nigeria
+// → (documents) → wallet ready to fund. The application layer drives each step
+// with user-supplied data; the adapter handles signing and proposal mechanics.
 type Money interface {
-	// Provision creates a BMONI user + CNGN smart wallet + active NGN rail for
-	// an instructor and returns the external identity. The rail must be
-	// configured.
-	Provision(ctx context.Context, p domain.BmoniPersona) (*domain.WalletExternal, error)
-	// ListNigerianBanks returns the supported Nigerian banks (CBN code + full
-	// name) for the claim form. Scoped to the host user.
+	// CreateUser registers a BMONI user from the host's real identity and
+	// returns the bmoniUserId used as {userId} for every later call. A 409
+	// (already exists) is surfaced for the caller to recover by phone/email.
+	CreateUser(ctx context.Context, id domain.UserIdentity) (string, error)
+	// SubmitKYC writes the host's KYC profile (personalInfo + address + bvn).
+	SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error
+	// UploadKycDocument submits one KYC document image (multipart) for the
+	// user. kind is identification | proof-of-address | biometric.
+	UploadKycDocument(ctx context.Context, userID, kind string, data []byte, filename string) error
+	// CreateWallet provisions a CNGN smart wallet for the user via the
+	// owner-proof challenge + create-managed handshake. Returns wallet id +
+	// on-chain address.
+	CreateWallet(ctx context.Context, userID string) (walletID, addr string, err error)
+	// ActivateRail runs POST /onboarding/start-nigeria: activates the NGN rail
+	// against the wallet address using the host's BVN.
+	ActivateRail(ctx context.Context, userID, walletAddr, bvn string) error
+	// DepositAccount returns the host's NGN virtual bank account (number +
+	// bank) that bank transfers to it fund the wallet.
+	DepositAccount(ctx context.Context, userID, walletID string) (accountNumber, bankName string, err error)
+	// ListNigerianBanks returns the supported Nigerian banks for the payout
+	// form.
 	ListNigerianBanks(ctx context.Context, userID string) ([]domain.NigerianBank, error)
 	// VerifyNigerianAccount resolves an account number + bank code to the
-	// registered account holder name (exact name the registration requires).
+	// registered account holder name.
 	VerifyNigerianAccount(ctx context.Context, userID, accountNumber, bankCode string) (string, error)
 	// RegisterNigerianWithdrawalAccount get-or-creates the withdrawal account
 	// and returns its bankAccountId for the offramp call.
@@ -29,7 +42,4 @@ type Money interface {
 	// PayWinnerToNigerianBank offramps prize money from the host wallet to a
 	// registered Nigerian bank account. Returns the settlement reference.
 	PayWinnerToNigerianBank(ctx context.Context, from *domain.WalletExternal, bankAccountID string, amount domain.Amount) (string, error)
-	// DepositAccount returns the host's NGN virtual bank account (number +
-	// bank) that bank transfers can be sent to in order to fund the wallet.
-	DepositAccount(ctx context.Context, userID, walletID string) (accountNumber, bankName string, err error)
 }

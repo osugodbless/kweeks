@@ -23,8 +23,19 @@ type httpFakeMoney struct {
 	payoutRef   string
 }
 
-func (f *httpFakeMoney) Provision(ctx context.Context, p domain.BmoniPersona) (*domain.WalletExternal, error) {
-	return f.provisioned, nil
+func (f *httpFakeMoney) CreateUser(ctx context.Context, id domain.UserIdentity) (string, error) {
+	return "usr_host", nil
+}
+func (f *httpFakeMoney) SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error { return nil }
+func (f *httpFakeMoney) UploadKycDocument(ctx context.Context, userID, kind string, data []byte, filename string) error {
+	return nil
+}
+func (f *httpFakeMoney) CreateWallet(ctx context.Context, userID string) (string, string, error) {
+	return "wal_host", "0xhost", nil
+}
+func (f *httpFakeMoney) ActivateRail(ctx context.Context, userID, walletAddr, bvn string) error { return nil }
+func (f *httpFakeMoney) DepositAccount(ctx context.Context, userID, walletID string) (string, string, error) {
+	return "0123456789", "Providus", nil
 }
 func (f *httpFakeMoney) ListNigerianBanks(ctx context.Context, userID string) ([]domain.NigerianBank, error) {
 	return f.banks, nil
@@ -37,9 +48,6 @@ func (f *httpFakeMoney) RegisterNigerianWithdrawalAccount(ctx context.Context, u
 }
 func (f *httpFakeMoney) PayWinnerToNigerianBank(ctx context.Context, from *domain.WalletExternal, bankAccountID string, amount domain.Amount) (string, error) {
 	return f.payoutRef, nil
-}
-func (f *httpFakeMoney) DepositAccount(ctx context.Context, userID, walletID string) (string, string, error) {
-	return "0123456789", "Providus", nil
 }
 
 var _ ports.Money = (*httpFakeMoney)(nil)

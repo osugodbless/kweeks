@@ -37,15 +37,31 @@ Returns: `{"wallet":{"id","balanceNaira"},"transactions":[{id,kind,amountNaira,n
 ### POST /api/wallet/fund
 Body: `{"amountNaira":"50000","method":"card"|"transfer"|"credit"}`
 Credits the wallet. `credit` = instant platform credit (no external rail).
-Card/transfer settle through the money rail when configured; failures return 502.
 Returns updated `{"wallet":{"id","balanceNaira"}}`.
 
-### POST /api/wallet/provision  (Bearer)
-Provisions a real BMONI user + CNGN smart wallet for the instructor on the
-configured rail (NGN persona). Idempotent. Requires a configured BMONI persona;
-otherwise returns 400. Returns `{"wallet":{"id","balanceNaira","bmoniUserId",
-"bmoniWalletId","bmoniWalletAddress"}}`. Wallet provisioning also runs
-automatically at signup when `BMONI_PROVISION_ON_SIGNUP=true`.
+### GET /api/wallet/setup  (Bearer)
+Wallet-setup wizard status. Returns `{"stage":"unprovisioned"|"kyc"|"wallet"|"rail"|"ready",
+"bmoniUserId","kycSubmitted","bmoniWalletId","bmoniWalletAddress","railActive",
+"depositAccount":{"accountNumber","bankName"}}`. `ready` includes the NGN
+deposit account the host funds by bank transfer.
+
+### POST /api/wallet/kyc  (Bearer)
+Strict-flow step 2. Body: `{"firstName","lastName","dateOfBirth","gender","bvn",
+"street","city","state","postalCode"}` → submits the host's KYC profile.
+All identity values are user-supplied (the sandbox resolves the test persona
+values, e.g. Bunch Dillon / 95888168924, when entered here).
+
+### POST /api/wallet/kyc/documents/{kind}  (Bearer)
+Multipart `file` upload (JPEG/PNG). `kind` = `identification` |
+`proof-of-address` | `biometric`. Optional for NGN activation.
+
+### POST /api/wallet/create  (Bearer)
+Strict-flow steps 3-4: owner-proof challenge → create-managed smart wallet.
+Returns `{"wallet":{...,"bmoniWalletId","bmoniWalletAddress"}}`. Idempotent.
+
+### POST /api/wallet/activate-rail  (Bearer)
+Strict-flow step 5: `POST /onboarding/start-nigeria` with `{"bvn"}`. Marks the
+wallet ready to fund and returns the NGN deposit account via `/wallet/setup`.
 
 ---
 
@@ -131,10 +147,6 @@ and offramps the prize from the host wallet. State advances
 `{accountNumber,bankName}` — the host's NGN virtual bank account that a bank
 transfer to it funds the wallet (issued during Nigeria onboarding).
 
-### POST /api/wallet/provision  (exists)
-Provisions a real BMONI user + CNGN smart wallet + NGN rail for the host using
-the configured persona identity. Idempotent.
-
 ---
 
 ## Realtime (WebSocket)
@@ -150,17 +162,19 @@ Frontend refetches the matching REST resource on each event for the authoritativ
 ---
 
 ## Notes / decisions
-- Wallet is a real instructor-scoped ledger. At signup the host gets a real
-  BMONI user + CNGN smart wallet + NGN rail (create-user → KYC → owner-proof →
-  create-managed → start-nigeria). Each instructor provisions a DISTINCT BMONI
-  user using their own email + phone (never the shared persona phone), so no
-  two hosts share a money identity. `credit` funding is the instant
-  local-ledger credit used by the demo; production funding happens by
-  bank-transferring to the host's NGN virtual bank account
-  (`GET /api/wallet/deposit`), which BMONI credits to the wallet.
+- All BMONI identity input comes from the user or the program, never from env.
+  Signup creates the host's BMONI user from their real name/email/phone; the
+  wallet-setup wizard collects KYC (name, DOB, BVN, address) and drives the
+  strict flow (create-user → KYC → owner-proof → create-managed → start-nigeria).
+  Each instructor provisions a DISTINCT BMONI user + wallet, so no two hosts
+  share a money identity. In the sandbox, entering the test persona values in
+  the KYC step (Bunch Dillon, 95888168924) resolves verification.
+  `credit` funding is the instant local-ledger credit used by the demo;
+  production funding happens by bank-transferring to the host's NGN virtual
+  bank account (`GET /api/wallet/deposit`), which BMONI credits to the wallet.
 - Winners are paid by the host wallet via the BMONI offramp (verify → register
-  → offramp → approve → sign), not by a pre-provisioned persona. The claim code
-  is emailed immediately and is the only capability that authorizes the payout.
+  → offramp → approve → sign). The claim code is emailed immediately and is the
+  only capability that authorizes the payout.
 - Multi-user auth: instructors + bcrypt-hashed passwords + bearer sessions,
   stored in Postgres (memory store mirrors for tests).
 - Room codes: unambiguous A-Z/2-9, no look-alikes.

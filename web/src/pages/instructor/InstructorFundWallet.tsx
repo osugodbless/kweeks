@@ -166,7 +166,7 @@ export function InstructorFundWallet() {
                 ) : (
                   <p className="mt-2 text-sm leading-relaxed text-soft">
                     {depositError
-                      ? "Your wallet is not provisioned on the money rail yet — provision it from the dashboard first, or use wallet credit."
+                      ? "Your wallet is not set up on the money rail yet — complete the setup wizard on your dashboard, or use wallet credit."
                       : "Fetching your NGN account…"}
                   </p>
                 )}

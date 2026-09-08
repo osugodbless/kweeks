@@ -10,12 +10,14 @@ import {
   HistoryItem,
   Instructor,
   isAuthed,
+  KYCInput,
   Participant,
   PublicRoom,
   QuizDetail,
   QuizListItem,
   Standing,
   Wallet,
+  WalletSetup,
   WalletView,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -256,6 +258,69 @@ export function useDepositAccount() {
     queryFn: () => api.get<DepositAccount>("/wallet/deposit"),
     enabled: authed(),
     retry: false,
+  });
+}
+
+export function useWalletSetup() {
+  return useQuery({
+    queryKey: ["wallet", "setup"] as const,
+    queryFn: () => api.get<WalletSetup>("/wallet/setup"),
+    enabled: authed(),
+    retry: false,
+  });
+}
+
+export function useSubmitKYC() {
+  const qc = useQueryClient();
+  const setWallet = useAuth((s) => s.setWallet);
+  return useMutation({
+    mutationFn: (k: KYCInput) => api.post<{ wallet: Wallet }>("/wallet/kyc", k),
+    onSuccess: (res) => {
+      if (res?.wallet) setWallet(res.wallet);
+      void qc.invalidateQueries({ queryKey: ["wallet", "setup"] as const });
+      void qc.invalidateQueries({ queryKey: qk.wallet });
+    },
+  });
+}
+
+export function useUploadKYC() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { kind: string; file: File }) => {
+      const form = new FormData();
+      form.append("file", v.file);
+      return api.post(`/wallet/kyc/documents/${v.kind}`, form);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["wallet", "setup"] as const });
+    },
+  });
+}
+
+export function useCreateWallet() {
+  const qc = useQueryClient();
+  const setWallet = useAuth((s) => s.setWallet);
+  return useMutation({
+    mutationFn: () => api.post<{ wallet: Wallet }>("/wallet/create"),
+    onSuccess: (res) => {
+      if (res?.wallet) setWallet(res.wallet);
+      void qc.invalidateQueries({ queryKey: ["wallet", "setup"] as const });
+      void qc.invalidateQueries({ queryKey: qk.wallet });
+    },
+  });
+}
+
+export function useActivateRail() {
+  const qc = useQueryClient();
+  const setWallet = useAuth((s) => s.setWallet);
+  return useMutation({
+    mutationFn: (bvn: string) => api.post<{ wallet: Wallet }>("/wallet/activate-rail", { bvn }),
+    onSuccess: (res) => {
+      if (res?.wallet) setWallet(res.wallet);
+      void qc.invalidateQueries({ queryKey: ["wallet", "setup"] as const });
+      void qc.invalidateQueries({ queryKey: qk.wallet });
+      void qc.invalidateQueries({ queryKey: qk.dashboard });
+    },
   });
 }
 

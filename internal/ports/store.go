@@ -85,6 +85,14 @@ type Store interface {
 	ListWalletTransactions(ctx context.Context, walletID string) ([]domain.WalletTransaction, error)
 	// SetWalletBmoni records the external BMONI ids provisioned for a wallet.
 	SetWalletBmoni(ctx context.Context, walletID string, external *domain.WalletExternal) error
+	// SetWalletBmoniUser records the BMONI user id (strict flow step 1).
+	SetWalletBmoniUser(ctx context.Context, walletID, userID string) error
+	// SetWalletKYC records that the host's KYC profile was submitted (step 2).
+	SetWalletKYC(ctx context.Context, walletID string, submitted bool) error
+	// SetWalletBmoniWallet records the CNGN smart wallet id + address (step 4).
+	SetWalletBmoniWallet(ctx context.Context, walletID, walletIDExt, addr string) error
+	// SetWalletRailActive records that the NGN rail is active (step 5).
+	SetWalletRailActive(ctx context.Context, walletID string, active bool) error
 
 	// Admin / bootstrap
 	Close() error

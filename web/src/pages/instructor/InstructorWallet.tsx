@@ -1,15 +1,24 @@
 import type { CSSProperties, ReactNode } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, FileQuestion, History, LayoutDashboard, Plus, Trophy, Users, Wallet, Zap } from "lucide-react";
-import { useDashboard, useWallet } from "@/lib/hooks";
+import { ArrowRight, FileQuestion, History, LayoutDashboard, Plus, ShieldCheck, Trophy, Users, Wallet, Zap } from "lucide-react";
+import { useDashboard, useWallet, useWalletSetup } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Chip, LiveDot } from "@/components/ui/chip";
 import { Footer } from "@/components/ui/footer";
 import { InstructorNav } from "@/components/ui/instructor-nav";
 import { Money } from "@/components/ui/money";
+import { WalletSetupWizard } from "@/pages/instructor/WalletSetupWizard";
 
 const METHODS = ["Card", "Transfer", "Instant top-up"];
+
+const SETUP_COPY: Record<string, { title: string; copy: string }> = {
+  kyc: { title: "Finish setting up your wallet", copy: "Verify your identity to create your wallet and activate naira payouts." },
+  wallet: { title: "Create your wallet", copy: "Your identity is verified — the last steps create your wallet and activate naira." },
+  rail: { title: "Activate naira", copy: "One last step: activate the NGN rail so your wallet is ready to fund and pay winners." },
+  unprovisioned: { title: "Set up your wallet", copy: "Provision your BMONI wallet to fund pools and pay winners." },
+};
 
 function Stat({ label, value, accent }: { label: string; value: ReactNode; accent: string }) {
   return (
@@ -25,11 +34,15 @@ export function InstructorWallet() {
   const { instructor, wallet } = useAuth();
   const { data: dash } = useDashboard();
   const { data: walletView } = useWallet();
+  const { data: setup } = useWalletSetup();
+  const [setupOpen, setSetupOpen] = useState(false);
 
   const first = instructor?.name?.split(" ")[0] ?? "host";
   const balance = walletView?.wallet.balanceNaira ?? wallet?.balanceNaira ?? "0";
   const quizzes = dash?.quizzes ?? [];
   const liveQuiz = quizzes.find((q) => q.roomId && (q.state === "lobby" || q.state === "live"));
+  const setupPending = setup && setup.stage !== "ready";
+  const setupMeta = setupPending ? SETUP_COPY[setup.stage] ?? SETUP_COPY.unprovisioned : null;
 
   return (
     <main className="relative min-h-screen overflow-hidden pb-24">
@@ -53,6 +66,23 @@ export function InstructorWallet() {
             Create a quiz
           </Button>
         </div>
+
+        {setupPending && setupMeta && (
+          <button
+            type="button"
+            onClick={() => setSetupOpen(true)}
+            className="mt-8 flex w-full cursor-pointer items-center gap-4 rounded-3xl border-2 border-violet/30 bg-violet/5 p-5 text-left transition-all hover:border-violet/50 hover:bg-violet/10"
+          >
+            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-violet text-white">
+              <ShieldCheck className="size-6" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-display text-lg font-semibold">{setupMeta.title}</span>
+              <span className="block text-sm text-soft">{setupMeta.copy}</span>
+            </span>
+            <ArrowRight className="size-5 shrink-0 text-violet" />
+          </button>
+        )}
 
         {/* Stats */}
         <div className="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -179,6 +209,8 @@ export function InstructorWallet() {
       </div>
 
       <Footer className="mt-16" />
+
+      <WalletSetupWizard open={setupOpen} onClose={() => setSetupOpen(false)} />
     </main>
   );
 }

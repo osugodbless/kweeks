@@ -598,25 +598,27 @@ func (s *Store) GetSession(ctx context.Context, token string) (*domain.Session, 
 
 func (s *Store) CreateWallet(ctx context.Context, w *domain.Wallet) error {
 	_, err := s.pool.Exec(ctx, `
-		insert into wallets (id, instructor_id, balance_kobo, created_at, bmoni_user_id, bmoni_wallet_id, bmoni_wallet_addr)
-		values ($1,$2,$3,$4,$5,$6,$7)`,
+		insert into wallets (id, instructor_id, balance_kobo, created_at, bmoni_user_id, bmoni_kyc_submitted, bmoni_wallet_id, bmoni_wallet_addr, bmoni_rail_active)
+		values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		w.ID, w.InstructorID, int64(w.Balance), w.CreatedAt,
-		w.BmoniUserID, w.BmoniWalletID, w.BmoniWalletAddr)
+		w.BmoniUserID, w.BmoniKYCSubmitted, w.BmoniWalletID, w.BmoniWalletAddr, w.BmoniRailActive)
 	if isUniqueViolation(err) {
 		return domain.ErrWalletExists
 	}
 	return err
 }
 
+const walletColumns = `id, instructor_id, balance_kobo, created_at,
+	bmoni_user_id, bmoni_kyc_submitted, bmoni_wallet_id, bmoni_wallet_addr, bmoni_rail_active`
+
 func (s *Store) GetWalletByInstructor(ctx context.Context, instructorID string) (*domain.Wallet, error) {
 	var w domain.Wallet
 	var bal int64
 	err := s.pool.QueryRow(ctx, `
-		select id, instructor_id, balance_kobo, created_at,
-		       bmoni_user_id, bmoni_wallet_id, bmoni_wallet_addr
+		select `+walletColumns+`
 		from wallets where instructor_id=$1`, instructorID).
 		Scan(&w.ID, &w.InstructorID, &bal, &w.CreatedAt,
-			&w.BmoniUserID, &w.BmoniWalletID, &w.BmoniWalletAddr)
+			&w.BmoniUserID, &w.BmoniKYCSubmitted, &w.BmoniWalletID, &w.BmoniWalletAddr, &w.BmoniRailActive)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, domain.ErrWalletNotFound
 	}
@@ -632,6 +634,52 @@ func (s *Store) SetWalletBmoni(ctx context.Context, walletID string, external *d
 		update wallets set bmoni_user_id=$2, bmoni_wallet_id=$3, bmoni_wallet_addr=$4
 		where id=$1`,
 		walletID, external.UserID, external.WalletID, external.Address)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrWalletNotFound
+	}
+	return nil
+}
+
+func (s *Store) SetWalletBmoniUser(ctx context.Context, walletID, userID string) error {
+	tag, err := s.pool.Exec(ctx, `update wallets set bmoni_user_id=$2 where id=$1`, walletID, userID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrWalletNotFound
+	}
+	return nil
+}
+
+func (s *Store) SetWalletKYC(ctx context.Context, walletID string, submitted bool) error {
+	tag, err := s.pool.Exec(ctx, `update wallets set bmoni_kyc_submitted=$2 where id=$1`, walletID, submitted)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrWalletNotFound
+	}
+	return nil
+}
+
+func (s *Store) SetWalletBmoniWallet(ctx context.Context, walletID, walletIDExt, addr string) error {
+	tag, err := s.pool.Exec(ctx,
+		`update wallets set bmoni_wallet_id=$2, bmoni_wallet_addr=$3 where id=$1`,
+		walletID, walletIDExt, addr)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrWalletNotFound
+	}
+	return nil
+}
+
+func (s *Store) SetWalletRailActive(ctx context.Context, walletID string, active bool) error {
+	tag, err := s.pool.Exec(ctx, `update wallets set bmoni_rail_active=$2 where id=$1`, walletID, active)
 	if err != nil {
 		return err
 	}

@@ -27,13 +27,6 @@ type Client struct {
 	// challenges and proposal digests for every provisioned wallet.
 	ownerKey string
 
-	// Operator-provided KYC document image paths (JPEG/PNG). Empty means the
-	// provisioning flow stops before the upload step (sandbox NGN completes
-	// without them; a real rail should configure all three).
-	docIdentification string
-	docProofOfAddress string
-	docBiometric      string
-
 	http *http.Client
 }
 
@@ -45,15 +38,6 @@ func New(baseURL, apiKey, ownerKey string) *Client {
 		ownerKey: ownerKey,
 		http:     &http.Client{Timeout: 30 * time.Second},
 	}
-}
-
-// WithKYCDocuments supplies operator-provided document image paths so
-// provisioning can complete the upload step.
-func (c *Client) WithKYCDocuments(identification, proofOfAddress, biometric string) *Client {
-	c.docIdentification = identification
-	c.docProofOfAddress = proofOfAddress
-	c.docBiometric = biometric
-	return c
 }
 
 func (c *Client) do(ctx context.Context, method, path string, body any, out any) error {
