@@ -9,9 +9,8 @@ import (
 )
 
 // Provision implements ports.Money.Provision: create (or recover) the BMONI
-// user, submit the NGN KYC profile, provision a CNGN smart wallet, activate
-// the NGN rail, and upload operator-provided KYC documents (when configured).
-// Returns the external ids for the wallet.
+// user, submit the NGN KYC profile, provision a CNGN smart wallet, and
+// activate the NGN rail. Returns the external ids for the wallet.
 func (c *Client) Provision(ctx context.Context, p domain.BmoniPersona) (*domain.WalletExternal, error) {
 	if c.apiKey == "" || c.ownerKey == "" {
 		return nil, errors.New("bmoni: api key and owner key required to provision")
@@ -21,9 +20,11 @@ func (c *Client) Provision(ctx context.Context, p domain.BmoniPersona) (*domain.
 	if err != nil {
 		var apiErr *APIError
 		if errors.As(err, &apiErr) && apiErr.Status == 409 {
-			// Documented recovery: a 409 on create-user means the persona user
-			// already exists under this partner key. Recover it by phone.
-			userID, err = c.findUserByPhone(ctx, p.Phone)
+			// Documented recovery: a 409 on create-user means the user already
+			// exists under this partner key (email or phone collided with a
+			// prior successful create). Recover the existing user rather than
+			// retrying.
+			userID, err = c.findExistingUser(ctx, p.Phone, p.Email)
 			if err != nil {
 				return nil, err
 			}
@@ -42,7 +43,8 @@ func (c *Client) Provision(ctx context.Context, p domain.BmoniPersona) (*domain.
 		return nil, err
 	}
 
-	// Operator step: the three document image uploads complete verification.
+	// Operator step: the document image uploads complete verification. No-op
+	// when no paths are configured (sandbox NGN rail resolves without them).
 	if err := c.uploadOperatorDocs(ctx, userID); err != nil {
 		return nil, err
 	}
@@ -54,23 +56,40 @@ func (c *Client) Provision(ctx context.Context, p domain.BmoniPersona) (*domain.
 	return &domain.WalletExternal{UserID: userID, WalletID: walletID, Address: addr}, nil
 }
 
-// findUserByPhone recovers the existing BMONI user for a persona phone.
-func (c *Client) findUserByPhone(ctx context.Context, phone string) (string, error) {
+// findExistingUser recovers the existing BMONI user for a 409 on create-user
+// by searching the partner's users for the persona phone or the supplied
+// email.
+func (c *Client) findExistingUser(ctx context.Context, phone, email string) (string, error) {
 	var resp struct {
 		Users []struct {
 			BmoniUserID string `json:"bmoniUserId"`
 			PhoneNumber string `json:"phoneNumber"`
+			Email       string `json:"email"`
 		} `json:"users"`
+		Data struct {
+			Users []struct {
+				BmoniUserID string `json:"bmoniUserId"`
+				PhoneNumber string `json:"phoneNumber"`
+				Email       string `json:"email"`
+			} `json:"users"`
+		} `json:"data"`
 	}
 	if err := c.do(ctx, http.MethodGet, "/v1/users?limit=100", nil, &resp); err != nil {
 		return "", err
 	}
-	for _, u := range resp.Users {
-		if u.PhoneNumber == phone && u.BmoniUserID != "" {
+	src := resp.Users
+	if len(src) == 0 {
+		src = resp.Data.Users
+	}
+	for _, u := range src {
+		if u.BmoniUserID == "" {
+			continue
+		}
+		if u.PhoneNumber == phone || (email != "" && u.Email == email) {
 			return u.BmoniUserID, nil
 		}
 	}
-	return "", errors.New("bmoni: persona user exists (409) but could not be recovered by phone")
+	return "", errors.New("bmoni: create-user returned 409 but existing user could not be recovered (phone/email not in list)")
 }
 
 func (c *Client) uploadOperatorDocs(ctx context.Context, userID string) error {
@@ -87,22 +106,4 @@ func (c *Client) uploadOperatorDocs(ctx context.Context, userID string) error {
 		}
 	}
 	return nil
-}
-
-// CreditNGN implements ports.Money.CreditNGN: fund the provisioned wallet from
-// the platform funding wallet.
-func (c *Client) CreditNGN(ctx context.Context, external *domain.WalletExternal, amount domain.Amount) (string, error) {
-	if external == nil {
-		return "", errors.New("bmoni: wallet not provisioned")
-	}
-	return c.CreditTo(ctx, external.UserID, external.WalletID, amount.NairaString())
-}
-
-// PayWinnerFrom implements ports.Money.PayWinnerFrom: prize money from an
-// instructor wallet to a winner wallet address.
-func (c *Client) PayWinnerFrom(ctx context.Context, from *domain.WalletExternal, toAddr string, amount domain.Amount) (string, error) {
-	if from == nil {
-		return "", errors.New("bmoni: source wallet not provisioned")
-	}
-	return c.PayTo(ctx, from.UserID, from.WalletID, toAddr, amount.NairaString())
 }

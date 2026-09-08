@@ -23,8 +23,8 @@ const CONFETTI = [
 
 const CLAIM_STEPS = [
   { title: "Claim locked", copy: "Your share of the pool is reserved the moment you redeem." },
-  { title: "Invite sent", copy: "We reach out to your payout email to confirm your details." },
-  { title: "Paid out", copy: "The money lands. You'll see it on your history too." },
+  { title: "Code emailed", copy: "We email your claim code instantly as a backup — you can never lose it." },
+  { title: "Bank payout", copy: "Add your Nigerian bank details and the host wallet pays you in seconds." },
 ];
 
 export function PlayerPodium() {
@@ -184,6 +184,18 @@ export function PlayerPodium() {
                     </div>
                     <p className="mt-3 flex items-center gap-2 text-sm font-bold text-mint-dark">
                       <ShieldCheck className="size-4" /> Claim locked · <Money value={claim.amountNaira} className="text-sm" />
+                    </p>
+                    <Button
+                      variant="mint"
+                      size="lg"
+                      onClick={() => navigate(`/claim?code=${claim.claimCode}&email=${encodeURIComponent(email ?? "")}`)}
+                      className="mt-5 w-full"
+                      icon={<Trophy className="size-5" />}
+                    >
+                      Continue to payout
+                    </Button>
+                    <p className="mt-2 text-center text-xs font-bold text-soft">
+                      Keep your code safe — it is also in your email.
                     </p>
                   </>
                 ) : (

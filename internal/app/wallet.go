@@ -55,6 +55,11 @@ func (w *Wallet) PersonaConfigured() bool {
 // Provision creates a real BMONI user + CNGN wallet for the instructor and
 // records the external ids on their wallet row. Idempotent: a wallet that is
 // already provisioned is left untouched.
+//
+// The BMONI user is created with the instructor's own email (so each host has
+// a distinct account) and the persona's name/phone/BVN (so sandbox KYC
+// verification matches). A 409 from a prior successful create is recovered by
+// searching the partner's users for the persona phone or the instructor email.
 func (w *Wallet) Provision(ctx context.Context, instructorID string) (*domain.Wallet, error) {
 	if w.money == nil {
 		return nil, errors.New("wallet provisioning unavailable: money rail not configured")
@@ -69,7 +74,13 @@ func (w *Wallet) Provision(ctx context.Context, instructorID string) (*domain.Wa
 	if wallet.BmoniUserID != "" {
 		return wallet, nil // already provisioned
 	}
-	ext, err := w.money.Provision(ctx, w.persona)
+	// Use the instructor's own email for the BMONI user so repeated signups
+	// never collide on a fixed persona email.
+	persona := w.persona
+	if instructor, err := w.store.GetInstructor(ctx, instructorID); err == nil && instructor.Email != "" {
+		persona.Email = instructor.Email
+	}
+	ext, err := w.money.Provision(ctx, persona)
 	if err != nil {
 		return nil, err
 	}
@@ -79,10 +90,13 @@ func (w *Wallet) Provision(ctx context.Context, instructorID string) (*domain.Wa
 	return w.store.GetWalletByInstructor(ctx, instructorID)
 }
 
-// Fund credits an instructor's wallet. When the rail is configured and the
-// wallet is provisioned, the credit settles on the real BMONI rail first and
-// the local ledger records it. Without the rail, "credit" is an instant local
-// ledger credit (sandbox/dev) and card/transfer return a clear error.
+// Fund credits an instructor's wallet. The `credit` method is the instant
+// local-ledger credit (the sandbox/demo funding path). `card`/`transfer` are
+// external rails: real production funding happens by sending money to the
+// host's NGN virtual bank account (see DepositAccount), which BMONI credits to
+// the wallet; the local ledger mirrors it. Without a live onramp webhook the
+// ledger is only updated by `credit`, so card/transfer return a clear error
+// directing the host to the deposit account instead of silently minting naira.
 func (w *Wallet) Fund(ctx context.Context, instructorID string, amount domain.Amount, method string) (*domain.Wallet, error) {
 	if amount <= 0 {
 		return nil, domain.ErrBadCredentials // reuse: amount must be positive
@@ -97,17 +111,7 @@ func (w *Wallet) Fund(ctx context.Context, instructorID string, amount domain.Am
 	}
 
 	if m != "credit" {
-		if w.money == nil {
-			return nil, errors.New("external funding unavailable: money rail not configured. Try instant wallet credit.")
-		}
-		if wallet.BmoniUserID == "" {
-			return nil, errors.New("wallet is not provisioned on the money rail")
-		}
-		if _, err := w.money.CreditNGN(ctx, &domain.WalletExternal{
-			UserID: wallet.BmoniUserID, WalletID: wallet.BmoniWalletID, Address: wallet.BmoniWalletAddr,
-		}, amount); err != nil {
-			return nil, err
-		}
+		return nil, errors.New("external funding settles via your NGN bank account — use 'wallet credit' for instant demo funding")
 	}
 
 	tx := &domain.WalletTransaction{
@@ -122,6 +126,23 @@ func (w *Wallet) Fund(ctx context.Context, instructorID string, amount domain.Am
 		return nil, err
 	}
 	return w.store.GetWalletByInstructor(ctx, instructorID)
+}
+
+// DepositAccount returns the host's NGN virtual bank account (account number
+// + bank) that a bank transfer can be sent to in order to fund the wallet. It
+// requires the wallet to be provisioned on the rail.
+func (w *Wallet) DepositAccount(ctx context.Context, instructorID string) (accountNumber, bankName string, err error) {
+	if w.money == nil {
+		return "", "", errors.New("money rail not configured")
+	}
+	ext, err := w.External(ctx, instructorID)
+	if err != nil {
+		return "", "", err
+	}
+	if ext == nil {
+		return "", "", errors.New("wallet is not provisioned on the money rail")
+	}
+	return w.money.DepositAccount(ctx, ext.UserID, ext.WalletID)
 }
 
 // Balance returns the instructor's wallet.

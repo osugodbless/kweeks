@@ -60,10 +60,12 @@ type Store interface {
 	// Claims (exactly-once per email+quiz, enforced by the store)
 	CreateClaim(ctx context.Context, c *domain.Claim) error
 	GetClaimByCode(ctx context.Context, quizID, code string) (*domain.Claim, error)
+	GetClaimByCodeOnly(ctx context.Context, code string) (*domain.Claim, error)
 	GetClaimByEmail(ctx context.Context, quizID, email string) (*domain.Claim, error)
 	ListClaims(ctx context.Context, quizID string) ([]domain.Claim, error)
 	ListClaimsByQuizIDs(ctx context.Context, quizIDs []string) ([]domain.Claim, error)
 	UpdateClaimState(ctx context.Context, id string, to domain.ClaimState) error
+	UpdateClaimBank(ctx context.Context, c *domain.Claim) error
 
 	// Instructors (multi-user auth)
 	CreateInstructor(ctx context.Context, i *domain.Instructor) error

@@ -7,6 +7,7 @@ import { PlayerLobby } from "@/pages/player/PlayerLobby";
 import { PlayerQuestion } from "@/pages/player/PlayerQuestion";
 import { PlayerStandings } from "@/pages/player/PlayerStandings";
 import { PlayerPodium } from "@/pages/player/PlayerPodium";
+import { ClaimPage } from "@/pages/player/ClaimPage";
 import { InstructorSignup } from "@/pages/instructor/InstructorSignup";
 import { InstructorLogin } from "@/pages/instructor/InstructorLogin";
 import { InstructorWallet } from "@/pages/instructor/InstructorWallet";
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/question" element={<PlayerQuestion />} />
         <Route path="/standings" element={<PlayerStandings />} />
         <Route path="/podium" element={<PlayerPodium />} />
+        <Route path="/claim" element={<ClaimPage />} />
 
         <Route path="/instructor/signup" element={<InstructorSignup />} />
         <Route path="/instructor/login" element={<InstructorLogin />} />

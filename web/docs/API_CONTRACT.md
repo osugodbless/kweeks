@@ -109,7 +109,28 @@ Body `{participantId,questionId,optionIndex}` → `{id,correct,score,latencyMs}`
 Start (lobby→live), next question (manual), finalize podium → winners `[...]`.
 
 ### POST /api/rooms/{id}/redeem  (exists)
-Body `{email}` → `{id,amountNaira,state}`. Claim code returned in `claimCode` for the winner's own session.
+Body `{email}` → `{id,amountNaira,state,claimCode}`. Creates the exactly-once
+claim and emails the claim code + a `/claim` URL immediately as the recovery
+artifact, so the code can never be lost.
+
+### POST /api/claims/resolve  (new, public)
+Body `{claimCode,email}` → `{claim:{id,amountNaira,state}, banks:[{code,name}]}`.
+Validates the claim code + join email and returns the Nigerian bank list for
+the payout form. Wrong code/email → `403`.
+
+### POST /api/claims/payout  (new, public)
+Body `{claimCode,email,accountNumber,bankCode,bankName}` → `{claim:{id,amountNaira,state,payoutRef}}`.
+Verifies the winner's Nigerian bank account, registers it on the host's rail,
+and offramps the prize from the host wallet. State advances
+`created → bank_submitted → paying → paid` (or `failed`).
+
+### GET /api/wallet/deposit  (new)
+`{accountNumber,bankName}` — the host's NGN virtual bank account that a bank
+transfer to it funds the wallet (issued during Nigeria onboarding).
+
+### POST /api/wallet/provision  (exists)
+Provisions a real BMONI user + CNGN smart wallet + NGN rail for the host using
+the configured persona identity. Idempotent.
 
 ---
 
@@ -126,10 +147,15 @@ Frontend refetches the matching REST resource on each event for the authoritativ
 ---
 
 ## Notes / decisions
-- Wallet is a real instructor-scoped ledger. `credit` funding is the instant
-  platform credit used by the demo (BMONI sandbox test-credit); card/transfer
-  settle via the money rail when BMONI is configured and otherwise return a
-  clear 502 so the UI can show a recoverable error.
+- Wallet is a real instructor-scoped ledger. At signup the host gets a real
+  BMONI user + CNGN smart wallet + NGN rail (create-user → KYC → owner-proof →
+  create-managed → start-nigeria). `credit` funding is the instant local-ledger
+  credit used by the demo; production funding happens by bank-transferring to
+  the host's NGN virtual bank account (`GET /api/wallet/deposit`), which BMONI
+  credits to the wallet.
+- Winners are paid by the host wallet via the BMONI offramp (verify → register
+  → offramp → approve → sign), not by a pre-provisioned persona. The claim code
+  is emailed immediately and is the only capability that authorizes the payout.
 - Multi-user auth: instructors + bcrypt-hashed passwords + bearer sessions,
   stored in Postgres (memory store mirrors for tests).
 - Room codes: unambiguous A-Z/2-9, no look-alikes.

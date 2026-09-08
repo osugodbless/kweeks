@@ -57,6 +57,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/wallet", s.requireAuth(s.handleWallet))
 	mux.HandleFunc("POST /api/wallet/fund", s.requireAuth(s.handleFundWallet))
 	mux.HandleFunc("POST /api/wallet/provision", s.requireAuth(s.handleProvisionWallet))
+	mux.HandleFunc("GET /api/wallet/deposit", s.requireAuth(s.handleDepositAccount))
 	mux.HandleFunc("GET /api/instructor/dashboard", s.requireAuth(s.handleDashboard))
 	mux.HandleFunc("GET /api/instructor/history", s.requireAuth(s.handleHistory))
 
@@ -81,6 +82,10 @@ func (s *Server) Routes(mux *http.ServeMux) {
 
 	// Winner redemption
 	mux.HandleFunc("POST /api/rooms/{roomID}/redeem", s.handleRedeem)
+
+	// Public claim + bank payout
+	mux.HandleFunc("POST /api/claims/resolve", s.handleResolveClaim)
+	mux.HandleFunc("POST /api/claims/payout", s.handleSubmitPayout)
 
 	if s.wsHub != nil {
 		mux.HandleFunc("GET /api/rooms/{roomID}/ws", s.handleWS)

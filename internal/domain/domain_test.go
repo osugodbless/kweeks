@@ -226,11 +226,12 @@ func TestValidateQuiz(t *testing.T) {
 
 func TestClaimTransitions(t *testing.T) {
 	valid := []struct{ from, to ClaimState }{
-		{ClaimCreated, ClaimInvited},
-		{ClaimCreated, ClaimOnboarded},
+		{ClaimCreated, ClaimBankSubmitted},
 		{ClaimCreated, ClaimFailed},
-		{ClaimInvited, ClaimOnboarded},
-		{ClaimOnboarded, ClaimPaid},
+		{ClaimBankSubmitted, ClaimPaying},
+		{ClaimBankSubmitted, ClaimFailed},
+		{ClaimPaying, ClaimPaid},
+		{ClaimPaying, ClaimFailed},
 	}
 	for _, tr := range valid {
 		if !CanTransition(tr.from, tr.to) {
@@ -238,9 +239,9 @@ func TestClaimTransitions(t *testing.T) {
 		}
 	}
 	invalid := []struct{ from, to ClaimState }{
-		{ClaimCreated, ClaimPaid}, // cannot skip onboarding
+		{ClaimCreated, ClaimPaid}, // cannot skip bank submission
 		{ClaimPaid, ClaimCreated}, // terminal state
-		{ClaimOnboarded, ClaimCreated},
+		{ClaimBankSubmitted, ClaimCreated},
 	}
 	for _, tr := range invalid {
 		if CanTransition(tr.from, tr.to) {

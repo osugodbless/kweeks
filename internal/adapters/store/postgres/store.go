@@ -415,7 +415,8 @@ func scanClaim(row pgx.Row) (*domain.Claim, error) {
 	var amount int64
 	var state string
 	var paidAt *time.Time
-	if err := row.Scan(&c.ID, &c.QuizID, &c.RoomID, &c.Email, &amount, &c.ClaimCode, &state, &c.CreatedAt, &paidAt); err != nil {
+	if err := row.Scan(&c.ID, &c.QuizID, &c.RoomID, &c.Email, &amount, &c.ClaimCode, &state, &c.CreatedAt, &paidAt,
+		&c.BankAccountID, &c.PayoutRef, &c.BankAccountNumber, &c.BankName, &c.AccountHolderName); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrClaimNotFound
 		}
@@ -428,6 +429,9 @@ func scanClaim(row pgx.Row) (*domain.Claim, error) {
 	}
 	return &c, nil
 }
+
+const claimColumns = `id, quiz_id, room_id, email, amount_kobo, claim_code, state, created_at, paid_at,
+	bank_account_id, payout_ref, bank_account_number, bank_name, account_holder_name`
 
 func (s *Store) CreateClaim(ctx context.Context, c *domain.Claim) error {
 	_, err := s.pool.Exec(ctx, `
@@ -442,19 +446,25 @@ func (s *Store) CreateClaim(ctx context.Context, c *domain.Claim) error {
 
 func (s *Store) GetClaimByCode(ctx context.Context, quizID, code string) (*domain.Claim, error) {
 	return scanClaim(s.pool.QueryRow(ctx, `
-		select id, quiz_id, room_id, email, amount_kobo, claim_code, state, created_at, paid_at
+		select `+claimColumns+`
 		from claims where quiz_id=$1 and claim_code=$2`, quizID, code))
+}
+
+func (s *Store) GetClaimByCodeOnly(ctx context.Context, code string) (*domain.Claim, error) {
+	return scanClaim(s.pool.QueryRow(ctx, `
+		select `+claimColumns+`
+		from claims where claim_code=$1 limit 1`, code))
 }
 
 func (s *Store) GetClaimByEmail(ctx context.Context, quizID, email string) (*domain.Claim, error) {
 	return scanClaim(s.pool.QueryRow(ctx, `
-		select id, quiz_id, room_id, email, amount_kobo, claim_code, state, created_at, paid_at
+		select `+claimColumns+`
 		from claims where quiz_id=$1 and email=$2`, quizID, email))
 }
 
 func (s *Store) ListClaims(ctx context.Context, quizID string) ([]domain.Claim, error) {
 	rows, err := s.pool.Query(ctx, `
-		select id, quiz_id, room_id, email, amount_kobo, claim_code, state, created_at, paid_at
+		select `+claimColumns+`
 		from claims where quiz_id=$1 order by created_at`, quizID)
 	if err != nil {
 		return nil, err
@@ -484,12 +494,29 @@ func (s *Store) UpdateClaimState(ctx context.Context, id string, to domain.Claim
 	return nil
 }
 
+// UpdateClaimBank persists the winner's Nigerian payout details (account id,
+// account number, bank, holder name, and settlement reference) on the claim.
+func (s *Store) UpdateClaimBank(ctx context.Context, c *domain.Claim) error {
+	tag, err := s.pool.Exec(ctx, `
+		update claims set bank_account_id=$2, payout_ref=$3,
+			bank_account_number=$4, bank_name=$5, account_holder_name=$6
+		where id=$1`,
+		c.ID, c.BankAccountID, c.PayoutRef, c.BankAccountNumber, c.BankName, c.AccountHolderName)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrClaimNotFound
+	}
+	return nil
+}
+
 func (s *Store) ListClaimsByQuizIDs(ctx context.Context, quizIDs []string) ([]domain.Claim, error) {
 	if len(quizIDs) == 0 {
 		return []domain.Claim{}, nil
 	}
 	rows, err := s.pool.Query(ctx, `
-		select id, quiz_id, room_id, email, amount_kobo, claim_code, state, created_at, paid_at
+		select `+claimColumns+`
 		from claims where quiz_id = any($1) order by created_at`, quizIDs)
 	if err != nil {
 		return nil, err

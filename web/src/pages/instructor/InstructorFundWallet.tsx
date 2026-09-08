@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Banknote, Check, CreditCard, Landmark, Sparkles, Zap } from "lucide-react";
+import { Banknote, Check, Landmark, Sparkles, Zap } from "lucide-react";
 import { ApiError } from "@/lib/api";
-import { useFundWallet } from "@/lib/hooks";
+import { useDepositAccount, useFundWallet } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { naira } from "@/lib/player";
 import { Button } from "@/components/ui/button";
@@ -17,14 +17,14 @@ const QUICK_PICKS = ["1000", "5000", "50000", "100000"];
 
 const METHODS = [
   { id: "credit", label: "Wallet credit", Icon: Zap, copy: "Instant platform credit" },
-  { id: "card", label: "Debit card", Icon: CreditCard, copy: "Card settles via the rail" },
-  { id: "transfer", label: "Bank transfer", Icon: Landmark, copy: "Transfer to your wallet" },
+  { id: "transfer", label: "Bank transfer", Icon: Landmark, copy: "Transfer to your NGN account" },
 ];
 
 export function InstructorFundWallet() {
   const navigate = useNavigate();
   const fund = useFundWallet();
   const { wallet } = useAuth();
+  const { data: deposit, isError: depositError } = useDepositAccount();
 
   const [amount, setAmount] = useState("50000");
   const [method, setMethod] = useState("credit");
@@ -42,17 +42,13 @@ export function InstructorFundWallet() {
       setError("Enter an amount to fund.");
       return;
     }
+    if (method !== "credit") return; // bank transfer settles via the deposit account, not here
     try {
       await fund.mutateAsync({ amountNaira: String(numeric), method });
       setSuccess(`Wallet credited with ${naira(numeric)} — it is spendable right away.`);
       setAmount("");
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Funding failed — try again.";
-      if (err instanceof ApiError && err.status === 502) {
-        setError(`${msg} Card/transfer settle through the money rail — use wallet credit for instant funding.`);
-      } else {
-        setError(msg);
-      }
+      setError(err instanceof ApiError ? err.message : "Funding failed — try again.");
     }
   }
 
@@ -153,6 +149,29 @@ export function InstructorFundWallet() {
                 );
               })}
             </div>
+
+            {method === "transfer" && (
+              <div className="mt-5 rounded-2xl border-2 border-mint/30 bg-mint/10 p-5">
+                <p className="text-sm font-bold text-mint-dark">Send a bank transfer to this account</p>
+                {deposit ? (
+                  <>
+                    <p className="mt-3 rounded-2xl bg-white px-5 py-4 font-display text-2xl font-semibold tracking-wide text-ink">
+                      {deposit.accountNumber}
+                    </p>
+                    <p className="mt-2 text-sm font-bold text-mint-dark">{deposit.bankName} · NGN</p>
+                    <p className="mt-2 text-xs leading-relaxed text-soft">
+                      Your wallet is credited automatically when the transfer lands. No code needed.
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm leading-relaxed text-soft">
+                    {depositError
+                      ? "Your wallet is not provisioned on the money rail yet — provision it from the dashboard first, or use wallet credit."
+                      : "Fetching your NGN account…"}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {success && (
@@ -162,13 +181,18 @@ export function InstructorFundWallet() {
             </p>
           )}
 
-          <Button type="submit" variant="mint" size="lg" loading={fund.isPending} className="w-full" icon={<Sparkles className="size-5" />}>
-            {fund.isPending ? "Funding…" : `Fund ${valid ? naira(numeric) : "wallet"}`}
-          </Button>
-          <p className="text-center text-xs leading-relaxed text-soft">
-            Wallet credits post instantly to your available balance. Card/transfer may take a few
-            minutes to settle through the rail.
-          </p>
+          {method === "credit" && (
+            <>
+              <Button type="submit" variant="mint" size="lg" loading={fund.isPending} className="w-full" icon={<Sparkles className="size-5" />}>
+                {fund.isPending ? "Funding…" : `Fund ${valid ? naira(numeric) : "wallet"}`}
+              </Button>
+              <p className="text-center text-xs leading-relaxed text-soft">
+                Wallet credits post instantly to your available balance. Bank transfers settle through
+                your NGN account instead.
+              </p>
+            </>
+          )}
+
           <div className="text-center">
             <button type="button" onClick={() => navigate("/instructor/dashboard")} className="cursor-pointer text-sm font-bold text-violet hover:text-violet-dark">
               ← Back to dashboard

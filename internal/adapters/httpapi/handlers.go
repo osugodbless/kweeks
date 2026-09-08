@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -290,4 +291,68 @@ func (s *Server) handleRedeem(w http.ResponseWriter, r *http.Request) {
 		"id": claim.ID, "amountNaira": claim.Amount.DisplayString(), "state": claim.State,
 		"claimCode": claim.ClaimCode,
 	})
+}
+
+// ---- Public claim (bank payout) ----
+
+type claimLookupReq struct {
+	ClaimCode string `json:"claimCode"`
+	Email     string `json:"email"`
+}
+
+// handleResolveClaim validates a claim code + email and returns the claim +
+// the Nigerian banks list for the payout form.
+func (s *Server) handleResolveClaim(w http.ResponseWriter, r *http.Request) {
+	var req claimLookupReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, domain.ErrBadClaimCode)
+		return
+	}
+	claim, err := s.red.ResolveClaim(r.Context(), req.ClaimCode, req.Email)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	banks, err := s.red.ListBanks(r.Context(), claim)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"claim": claimJSON(claim),
+		"banks": banks,
+	})
+}
+
+type payoutReq struct {
+	ClaimCode     string `json:"claimCode"`
+	Email         string `json:"email"`
+	AccountNumber string `json:"accountNumber"`
+	BankCode      string `json:"bankCode"`
+	BankName      string `json:"bankName"`
+}
+
+// handleSubmitPayout verifies the winner's Nigerian bank account, registers it
+// on the host's rail, and offramps the prize from the host wallet.
+func (s *Server) handleSubmitPayout(w http.ResponseWriter, r *http.Request) {
+	var req payoutReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, errors.New("invalid payout request"))
+		return
+	}
+	claim, err := s.red.SubmitBankPayout(r.Context(), req.ClaimCode, req.Email, domain.NigerianAccount{
+		AccountNumber: req.AccountNumber, BankCode: req.BankCode, BankName: req.BankName,
+	})
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"claim": claimJSON(claim)})
+}
+
+func claimJSON(c *domain.Claim) map[string]any {
+	return map[string]any{
+		"id": c.ID, "amountNaira": c.Amount.DisplayString(), "state": c.State,
+		"claimCode": c.ClaimCode, "bankAccountId": c.BankAccountID, "payoutRef": c.PayoutRef,
+	}
 }

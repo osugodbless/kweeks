@@ -11,41 +11,40 @@ import (
 	"github.com/osugodbless/kweeks/internal/ports"
 )
 
-// Mailer sends redemption emails over SMTP with a logged fallback. When mailTo
-// is set it overrides the recipient so demo email lands in a real inbox.
+// Mailer sends redemption emails over SMTP with a logged fallback. The email
+// carries the winner's claim code AND the /claim URL, so the code can never be
+// lost if the winner leaves the podium screen.
 type Mailer struct {
 	host   string
 	port   int
 	user   string
 	pass   string
 	from   string
-	mailTo string
 	logger *slog.Logger
 }
 
-func New(host string, port int, user, pass, from, mailTo string, logger *slog.Logger) *Mailer {
+func New(host string, port int, user, pass, from string, logger *slog.Logger) *Mailer {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Mailer{host: host, port: port, user: user, pass: pass, from: from, mailTo: mailTo, logger: logger}
+	return &Mailer{host: host, port: port, user: user, pass: pass, from: from, logger: logger}
 }
 
 // SendRedemptionEmail is best-effort by contract. On SMTP failure it logs the
 // error AND the full redemption payload to the server log so the demo has a
 // paper trail even with no mail server configured.
-func (m *Mailer) SendRedemptionEmail(ctx context.Context, to, claimCode string, amountNaira string) error {
-	if m.mailTo != "" {
-		// Demo override: land the email in the operator's real inbox rather
-		// than the winner's throwaway join address.
-		to = m.mailTo
-	}
+func (m *Mailer) SendRedemptionEmail(ctx context.Context, to, claimCode string, amountNaira string, claimURL string) error {
 	if m.host == "" {
 		m.logger.Info("mail: no SMTP configured; redemption payload logged",
-			"to", to, "amountNaira", amountNaira)
+			"to", to, "amountNaira", amountNaira, "claimURL", claimURL)
 		return nil
 	}
 	subject := "Your kweeks prize is ready to redeem"
-	body := fmt.Sprintf("You won %s NGN on kweeks.\n\nClaim code: %s\nRedeem at your kweeks podium screen.\n", amountNaira, claimCode)
+	body := fmt.Sprintf(
+		"You won %s NGN on kweeks.\n\nYour claim code: %s\n\n"+
+			"Redeem it here (or on your podium screen): %s\n\n"+
+			"Keep this code private — anyone with it can claim your prize.\n",
+		amountNaira, claimCode, claimURL)
 	fromHdr := m.from
 	if fromHdr == "" {
 		fromHdr = "kweeks@example.com"
@@ -65,7 +64,7 @@ func (m *Mailer) SendRedemptionEmail(ctx context.Context, to, claimCode string, 
 	if err := smtp.SendMail(addr, auth, m.from, []string{to}, msg); err != nil {
 		// Never fail the caller; the claim is the source of truth.
 		m.logger.Error("mail: send failed; redemption payload logged",
-			"err", err, "to", to, "amountNaira", amountNaira, "claimCode", claimCode)
+			"err", err, "to", to, "amountNaira", amountNaira, "claimCode", claimCode, "claimURL", claimURL)
 	}
 	return nil
 }

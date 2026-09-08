@@ -258,6 +258,20 @@ func (s *Store) GetClaimByCode(ctx context.Context, quizID, code string) (*domai
 	return nil, domain.ErrClaimNotFound
 }
 
+func (s *Store) GetClaimByCodeOnly(ctx context.Context, code string) (*domain.Claim, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, cs := range s.claims {
+		for _, c := range cs {
+			if c.ClaimCode == code {
+				cp := *c
+				return &cp, nil
+			}
+		}
+	}
+	return nil, domain.ErrClaimNotFound
+}
+
 func (s *Store) GetClaimByEmail(ctx context.Context, quizID, email string) (*domain.Claim, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -291,6 +305,25 @@ func (s *Store) UpdateClaimState(ctx context.Context, id string, to domain.Claim
 					return domain.ErrInvalidTransition
 				}
 				c.State = to
+				return nil
+			}
+		}
+	}
+	return domain.ErrClaimNotFound
+}
+
+// UpdateClaimBank persists the winner's Nigerian payout details on the claim.
+func (s *Store) UpdateClaimBank(ctx context.Context, c *domain.Claim) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, cs := range s.claims {
+		for _, existing := range cs {
+			if existing.ID == c.ID {
+				existing.BankAccountID = c.BankAccountID
+				existing.PayoutRef = c.PayoutRef
+				existing.BankAccountNumber = c.BankAccountNumber
+				existing.BankName = c.BankName
+				existing.AccountHolderName = c.AccountHolderName
 				return nil
 			}
 		}

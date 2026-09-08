@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 import { Chip, LiveDot } from "@/components/ui/chip";
 import { Wordmark } from "@/components/ui/wordmark";
 
-export type PlayerStatus = "join" | "lobby" | "live" | "standings" | "podium";
+export type PlayerStatus = "join" | "lobby" | "live" | "standings" | "podium" | "claim";
 
 const STATUS: Record<PlayerStatus, { label: string; tone: "gold" | "coral" | "violet" | "mint"; dot?: boolean }> = {
   join: { label: "Live money quiz", tone: "violet" },
@@ -11,6 +11,7 @@ const STATUS: Record<PlayerStatus, { label: string; tone: "gold" | "coral" | "vi
   live: { label: "Live", tone: "coral", dot: true },
   standings: { label: "Live", tone: "coral", dot: true },
   podium: { label: "Game over", tone: "mint" },
+  claim: { label: "Claim payout", tone: "gold" },
 };
 
 interface PlayerTopBarProps {

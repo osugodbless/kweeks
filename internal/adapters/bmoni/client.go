@@ -1,12 +1,14 @@
-// Package bmoni implements ports.Money against the BMONI Embedded REST API
-// (create-managed wallet, proposal -> approve -> sign -> send). The owner key
+// Package bmoni implements ports.Money against the BMONI Embedded REST API.
+// Each instructor gets a real BMONI user + CNGN smart wallet (owner-proof
+// challenge -> create-managed -> KYC -> NGN rail onboarding), and prize money
+// moves from the host wallet to a winner's Nigerian bank account via
+// verify -> register -> offramp (proposal -> approve -> sign). The owner key
 // is held server-side and never leaves the process.
 package bmoni
 
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,9 +16,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/osugodbless/kweeks/internal/domain"
 )
 
 // Client talks to BMONI Embedded.
@@ -24,15 +23,13 @@ type Client struct {
 	baseURL string
 	apiKey  string
 
-	// ownerKey is the hex secp256k1 private key of the instructor wallet.
+	// ownerKey is the hex secp256k1 private key that signs owner-proof
+	// challenges and proposal digests for every provisioned wallet.
 	ownerKey string
 
-	// userID / walletID identify the platform wallet whose balance is the pool.
-	userID   string
-	walletID string
-
 	// Operator-provided KYC document image paths (JPEG/PNG). Empty means the
-	// provisioning flow stops before the upload step.
+	// provisioning flow stops before the upload step (sandbox NGN completes
+	// without them; a real rail should configure all three).
 	docIdentification string
 	docProofOfAddress string
 	docBiometric      string
@@ -41,13 +38,11 @@ type Client struct {
 }
 
 // New builds a BMONI client. ownerKey is hex without 0x.
-func New(baseURL, apiKey, ownerKey, userID, walletID string) *Client {
+func New(baseURL, apiKey, ownerKey string) *Client {
 	return &Client{
 		baseURL:  strings.TrimSuffix(baseURL, "/"),
 		apiKey:   apiKey,
 		ownerKey: ownerKey,
-		userID:   userID,
-		walletID: walletID,
 		http:     &http.Client{Timeout: 30 * time.Second},
 	}
 }
@@ -112,71 +107,6 @@ func truncate(s string, n int) string {
 	return s[:n] + "..."
 }
 
-// BalanceNGN reads the platform wallet NGN balance in kobo. The live sandbox
-// reports balances under GET /smart-wallets/account/balances as a list keyed by
-// smartWalletId with display currency "NGN".
-func (c *Client) BalanceNGN(ctx context.Context) (domain.Amount, error) {
-	var resp struct {
-		Balances []struct {
-			SmartWalletID string `json:"smartWalletId"`
-			Currency      string `json:"currency"`
-			Balance       string `json:"balance"`
-		} `json:"balances"`
-	}
-	if c.userID == "" {
-		return 0, errors.New("bmoni: no user id configured")
-	}
-	err := c.do(ctx, http.MethodGet,
-		fmt.Sprintf("/v1/users/%s/smart-wallets/account/balances", c.userID), nil, &resp)
-	if err != nil {
-		return 0, err
-	}
-	for _, b := range resp.Balances {
-		if b.Currency == "NGN" || b.Currency == "CNGN" {
-			if b.Balance == "" {
-				return 0, nil
-			}
-			return domain.FromNairaString(b.Balance)
-		}
-	}
-	return 0, errors.New("bmoni: no NGN balance in wallet response")
-}
-
-// PayWinner transfers prize money from the platform wallet to a recipient
-// BMONI user (winner persona). The recipient must hold an active wallet in the
-// currency. Returns the settlement reference (proposal id).
-func (c *Client) PayWinner(ctx context.Context, toUserID string, amount domain.Amount) (string, error) {
-	if c.userID == "" || c.walletID == "" {
-		return "", errors.New("bmoni: source wallet not configured")
-	}
-	if c.ownerKey == "" {
-		return "", errors.New("bmoni: owner key required to send")
-	}
-	return c.sendProposal(ctx, c.userID, c.walletID, map[string]any{
-		"type": "TRANSFER", "toUserId": toUserID,
-		"amount": amount.NairaString(), "currency": "CNGN", "description": "kweeks prize payout",
-	})
-}
-
-// signDigest signs a raw 32-byte digest (no prefix) with the owner key.
-func signDigest(ownerKeyHex, digestHex string) (string, error) {
-	key, err := crypto.HexToECDSA(strings.TrimPrefix(ownerKeyHex, "0x"))
-	if err != nil {
-		return "", fmt.Errorf("bmoni: bad owner key: %w", err)
-	}
-	digest := strings.TrimPrefix(digestHex, "0x")
-	if len(digest) != 64 {
-		return "", errors.New("bmoni: hashToSign is not a 32-byte hex digest")
-	}
-	sig, err := crypto.Sign(decodeHex(digest), key)
-	if err != nil {
-		return "", err
-	}
-	sig[64] += 27 // v: 0/1 -> 27/28
-	return "0x" + hex.EncodeToString(sig), nil
-}
-
-func decodeHex(s string) []byte {
-	out, _ := hex.DecodeString(s)
-	return out
-}
+// ErrWalletNotProvisioned is returned by payout/funding helpers when the host
+// wallet has no BMONI identity yet.
+var ErrWalletNotProvisioned = errors.New("bmoni: wallet not provisioned on the rail")

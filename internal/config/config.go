@@ -21,40 +21,37 @@ type Config struct {
 	// as /api so no separate reverse proxy is required. Empty disables it.
 	WebRoot string
 
+	// PublicURL is the externally-reachable base URL (origin only) used to
+	// build the /claim link in redemption emails.
+	PublicURL string
+
 	// Database
 	DatabaseURL string
 
-	// BMONI Embedded (embedded-dev for sandbox)
-	BmoniBaseURL          string
-	BmoniAPIKey           string
-	BmoniOwnerKey         string // hex secp256k1 private key for the instructor wallet
-	BmoniInstructorUserID string
-	BmoniWalletID         string // optional explicit recipient wallet for sandbox sends
+	// BMONI Embedded (embedded-dev for sandbox). The owner key is the hex
+	// secp256k1 private key that signs every provisioned wallet's
+	// owner-proof + proposal digests.
+	BmoniBaseURL string
+	BmoniAPIKey  string
+	BmoniOwnerKey string
 
 	// BMONI onboarding persona (NGN rail). The sandbox resolves a fixed set of
-	// personas; provisioning uses these identity values verbatim. The three KYC
-	// document uploads stay an operator step: point BmoniDocIdentification,
-	// BmoniDocProofOfAddress, BmoniDocBiometric at JPEG/PNG files to have the
-	// server submit them, or leave empty to stop before uploads.
+	// personas; provisioning uses these identity values verbatim so KYC
+	// verification matches. Phone is E.164 (e.g. +2348000000000).
 	BmoniPersonaFirstName string
 	BmoniPersonaLastName  string
 	BmoniPersonaEmail     string
-	BmoniPersonaPhone     string // E.164, e.g. +2348000000001
+	BmoniPersonaPhone     string
 	BmoniPersonaBVN       string
 	BmoniPersonaDOB       string // YYYY-MM-DD
 	BmoniPersonaAddress   string
 	BmoniPersonaCity      string
 	BmoniPersonaState     string
 
-	BmoniDocIdentification string
-	BmoniDocProofOfAddress string
-	BmoniDocBiometric      string
-	BmoniProvisionOnSignup bool // when true, signup also provisions a real BMONI user + CNGN wallet
-
-	// BmoniWinnerUserID is the second sandbox persona that closes the payout
-	// loop live: the demo winner who receives prize money from the instructor
-	// wallet. Empty disables real payouts (claims still tracked).
-	BmoniWinnerUserID string
+	// BmoniProvisionOnSignup, when true, provisions a real BMONI user + CNGN
+	// wallet + NGN rail for the instructor at signup. Provisioning failure is
+	// never fatal to signup; the dashboard surfaces a retry.
+	BmoniProvisionOnSignup bool
 
 	// Email (redemption recovery artifact; never the critical path)
 	SmtpHost string
@@ -62,10 +59,6 @@ type Config struct {
 	SmtpUser string
 	SmtpPass string
 	FromAddr string
-	// MailTo, when set, overrides the redemption email recipient so demo mail
-	// lands in a real inbox (e.g. the operator's Gmail) instead of the winner's
-	// throwaway join address.
-	MailTo string
 }
 
 // Load reads configuration from the environment.
@@ -75,14 +68,13 @@ func Load() (*Config, error) {
 		Env: getEnv("KWEEKS_ENV", "development"), HTTPAddr: getEnv("KWEEKS_HTTP_ADDR", ":8080"),
 		ShutdownTO: 10 * time.Second,
 		WebRoot:    getEnv("KWEEKS_WEB_ROOT", ""),
+		PublicURL:  getEnv("KWEEKS_PUBLIC_URL", ""),
 
 		DatabaseURL: getEnv("DATABASE_URL", ""),
 
-		BmoniBaseURL:          getEnv("BMONI_BASE_URL", "https://embedded-dev.bmoni.com"),
-		BmoniAPIKey:           getEnv("BMONI_API_KEY", ""),
-		BmoniOwnerKey:         getEnv("BMONI_OWNER_KEY", ""),
-		BmoniInstructorUserID: getEnv("BMONI_INSTRUCTOR_USER_ID", ""),
-		BmoniWalletID:         getEnv("BMONI_WALLET_ID", ""),
+		BmoniBaseURL:  getEnv("BMONI_BASE_URL", "https://embedded-dev.bmoni.com"),
+		BmoniAPIKey:   getEnv("BMONI_API_KEY", ""),
+		BmoniOwnerKey: getEnv("BMONI_OWNER_KEY", ""),
 
 		BmoniPersonaFirstName: getEnv("BMONI_PERSONA_FIRST_NAME", ""),
 		BmoniPersonaLastName:  getEnv("BMONI_PERSONA_LAST_NAME", ""),
@@ -94,18 +86,13 @@ func Load() (*Config, error) {
 		BmoniPersonaCity:      getEnv("BMONI_PERSONA_CITY", ""),
 		BmoniPersonaState:     getEnv("BMONI_PERSONA_STATE", ""),
 
-		BmoniDocIdentification: getEnv("BMONI_DOC_IDENTIFICATION", ""),
-		BmoniDocProofOfAddress: getEnv("BMONI_DOC_PROOF_OF_ADDRESS", ""),
-		BmoniDocBiometric:      getEnv("BMONI_DOC_BIOMETRIC", ""),
-		BmoniProvisionOnSignup: getEnvBool("BMONI_PROVISION_ON_SIGNUP", false),
-		BmoniWinnerUserID:      getEnv("BMONI_WINNER_USER_ID", ""),
+		BmoniProvisionOnSignup: getEnvBool("BMONI_PROVISION_ON_SIGNUP", true),
 
 		SmtpHost: getEnv("SMTP_HOST", ""),
 		SmtpPort: getEnvInt("SMTP_PORT", 587),
 		SmtpUser: getEnv("SMTP_USER", ""),
 		SmtpPass: getEnv("SMTP_PASS", ""),
 		FromAddr: getEnv("SMTP_FROM", "kweeks@example.com"),
-		MailTo:   getEnv("MAIL_TO", ""),
 	}
 
 	if err := c.validate(); err != nil {

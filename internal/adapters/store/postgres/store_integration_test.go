@@ -157,6 +157,12 @@ func TestPostgresRoundTrip(t *testing.T) {
 	if err != nil || byEmailC.Amount != 62500 {
 		t.Fatalf("GetClaimByEmail: %v / %+v", err, byEmailC)
 	}
+	if err := st.UpdateClaimState(ctx, "pg-c1-"+run, domain.ClaimBankSubmitted); err != nil {
+		t.Fatalf("UpdateClaimState: %v", err)
+	}
+	if err := st.UpdateClaimState(ctx, "pg-c1-"+run, domain.ClaimPaying); err != nil {
+		t.Fatalf("UpdateClaimState: %v", err)
+	}
 	if err := st.UpdateClaimState(ctx, "pg-c1-"+run, domain.ClaimPaid); err != nil {
 		t.Fatalf("UpdateClaimState: %v", err)
 	}

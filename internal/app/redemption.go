@@ -13,26 +13,28 @@ import (
 
 // Redemption orchestrates the winner-driven claim flow. A winner taps redeem
 // on their current screen; the claim is created exactly once, an email goes
-// out as a recovery artifact, and the money move settles in the background.
+// out immediately with the claim code + a claim URL (the recovery artifact so
+// the code can never be lost), and the money move settles to the winner's
+// Nigerian bank account from the host's wallet when the winner submits their
+// bank details.
 type Redemption struct {
 	store ports.Store
 	clock ports.Clock
 	money ports.Money
 	mail  ports.Mail
 
-	// winnerUserID is the BMONI user that closes the payout loop live (the
-	// second sandbox persona). When set, Settle pays that user from the
-	// platform wallet; empty means real payouts are disabled.
-	winnerUserID string
+	// publicURL is the externally-reachable base URL (KWEEKS_PUBLIC_URL) used
+	// to build the /claim link in the redemption email.
+	publicURL string
 }
 
 func NewRedemption(store ports.Store, clock ports.Clock, money ports.Money, mail ports.Mail) *Redemption {
 	return &Redemption{store: store, clock: clock, money: money, mail: mail}
 }
 
-// WithWinnerUser sets the BMONI recipient that live payouts settle to.
-func (r *Redemption) WithWinnerUser(winnerUserID string) *Redemption {
-	r.winnerUserID = winnerUserID
+// WithPublicURL sets the external base URL used for claim links in email.
+func (r *Redemption) WithPublicURL(publicURL string) *Redemption {
+	r.publicURL = publicURL
 	return r
 }
 
@@ -148,42 +150,140 @@ func containsWinnerID(winners []domain.Standing, participantID string) bool {
 	return false
 }
 
-// SendRedemptionEmail dispatches the recovery artifact. Failures are logged
-// by the adapter; they never block the claim.
+// ClaimURL builds the public claim link pre-filled with the code + email.
+func (r *Redemption) ClaimURL(claimCode, email string) string {
+	base := r.publicURL
+	if base == "" {
+		base = "/"
+	}
+	return base + "/claim?code=" + claimCode + "&email=" + email
+}
+
+// SendRedemptionEmail dispatches the recovery artifact immediately at redeem
+// time. Failures are logged by the adapter; they never block the claim.
 func (r *Redemption) SendRedemptionEmail(ctx context.Context, c *domain.Claim) {
 	if r.mail == nil {
 		return
 	}
-	_ = r.mail.SendRedemptionEmail(ctx, c.Email, c.ClaimCode, c.Amount.NairaString())
+	_ = r.mail.SendRedemptionEmail(ctx, c.Email, c.ClaimCode, c.Amount.NairaString(), r.ClaimURL(c.ClaimCode, c.Email))
 }
 
-// Settle triggers the background money move for a claim that has reached the
-// onboarded state. Returns the settlement reference.
-//
-// The money move goes from the platform wallet to the configured demo winner
-// user (the second sandbox persona) — the master design's pre-provisioned
-// persona that closes the payout loop live. Claims for non-persona emails are
-// still created + emailed; onboarding them is the no-app/invite flow.
-func (r *Redemption) Settle(ctx context.Context, c *domain.Claim) (string, error) {
-	if !domain.CanTransition(c.State, domain.ClaimPaid) {
-		return "", domain.ErrInvalidTransition
+// ResolveClaim validates a claim code + email pair and returns the claim. Used
+// by the public claim page to pre-fill the amount before bank details.
+func (r *Redemption) ResolveClaim(ctx context.Context, claimCode, email string) (*domain.Claim, error) {
+	claim, err := r.store.GetClaimByCodeOnly(ctx, claimCode)
+	if err != nil {
+		return nil, domain.ErrBadClaimCode
+	}
+	if claim.Email != email {
+		return nil, domain.ErrBadClaimCode
+	}
+	return claim, nil
+}
+
+// HostExternal resolves the host wallet's BMONI identity for a claim (the
+// wallet that pays the winner). Errors if the host is not provisioned.
+func (r *Redemption) HostExternal(ctx context.Context, claim *domain.Claim) (*domain.WalletExternal, error) {
+	quiz, err := r.store.GetQuiz(ctx, claim.QuizID)
+	if err != nil {
+		return nil, err
+	}
+	wallet, err := r.store.GetWalletByInstructor(ctx, quiz.InstructorID)
+	if err != nil {
+		return nil, err
+	}
+	if wallet.BmoniUserID == "" {
+		return nil, errors.New("host wallet is not provisioned on the money rail")
+	}
+	return &domain.WalletExternal{
+		UserID: wallet.BmoniUserID, WalletID: wallet.BmoniWalletID, Address: wallet.BmoniWalletAddr,
+	}, nil
+}
+
+// ListBanks returns the supported Nigerian banks for the claim form, scoped to
+// the host wallet.
+func (r *Redemption) ListBanks(ctx context.Context, claim *domain.Claim) ([]domain.NigerianBank, error) {
+	if r.money == nil {
+		return nil, errors.New("money rail not configured")
+	}
+	ext, err := r.HostExternal(ctx, claim)
+	if err != nil {
+		return nil, err
+	}
+	return r.money.ListNigerianBanks(ctx, ext.UserID)
+}
+
+// SubmitBankPayout takes the winner's Nigerian bank details, verifies +
+// registers the account on the host's rail, and offramps the prize from the
+// host wallet to the winner's bank account. The claim advances
+// created -> bank_submitted -> paying -> paid.
+func (r *Redemption) SubmitBankPayout(ctx context.Context, claimCode, email string, acct domain.NigerianAccount) (*domain.Claim, error) {
+	claim, err := r.ResolveClaim(ctx, claimCode, email)
+	if err != nil {
+		return nil, err
 	}
 	if r.money == nil {
-		return "", errors.New("money port not configured")
+		return nil, errors.New("money rail not configured")
 	}
-	recipient := r.winnerUserID
-	if recipient == "" {
-		recipient = c.Email // no persona configured: attempt the email (no-app invite resolves it)
+	if !domain.CanTransition(claim.State, domain.ClaimBankSubmitted) {
+		return nil, domain.ErrInvalidTransition
 	}
-	ref, err := r.money.PayWinner(ctx, recipient, c.Amount)
+	if len(acct.AccountNumber) != 10 || acct.BankCode == "" || acct.BankName == "" {
+		return nil, errors.New("enter a valid 10-digit Nigerian account number and bank")
+	}
+
+	ext, err := r.HostExternal(ctx, claim)
 	if err != nil {
-		_ = r.store.UpdateClaimState(ctx, c.ID, domain.ClaimFailed)
-		return "", err
+		return nil, err
 	}
-	if err := r.store.UpdateClaimState(ctx, c.ID, domain.ClaimPaid); err != nil {
-		return "", err
+
+	// 1. Verify the account -> exact holder name the registration requires.
+	holder, err := r.money.VerifyNigerianAccount(ctx, ext.UserID, acct.AccountNumber, acct.BankCode)
+	if err != nil {
+		return nil, err
 	}
-	return ref, nil
+	acct.AccountHolderName = holder
+
+	// 2. Register the withdrawal account (get-or-create).
+	bankAccountID, err := r.money.RegisterNigerianWithdrawalAccount(ctx, ext.UserID, acct)
+	if err != nil {
+		return nil, err
+	}
+
+	// Persist the bank details + bank_submitted state before money moves, so a
+	// failure below leaves the claim resumable, not lost.
+	claim.BankAccountID = bankAccountID
+	claim.BankAccountNumber = acct.AccountNumber
+	claim.BankName = acct.BankName
+	claim.AccountHolderName = holder
+	if err := r.store.UpdateClaimBank(ctx, claim); err != nil {
+		return nil, err
+	}
+	if err := r.store.UpdateClaimState(ctx, claim.ID, domain.ClaimBankSubmitted); err != nil {
+		return nil, err
+	}
+	claim.State = domain.ClaimBankSubmitted
+
+	// 3. Offramp the prize from the host wallet to the winner's bank account.
+	if err := r.store.UpdateClaimState(ctx, claim.ID, domain.ClaimPaying); err != nil {
+		return nil, err
+	}
+	claim.State = domain.ClaimPaying
+	ref, err := r.money.PayWinnerToNigerianBank(ctx, ext, bankAccountID, claim.Amount)
+	if err != nil {
+		_ = r.store.UpdateClaimState(ctx, claim.ID, domain.ClaimFailed)
+		claim.State = domain.ClaimFailed
+		return claim, err
+	}
+	claim.PayoutRef = ref
+	if err := r.store.UpdateClaimBank(ctx, claim); err != nil {
+		return nil, err
+	}
+	if err := r.store.UpdateClaimState(ctx, claim.ID, domain.ClaimPaid); err != nil {
+		return nil, err
+	}
+	claim.State = domain.ClaimPaid
+	return claim, nil
 }
 
 func newClaimCode() (string, error) {

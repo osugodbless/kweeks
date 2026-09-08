@@ -182,6 +182,26 @@ func (s *Server) handleProvisionWallet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"wallet": walletJSON(wallet)})
 }
 
+// handleDepositAccount returns the host's NGN virtual bank account (number +
+// bank) that bank transfers to it fund the wallet.
+func (s *Server) handleDepositAccount(w http.ResponseWriter, r *http.Request) {
+	if s.wallet == nil || s.auth == nil {
+		writeErr(w, domain.ErrUnauthorized)
+		return
+	}
+	instructor, _, err := s.auth.Resolve(r.Context(), bearerToken(r))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	number, bank, err := s.wallet.DepositAccount(r.Context(), instructor.ID)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"accountNumber": number, "bankName": bank})
+}
+
 func walletJSON(w *domain.Wallet) map[string]any {
 	if w == nil {
 		return map[string]any{}

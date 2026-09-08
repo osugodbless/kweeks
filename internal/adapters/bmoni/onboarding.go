@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/osugodbless/kweeks/internal/domain"
 )
@@ -56,12 +57,16 @@ func (c *Client) CreateUser(ctx context.Context, p domain.BmoniPersona) (string,
 	return "", errors.New("bmoni: create-user returned no user id")
 }
 
-// SubmitKYC posts the persona KYC profile ahead of rail activation.
+// SubmitKYC posts the persona KYC profile ahead of rail activation. Field
+// names follow the KYC — Nigeria requirements page (personalInfo + address
+// with streetLine1, city, state, postalCode, countryCode + bvn). BVN
+// verification during start-nigeria auto-populates the profile; the submitted
+// name must match the persona.
 func (c *Client) SubmitKYC(ctx context.Context, userID string, p domain.BmoniPersona) error {
 	body := map[string]any{
 		"personalInfo": map[string]any{
 			"firstName": p.FirstName, "lastName": p.LastName,
-			"dateOfBirth": p.DOB, "gender": "male",
+			"phoneNumber": p.Phone, "dateOfBirth": p.DOB, "gender": "male",
 		},
 		"address": map[string]any{
 			"streetLine1": p.Address, "city": p.City, "state": p.State,
@@ -166,6 +171,9 @@ func (c *Client) ProvisionWallet(ctx context.Context, userID string) (walletID, 
 }
 
 // existingCNGNWallet returns the user's NGN/CNGN wallet when one exists.
+// The account/wallets endpoint 400s with "No embedded smart wallet group found
+// for this user" before a wallet is created; that is treated as no wallet
+// rather than an error, so the caller proceeds to create-managed.
 func (c *Client) existingCNGNWallet(ctx context.Context, userID string) (id, addr string, ok bool, err error) {
 	var wallets []struct {
 		ID            string `json:"id"`
@@ -175,6 +183,11 @@ func (c *Client) existingCNGNWallet(ctx context.Context, userID string) (id, add
 	}
 	if err := c.do(ctx, http.MethodGet,
 		"/v1/users/"+userID+"/smart-wallets/account/wallets", nil, &wallets); err != nil {
+		var apiErr *APIError
+		if errors.As(err, &apiErr) && apiErr.Status == 400 &&
+			strings.Contains(apiErr.Body, "No embedded smart wallet group") {
+			return "", "", false, nil
+		}
 		return "", "", false, err
 	}
 	for _, w := range wallets {
@@ -198,20 +211,28 @@ func (c *Client) StartNigeria(ctx context.Context, userID, walletAddr, bvn strin
 	return nil
 }
 
-// OnboardingStatus returns whether the NGN rail is active for the user.
+// OnboardingStatus returns whether the NGN rail is active for the user. The
+// live sandbox nests per-currency activity (anchor = the NGN local rail);
+// `active` there means start-nigeria succeeded.
 func (c *Client) OnboardingStatus(ctx context.Context, userID string) (string, error) {
 	var resp struct {
-		Status string `json:"status"`
-		Data   struct {
-			Status string `json:"status"`
+		Status        string `json:"status"`
+		AnchorStatus  string `json:"anchorStatus"`
+		BridgeStatus  string `json:"bridgeStatus"`
+		PaytrieStatus string `json:"paytrieStatus"`
+		Data          struct {
+			Status        string `json:"status"`
+			AnchorStatus  string `json:"anchorStatus"`
+			BridgeStatus  string `json:"bridgeStatus"`
+			PaytrieStatus string `json:"paytrieStatus"`
 		} `json:"data"`
 	}
 	if err := c.do(ctx, http.MethodGet, "/v1/users/"+userID+"/onboarding/status", nil, &resp); err != nil {
 		return "", err
 	}
-	status := firstNonEmpty(resp.Status, resp.Data.Status)
+	status := firstNonEmpty(resp.Status, resp.AnchorStatus, resp.BridgeStatus, resp.PaytrieStatus,
+		resp.Data.Status, resp.Data.AnchorStatus, resp.Data.BridgeStatus, resp.Data.PaytrieStatus)
 	if status == "" {
-		// Some sandbox responses nest per-currency activity under "currencies".
 		return "pending", nil
 	}
 	return status, nil

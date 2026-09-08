@@ -222,4 +222,21 @@ export interface ClaimResult {
   amountNaira: string;
   state: string;
   claimCode?: string;
+  bankAccountId?: string;
+  payoutRef?: string;
+}
+
+export interface NigerianBank {
+  code: string;
+  name: string;
+}
+
+export interface ClaimLookup {
+  claim: ClaimResult;
+  banks: NigerianBank[];
+}
+
+export interface DepositAccount {
+  accountNumber: string;
+  bankName: string;
 }

@@ -3,8 +3,10 @@ import { useEffect, useState } from "react";
 import {
   api,
   AnswerReceipt,
+  ClaimLookup,
   ClaimResult,
   DashboardStat,
+  DepositAccount,
   HistoryItem,
   Instructor,
   isAuthed,
@@ -222,6 +224,38 @@ export function useRedeem() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.history });
     },
+  });
+}
+
+export function useResolveClaim() {
+  return useMutation({
+    mutationFn: (v: { claimCode: string; email: string }) =>
+      api.post<ClaimLookup>("/claims/resolve", v),
+  });
+}
+
+export function useSubmitPayout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: {
+      claimCode: string;
+      email: string;
+      accountNumber: string;
+      bankCode: string;
+      bankName: string;
+    }) => api.post<{ claim: ClaimResult }>("/claims/payout", v),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.history });
+    },
+  });
+}
+
+export function useDepositAccount() {
+  return useQuery({
+    queryKey: ["wallet", "deposit"] as const,
+    queryFn: () => api.get<DepositAccount>("/wallet/deposit"),
+    enabled: authed(),
+    retry: false,
   });
 }
 

@@ -87,39 +87,26 @@ func fakeSMTPServer(t *testing.T) (addr string, got func() string) {
 
 func TestSendRedemptionEmailOverSMTP(t *testing.T) {
 	addr, got := fakeSMTPServer(t)
-	m := New(hostOf(addr), portOf(addr), "sender@gmail.com", "apppw", "sender@gmail.com", "", nil)
+	m := New(hostOf(addr), portOf(addr), "sender@gmail.com", "apppw", "sender@gmail.com", nil)
 
-	if err := m.SendRedemptionEmail(context.Background(), "zainab@x.com", "KWEKS-ABC", "15000"); err != nil {
+	if err := m.SendRedemptionEmail(context.Background(), "zainab@x.com", "KWEKS-ABC", "15000", "https://kweeks.ng/claim?code=KWEKS-ABC&email=zainab@x.com"); err != nil {
 		t.Fatalf("send: %v", err)
 	}
 	out := got()
-	for _, want := range []string{"MAIL FROM:<sender@gmail.com>", "RCPT TO:<zainab@x.com>", "Claim code: KWEKS-ABC"} {
+	for _, want := range []string{
+		"MAIL FROM:<sender@gmail.com>", "RCPT TO:<zainab@x.com>",
+		"Your claim code: KWEKS-ABC", "/claim?code=KWEKS-ABC",
+	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in:\n%s", want, out)
 		}
 	}
 }
 
-func TestMailToOverrideRewritesRecipient(t *testing.T) {
-	addr, got := fakeSMTPServer(t)
-	m := New(hostOf(addr), portOf(addr), "sender@gmail.com", "apppw", "sender@gmail.com", "operator@example.com", nil)
-
-	if err := m.SendRedemptionEmail(context.Background(), "zainab@x.com", "KWEKS-ABC", "15000"); err != nil {
-		t.Fatalf("send: %v", err)
-	}
-	out := got()
-	if strings.Contains(out, "zainab@x.com") {
-		t.Fatalf("override failed; recipient still the winner:\n%s", out)
-	}
-	if !strings.Contains(out, "operator@example.com") {
-		t.Fatalf("override recipient missing:\n%s", out)
-	}
-}
-
 func TestNoSMTPLogsPayload(t *testing.T) {
 	// No SMTP host: must not error; payload is logged.
-	m := New("", 587, "", "", "kweeks@example.com", "", nil)
-	if err := m.SendRedemptionEmail(context.Background(), "zainab@x.com", "KWEKS-ABC", "15000"); err != nil {
+	m := New("", 587, "", "", "kweeks@example.com", nil)
+	if err := m.SendRedemptionEmail(context.Background(), "zainab@x.com", "KWEKS-ABC", "15000", "/claim?code=KWEKS-ABC"); err != nil {
 		t.Fatalf("expected nil err without SMTP, got %v", err)
 	}
 }

@@ -28,6 +28,31 @@ func signMessage(ownerKeyHex, message string) (string, error) {
 	return "0x" + hex.EncodeToString(sig), nil
 }
 
+// signDigest signs a raw 32-byte digest (no prefix) with the owner key. This
+// is the correct method for proposal signing (the opposite of the owner-proof
+// challenge above).
+func signDigest(ownerKeyHex, digestHex string) (string, error) {
+	key, err := crypto.HexToECDSA(strings.TrimPrefix(ownerKeyHex, "0x"))
+	if err != nil {
+		return "", fmt.Errorf("bmoni: bad owner key: %w", err)
+	}
+	digest := strings.TrimPrefix(digestHex, "0x")
+	if len(digest) != 64 {
+		return "", errors.New("bmoni: hashToSign is not a 32-byte hex digest")
+	}
+	sig, err := crypto.Sign(decodeHex(digest), key)
+	if err != nil {
+		return "", err
+	}
+	sig[64] += 27 // v: 0/1 -> 27/28
+	return "0x" + hex.EncodeToString(sig), nil
+}
+
+func decodeHex(s string) []byte {
+	out, _ := hex.DecodeString(s)
+	return out
+}
+
 // pubkeyToAddress derives the 0x address for an owner private key.
 func pubkeyToAddress(ownerKeyHex string) (string, error) {
 	key, err := crypto.HexToECDSA(strings.TrimPrefix(ownerKeyHex, "0x"))
@@ -53,64 +78,20 @@ type proposalReply struct {
 	} `json:"data"`
 }
 
-// CreditTo funds a provisioned user's CNGN wallet from the platform wallet.
-func (c *Client) CreditTo(ctx context.Context, toUserID, toWalletID, amountNaira string) (string, error) {
-	return c.transferToWallet(ctx, c.userID, c.walletID, toUserID, toWalletID, amountNaira)
-}
-
-// PayTo sends CNGN from a provisioned wallet to a recipient wallet address.
-func (c *Client) PayTo(ctx context.Context, fromUserID, fromWalletID, toAddr, amountNaira string) (string, error) {
-	return c.transferToAddress(ctx, fromUserID, fromWalletID, toAddr, amountNaira, "kweeks prize payout")
-}
-
-// transferToWallet credits toUserID's wallet (recipient must hold an active
-// CNGN wallet). This is the funding path used by CreditNGN.
-func (c *Client) transferToWallet(ctx context.Context, fromUserID, fromWalletID, toUserID, _ string, amountNaira string) (string, error) {
-	return c.sendProposal(ctx, fromUserID, fromWalletID, map[string]any{
-		"toUserId": toUserID, "amount": amountNaira, "currency": "CNGN", "description": "kweeks wallet credit",
-	})
-}
-
-// transfer creates+approves+signs+sends a proposal debiting fromUserID's
-// wallet and crediting toUserID (which must hold an active wallet in CNGN).
-func (c *Client) transfer(ctx context.Context, fromUserID, fromWalletID, toUserID, _ string, amountNaira, description string) (string, error) {
-	return c.sendProposal(ctx, fromUserID, fromWalletID, map[string]any{
-		"toUserId": toUserID, "amount": amountNaira, "currency": "CNGN", "description": description,
-	})
-}
-
-// transferToAddress is the reliable sandbox path: recipient address that holds
-// the wallet (no active-rail requirement on the recipient).
-func (c *Client) transferToAddress(ctx context.Context, fromUserID, fromWalletID, toAddr, amountNaira, description string) (string, error) {
-	return c.sendProposal(ctx, fromUserID, fromWalletID, map[string]any{
-		"toAddress": toAddr, "amount": amountNaira, "currency": "CNGN", "description": description,
-	})
-}
-
-func (c *Client) sendProposal(ctx context.Context, fromUserID, fromWalletID string, proposal map[string]any) (string, error) {
+// approveAndSign drives a created proposal to settlement: approve, fetch the
+// signing payload, sign the raw digest with the owner key, and submit.
+func (c *Client) approveAndSign(ctx context.Context, fromUserID, proposalID string) (string, error) {
 	if c.ownerKey == "" {
 		return "", errors.New("bmoni: owner key required to send")
 	}
-	// 1. Create the proposal.
-	var created proposalReply
-	if err := c.do(ctx, http.MethodPost,
-		fmt.Sprintf("/v1/users/%s/smart-wallets/%s/proposals", fromUserID, fromWalletID),
-		map[string]any{"proposal": proposal}, &created); err != nil {
-		return "", err
-	}
-	proposalID := firstNonEmpty(created.Proposal.ID, created.ProposalID, created.ID, created.Data.Proposal.ID, created.Data.ProposalID, created.Data.ID)
-	if proposalID == "" {
-		return "", errors.New("bmoni: proposal returned no id")
-	}
-
-	// 2. Approve.
+	// 1. Approve.
 	if err := c.do(ctx, http.MethodPost,
 		fmt.Sprintf("/v1/users/%s/smart-wallets/proposals/%s/approve", fromUserID, proposalID),
 		nil, nil); err != nil {
 		return "", err
 	}
 
-	// 3. Fetch the signing payload (raw 32-byte digest, no prefix).
+	// 2. Fetch the signing payload (raw 32-byte digest, no prefix).
 	var payload struct {
 		Data struct {
 			HashToSign string `json:"hashToSign"`
@@ -122,7 +103,7 @@ func (c *Client) sendProposal(ctx context.Context, fromUserID, fromWalletID stri
 		return "", err
 	}
 
-	// 4. Sign the digest with the owner key and submit.
+	// 3. Sign the digest with the owner key and submit.
 	sig, err := signDigest(c.ownerKey, payload.Data.HashToSign)
 	if err != nil {
 		return "", err
