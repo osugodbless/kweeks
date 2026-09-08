@@ -118,6 +118,24 @@ type KYCProfile struct {
 	PostalCode  string // 6 digits
 }
 
+// BVNRecord is the holder record returned by the BVN look-up
+// (GET /kyc/bvn-lookup/{bvn}). It is a preview that writes nothing; the host
+// reviews/edits these values and confirms them in the KYC submission. Nullable
+// fields come back empty when the provider has no value.
+type BVNRecord struct {
+	BVN                string
+	FirstName          string
+	LastName           string
+	MiddleName         string
+	DateOfBirth        string
+	Gender             string
+	Email              string
+	PhoneNumber        string
+	ResidentialAddress string
+	StateOfResidence   string
+	NIN                string
+}
+
 // WalletTransaction is one wallet ledger row.
 type WalletTransaction struct {
 	ID        string       `json:"id"`

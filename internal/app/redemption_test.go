@@ -26,6 +26,10 @@ func (f *fakeMoney) CreateUser(ctx context.Context, id domain.UserIdentity) (str
 }
 
 func (f *fakeMoney) SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error { return nil }
+func (f *fakeMoney) LookupBVN(ctx context.Context, userID, bvn string) (*domain.BVNRecord, error) {
+	return &domain.BVNRecord{BVN: bvn, FirstName: "Samson", LastName: "Jabo", DateOfBirth: "1990-01-15"}, nil
+}
+
 func (f *fakeMoney) UploadKycDocument(ctx context.Context, userID, kind string, data []byte, filename string) error {
 	return nil
 }

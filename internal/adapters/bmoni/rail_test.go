@@ -41,6 +41,8 @@ func newMockRail(t *testing.T, handler func(w http.ResponseWriter, r *http.Reque
 			_, _ = w.Write([]byte(`{"user":{"bmoniUserId":"usr_demo_1"}}`))
 		case strings.HasSuffix(r.URL.Path, "/kyc") && r.Method == http.MethodPatch:
 			_, _ = w.Write([]byte(`{}`))
+		case strings.Contains(r.URL.Path, "/kyc/bvn-lookup/"):
+			_, _ = w.Write([]byte(`{"bvn":"95888168924","firstName":"Bunch","lastName":"Dillon","dateOfBirth":"1990-01-15","gender":"male","phoneNumber":"+2348000000000","nin":"63184876213"}`))
 		case strings.HasSuffix(r.URL.Path, "/owner-proof-challenges"):
 			_, _ = w.Write([]byte(`{"challengeId":"ch_1","message":"please prove you own this key"}`))
 		case strings.HasSuffix(r.URL.Path, "/create-managed"):
@@ -131,6 +133,24 @@ func TestSubmitKYCRejectsBadBVN(t *testing.T) {
 	k := testKYC()
 	k.BVN = "123"
 	if err := c.SubmitKYC(context.Background(), "usr_demo_1", k); err == nil {
+		t.Fatalf("expected bvn length error")
+	}
+}
+
+func TestLookupBVNResolvesHolder(t *testing.T) {
+	srv, c := newMockRail(t, nil)
+	defer srv.Close()
+	rec, err := c.LookupBVN(context.Background(), "usr_demo_1", "95888168924")
+	if err != nil {
+		t.Fatalf("lookup bvn: %v", err)
+	}
+	if rec.FirstName != "Bunch" || rec.LastName != "Dillon" || rec.DateOfBirth != "1990-01-15" {
+		t.Fatalf("bvn holder mismatch: %+v", rec)
+	}
+	if rec.NIN != "63184876213" {
+		t.Fatalf("nin not surfaced: %+v", rec)
+	}
+	if _, err := c.LookupBVN(context.Background(), "usr_demo_1", "123"); err == nil {
 		t.Fatalf("expected bvn length error")
 	}
 }

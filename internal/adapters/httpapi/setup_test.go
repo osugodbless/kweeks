@@ -30,6 +30,9 @@ func (f *wizardMoney) CreateUser(ctx context.Context, id domain.UserIdentity) (s
 	f.idSeen = id
 	return "usr_wiz", nil
 }
+func (f *wizardMoney) LookupBVN(ctx context.Context, userID, bvn string) (*domain.BVNRecord, error) {
+	return &domain.BVNRecord{BVN: bvn, FirstName: "Bunch", LastName: "Dillon", DateOfBirth: "1990-01-15", Gender: "male", PhoneNumber: "+2348000000000"}, nil
+}
 func (f *wizardMoney) SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error {
 	f.kyc = true
 	f.kycSeen = k
@@ -105,18 +108,41 @@ func TestWalletSetupWizardEndpoints(t *testing.T) {
 		t.Fatalf("signup did not create the BMONI user")
 	}
 
-	// stage should be kyc after user creation.
+	// Lifecycle stage 2: stage is "wallet" after user creation (wallet precedes KYC).
 	rr := authDo(api, "GET", "/api/wallet/setup", nil, token)
 	if rr.Code != 200 {
 		t.Fatalf("setup: %d %s", rr.Code, rr.Body.String())
 	}
 	var st map[string]any
 	decodeBody(t, rr, &st)
-	if st["stage"] != "kyc" {
-		t.Fatalf("stage after signup = %v, want kyc", st["stage"])
+	if st["stage"] != "wallet" {
+		t.Fatalf("stage after signup = %v, want wallet (wallet precedes KYC)", st["stage"])
 	}
 
-	// Submit KYC with user-supplied values.
+	// create wallet (strict stage 2)
+	if rr = authDo(api, "POST", "/api/wallet/create", nil, token); rr.Code != 200 {
+		t.Fatalf("create wallet: %d %s", rr.Code, rr.Body.String())
+	}
+
+	// stage → kyc
+	rr = authDo(api, "GET", "/api/wallet/setup", nil, token)
+	decodeBody(t, rr, &st)
+	if st["stage"] != "kyc" {
+		t.Fatalf("stage after wallet = %v, want kyc", st["stage"])
+	}
+
+	// BVN lookup resolves + pre-fills (stage 3 helper).
+	rr = authDo(api, "POST", "/api/wallet/kyc/lookup", map[string]string{"bvn": "95888168924"}, token)
+	if rr.Code != 200 {
+		t.Fatalf("bvn lookup: %d %s", rr.Code, rr.Body.String())
+	}
+	var rec map[string]any
+	decodeBody(t, rr, &rec)
+	if rec["firstName"] != "Bunch" || rec["lastName"] != "Dillon" {
+		t.Fatalf("bvn lookup autofill wrong: %v", rec)
+	}
+
+	// Submit KYC with user-supplied values (host confirms the autofill).
 	rr = authDo(api, "POST", "/api/wallet/kyc", map[string]any{
 		"firstName": "Bunch", "lastName": "Dillon", "dateOfBirth": "1990-01-15",
 		"gender": "male", "bvn": "95888168924", "street": "15 Admiralty Way",
@@ -129,19 +155,14 @@ func TestWalletSetupWizardEndpoints(t *testing.T) {
 		t.Fatalf("kyc not forwarded correctly: %+v", money.kycSeen)
 	}
 
-	// stage → wallet
+	// stage → rail
 	rr = authDo(api, "GET", "/api/wallet/setup", nil, token)
 	decodeBody(t, rr, &st)
-	if st["stage"] != "wallet" {
-		t.Fatalf("stage after kyc = %v, want wallet", st["stage"])
+	if st["stage"] != "rail" {
+		t.Fatalf("stage after kyc = %v, want rail", st["stage"])
 	}
 
-	// create wallet
-	if rr = authDo(api, "POST", "/api/wallet/create", nil, token); rr.Code != 200 {
-		t.Fatalf("create wallet: %d %s", rr.Code, rr.Body.String())
-	}
-
-	// activate rail with the host's BVN
+	// activate rail with the host's BVN (stage 4)
 	if rr = authDo(api, "POST", "/api/wallet/activate-rail", map[string]string{"bvn": "95888168924"}, token); rr.Code != 200 {
 		t.Fatalf("activate rail: %d %s", rr.Code, rr.Body.String())
 	}

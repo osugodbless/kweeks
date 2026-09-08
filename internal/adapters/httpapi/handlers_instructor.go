@@ -171,6 +171,22 @@ func (s *Server) handleFundWallet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"wallet": walletJSON(wallet)})
 }
 
+// handleCreateUser re-runs strict-flow step 1 (create the BMONI user) when it
+// failed at signup, so the wizard can retry. Idempotent: already-provisioned
+// wallets are left untouched.
+func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
+	if s.wallet == nil {
+		writeErr(w, errors.New("wallet service not configured"))
+		return
+	}
+	wallet, err := s.wallet.CreateBmoniUser(r.Context(), instructorFrom(r))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"wallet": walletJSON(wallet)})
+}
+
 // handleWalletSetup reports where the wallet is in the strict provisioning
 // flow and what the wizard should ask for next.
 func (s *Server) handleWalletSetup(w http.ResponseWriter, r *http.Request) {
@@ -219,6 +235,41 @@ func (s *Server) handleCreateBmoniUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"wallet": walletJSON(wallet)})
+}
+
+type bvnLookupReq struct {
+	BVN string `json:"bvn"`
+}
+
+// handleKYCLookup resolves a BVN to its holder record so the KYC form
+// pre-fills for the host to confirm (lifecycle stage 3 helper; writes nothing).
+func (s *Server) handleKYCLookup(w http.ResponseWriter, r *http.Request) {
+	if s.wallet == nil {
+		writeErr(w, errors.New("wallet service not configured"))
+		return
+	}
+	instructor, _, err := s.auth.Resolve(r.Context(), bearerToken(r))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	var req bvnLookupReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, domain.ErrBadCredentials)
+		return
+	}
+	rec, err := s.wallet.LookupBVN(r.Context(), instructor.ID, req.BVN)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"bvn": rec.BVN, "firstName": rec.FirstName, "lastName": rec.LastName,
+		"middleName": rec.MiddleName, "dateOfBirth": rec.DateOfBirth, "gender": rec.Gender,
+		"email": rec.Email, "phoneNumber": rec.PhoneNumber,
+		"residentialAddress": rec.ResidentialAddress, "stateOfResidence": rec.StateOfResidence,
+		"nin": rec.NIN,
+	})
 }
 
 type kycReq struct {

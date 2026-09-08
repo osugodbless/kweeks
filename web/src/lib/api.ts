@@ -126,6 +126,22 @@ export interface KYCInput {
   postalCode: string;
 }
 
+/** The holder record returned by the BVN look-up, used to pre-fill the KYC
+ *  form for the host to confirm before submitting. */
+export interface BVNRecord {
+  bvn: string;
+  firstName?: string;
+  lastName?: string;
+  middleName?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  email?: string;
+  phoneNumber?: string;
+  residentialAddress?: string;
+  stateOfResidence?: string;
+  nin?: string;
+}
+
 export interface AuthResult {
   token: string;
   instructor: Instructor;

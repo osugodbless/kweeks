@@ -84,7 +84,8 @@ func TestSignupStillAuthenticatesWhenUserCreationFails(t *testing.T) {
 }
 
 // The retry endpoint must re-run create-user idempotently: after a signup-time
-// failure, calling it provisions the user and advances the wizard to KYC.
+// failure, calling it provisions the user and advances the wizard to the wallet
+// step (stage 2 of the strict lifecycle, which precedes KYC).
 func TestRetryCreateBmoniUserAfterSignupFailure(t *testing.T) {
 	money := &flakyMoney{wizardMoney: &wizardMoney{}, armFailure: true}
 	api, _ := buildWizardServer(t, money)
@@ -111,8 +112,10 @@ func TestRetryCreateBmoniUserAfterSignupFailure(t *testing.T) {
 	rr = authDo(api, "GET", "/api/wallet/setup", nil, token)
 	var st map[string]any
 	decodeBody(t, rr, &st)
-	if st["stage"] != "kyc" || st["bmoniUserId"] != "usr_wiz" {
-		t.Fatalf("stage after retry = %v, want kyc with user", st["stage"])
+	// Strict lifecycle: after the user is created the smart wallet comes next
+	// (stage 2 precedes KYC).
+	if st["stage"] != "wallet" || st["bmoniUserId"] != "usr_wiz" {
+		t.Fatalf("stage after retry = %v, want wallet with user", st["stage"])
 	}
 
 	// Retrying again is a no-op (idempotent): still 200, still one user.

@@ -26,6 +26,9 @@ func (f *personaRecordingMoney) CreateUser(ctx context.Context, id domain.UserId
 func (f *personaRecordingMoney) SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error {
 	return nil
 }
+func (f *personaRecordingMoney) LookupBVN(ctx context.Context, userID, bvn string) (*domain.BVNRecord, error) {
+	return &domain.BVNRecord{BVN: bvn, FirstName: "Adeola", LastName: "Peters", DateOfBirth: "1990-01-15", Gender: "male"}, nil
+}
 func (f *personaRecordingMoney) UploadKycDocument(ctx context.Context, userID, kind string, data []byte, filename string) error {
 	return nil
 }
@@ -118,8 +121,16 @@ func TestWalletSetupWizardFullFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	st1, _ := w.SetupStatus(context.Background(), "ins-1")
-	if st1.Stage != domain.SetupKYC {
-		t.Fatalf("after user: stage = %s, want kyc", st1.Stage)
+	if st1.Stage != domain.SetupWallet {
+		t.Fatalf("after user: stage = %s, want wallet (wallet precedes KYC)", st1.Stage)
+	}
+
+	if _, err := w.CreateWallet(context.Background(), "ins-1"); err != nil {
+		t.Fatal(err)
+	}
+	st2, _ := w.SetupStatus(context.Background(), "ins-1")
+	if st2.Stage != domain.SetupKYC {
+		t.Fatalf("after wallet: stage = %s, want kyc", st2.Stage)
 	}
 
 	if _, err := w.SubmitKYC(context.Background(), "ins-1", domain.KYCProfile{
@@ -128,17 +139,9 @@ func TestWalletSetupWizardFullFlow(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	st2, _ := w.SetupStatus(context.Background(), "ins-1")
-	if st2.Stage != domain.SetupWallet {
-		t.Fatalf("after kyc: stage = %s, want wallet", st2.Stage)
-	}
-
-	if _, err := w.CreateWallet(context.Background(), "ins-1"); err != nil {
-		t.Fatal(err)
-	}
 	st3, _ := w.SetupStatus(context.Background(), "ins-1")
 	if st3.Stage != domain.SetupRail {
-		t.Fatalf("after wallet: stage = %s, want rail", st3.Stage)
+		t.Fatalf("after kyc: stage = %s, want rail", st3.Stage)
 	}
 
 	if _, err := w.ActivateRail(context.Background(), "ins-1", "22222222222"); err != nil {

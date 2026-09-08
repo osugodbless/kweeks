@@ -17,6 +17,9 @@ type Money interface {
 	CreateUser(ctx context.Context, id domain.UserIdentity) (string, error)
 	// SubmitKYC writes the host's KYC profile (personalInfo + address + bvn).
 	SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error
+	// LookupBVN resolves a BVN to its holder record (GET /kyc/bvn-lookup/{bvn})
+	// so the KYC form can pre-fill and the host confirm. Writes nothing.
+	LookupBVN(ctx context.Context, userID, bvn string) (*domain.BVNRecord, error)
 	// UploadKycDocument submits one KYC document image (multipart) for the
 	// user. kind is identification | proof-of-address | biometric.
 	UploadKycDocument(ctx context.Context, userID, kind string, data []byte, filename string) error

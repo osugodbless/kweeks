@@ -50,34 +50,44 @@ Credits the wallet. `credit` = instant platform credit (no external rail).
 Returns updated `{"wallet":{"id","balanceNaira"}}`.
 
 ### GET /api/wallet/setup  (Bearer)
-Wallet-setup wizard status. Returns `{"stage":"unprovisioned"|"kyc"|"wallet"|"rail"|"ready",
+Wallet-setup wizard status. Returns `{"stage":"unprovisioned"|"wallet"|"kyc"|"rail"|"ready",
 "bmoniUserId","kycSubmitted","bmoniWalletId","bmoniWalletAddress","railActive",
-"railConfigured","depositAccount":{"accountNumber","bankName"}}`. `railConfigured`
-is false when the BMONI keys are absent (no provisioning possible). `ready`
-includes the NGN deposit account the host funds by bank transfer.
+"railConfigured","depositAccount":{"accountNumber","bankName"}}`. The stage order
+follows the BMONI lifecycle strictly: the smart wallet (stage 2) precedes KYC
+(stage 3), which precedes rail activation (stage 4). `railConfigured` is false
+when the BMONI keys are absent (no provisioning possible). `ready` includes the
+NGN deposit account the host funds by bank transfer.
 
 ### POST /api/wallet/create-user  (Bearer)
-Strict-flow step 1 (idempotent). Creates (or recovers) the host's BMONI user
+Lifecycle stage 1 (idempotent). Creates (or recovers) the host's BMONI user
 from their signup identity and records `bmoniUserId`. Auto-run at signup when
 the rail is configured; exposed so a host whose user creation failed at signup
 can retry from the wizard. Returns `{"wallet":{...,"bmoniUserId"}}`.
 
-### POST /api/wallet/kyc  (Bearer)
-Strict-flow step 2. Body: `{"firstName","lastName","dateOfBirth","gender","bvn",
-"street","city","state","postalCode"}` → submits the host's KYC profile.
-All identity values are user-supplied (the sandbox resolves the test persona
-values, e.g. Bunch Dillon / 95888168924, when entered here).
+### POST /api/wallet/create  (Bearer)
+Lifecycle stage 2: owner-proof challenge → create-managed smart wallet, created
+BEFORE KYC per the strict lifecycle. Returns
+`{"wallet":{...,"bmoniWalletId","bmoniWalletAddress"}}`. Idempotent.
+
+### POST /api/wallet/kyc/lookup  (Bearer)
+Lifecycle stage 3 helper. Body: `{"bvn"}` → resolves the BVN to its holder
+record `{"bvn","firstName","lastName","dateOfBirth","gender","phoneNumber",...}`
+(GET /kyc/bvn-lookup/{bvn}). Writes nothing — the frontend pre-fills the KYC
+form for the host to edit and confirm.
 
 ### POST /api/wallet/kyc/documents/{kind}  (Bearer)
 Multipart `file` upload (JPEG/PNG). `kind` = `identification` |
-`proof-of-address` | `biometric`. Optional for NGN activation.
+`proof-of-address`. Uploaded BEFORE `PATCH /kyc` per the strict KYC submit
+order; both are required for the NGN profile.
 
-### POST /api/wallet/create  (Bearer)
-Strict-flow steps 3-4: owner-proof challenge → create-managed smart wallet.
-Returns `{"wallet":{...,"bmoniWalletId","bmoniWalletAddress"}}`. Idempotent.
+### POST /api/wallet/kyc  (Bearer)
+Lifecycle stage 3. Body: `{"firstName","lastName","dateOfBirth","gender","bvn",
+"street","city","state","postalCode"}` → submits the host's KYC profile. The
+host confirms values pre-filled from the BVN look-up; the sandbox resolves the
+test persona (Bunch Dillon / 95888168924).
 
 ### POST /api/wallet/activate-rail  (Bearer)
-Strict-flow step 5: `POST /onboarding/start-nigeria` with `{"bvn"}`. Marks the
+Lifecycle stage 4: `POST /onboarding/start-nigeria` with `{"bvn"}`. Marks the
 wallet ready to fund and returns the NGN deposit account via `/wallet/setup`.
 
 ---

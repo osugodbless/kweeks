@@ -89,6 +89,65 @@ func (c *Client) findExistingUser(ctx context.Context, phone, email string) (str
 	return "", errors.New("bmoni: create-user returned 409 but existing user could not be recovered")
 }
 
+// LookupBVN resolves a BVN to its holder record (GET /kyc/bvn-lookup/{bvn]) so
+// the KYC form can pre-fill and the host confirm. Fetch only — writes nothing.
+// A BVN shorter/longer than 11 digits is rejected locally by the API (400).
+func (c *Client) LookupBVN(ctx context.Context, userID, bvn string) (*domain.BVNRecord, error) {
+	if len(bvn) != 11 {
+		return nil, errors.New("bmoni: bvn must be exactly 11 digits")
+	}
+	var rec struct {
+		BVN                string `json:"bvn"`
+		FirstName          string `json:"firstName"`
+		LastName           string `json:"lastName"`
+		MiddleName         string `json:"middleName"`
+		DateOfBirth        string `json:"dateOfBirth"`
+		Gender             string `json:"gender"`
+		Email              string `json:"email"`
+		PhoneNumber        string `json:"phoneNumber"`
+		ResidentialAddress string `json:"residentialAddress"`
+		StateOfResidence   string `json:"stateOfResidence"`
+		NIN                string `json:"nin"`
+		Data               struct {
+			BVN                string `json:"bvn"`
+			FirstName          string `json:"firstName"`
+			LastName           string `json:"lastName"`
+			MiddleName         string `json:"middleName"`
+			DateOfBirth        string `json:"dateOfBirth"`
+			Gender             string `json:"gender"`
+			Email              string `json:"email"`
+			PhoneNumber        string `json:"phoneNumber"`
+			ResidentialAddress string `json:"residentialAddress"`
+			StateOfResidence   string `json:"stateOfResidence"`
+			NIN                string `json:"nin"`
+		} `json:"data"`
+	}
+	if err := c.do(ctx, http.MethodGet,
+		"/v1/users/"+userID+"/kyc/bvn-lookup/"+bvn, nil, &rec); err != nil {
+		return nil, err
+	}
+	// Prefer the top-level record; fall back to the {data:{...}} envelope.
+	first := func(a, b string) string {
+		if a != "" {
+			return a
+		}
+		return b
+	}
+	return &domain.BVNRecord{
+		BVN:                first(rec.BVN, rec.Data.BVN),
+		FirstName:          first(rec.FirstName, rec.Data.FirstName),
+		LastName:           first(rec.LastName, rec.Data.LastName),
+		MiddleName:         first(rec.MiddleName, rec.Data.MiddleName),
+		DateOfBirth:        first(rec.DateOfBirth, rec.Data.DateOfBirth),
+		Gender:             first(rec.Gender, rec.Data.Gender),
+		Email:              first(rec.Email, rec.Data.Email),
+		PhoneNumber:        first(rec.PhoneNumber, rec.Data.PhoneNumber),
+		ResidentialAddress: first(rec.ResidentialAddress, rec.Data.ResidentialAddress),
+		StateOfResidence:   first(rec.StateOfResidence, rec.Data.StateOfResidence),
+		NIN:                first(rec.NIN, rec.Data.NIN),
+	}, nil
+}
+
 // SubmitKYC writes the host's KYC profile ahead of rail activation. Field
 // names follow the KYC — Nigeria requirements page (personalInfo + address
 // with streetLine1/city/state/postalCode/countryCode + identificationNumbers

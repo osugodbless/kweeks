@@ -97,8 +97,8 @@ func (w *Wallet) CreateBmoniUser(ctx context.Context, instructorID string) (*dom
 	return w.store.GetWalletByInstructor(ctx, instructorID)
 }
 
-// SubmitKYC writes the host's KYC profile (step 2 of the strict flow). The
-// host inputs their own identity; in the sandbox, persona values resolve.
+// SubmitKYC writes the host's KYC profile (lifecycle stage 3). The host inputs
+// their own identity; in the sandbox, persona values resolve.
 func (w *Wallet) SubmitKYC(ctx context.Context, instructorID string, k domain.KYCProfile) (*domain.Wallet, error) {
 	if w.money == nil {
 		return nil, errors.New("money rail not configured")
@@ -124,9 +124,9 @@ func (w *Wallet) SubmitKYC(ctx context.Context, instructorID string, k domain.KY
 	return w.store.GetWalletByInstructor(ctx, instructorID)
 }
 
-// UploadKYC forwards one KYC document image (identification / proof-of-address
-// / biometric) to the rail. Optional for NGN activation; part of the strict
-// verification flow.
+// UploadKYC forwards one KYC document image (identification / proof-of-address)
+// to the rail. Per the lifecycle these are uploaded before PATCH /kyc and are
+// required for the NGN profile.
 func (w *Wallet) UploadKYC(ctx context.Context, instructorID, kind string, data []byte, filename string) error {
 	if w.money == nil {
 		return errors.New("money rail not configured")
@@ -141,7 +141,7 @@ func (w *Wallet) UploadKYC(ctx context.Context, instructorID, kind string, data 
 	return w.money.UploadKycDocument(ctx, wallet.BmoniUserID, kind, data, filename)
 }
 
-// CreateWallet provisions the CNGN smart wallet (steps 3+4 of the strict flow:
+// CreateWallet provisions the CNGN smart wallet (lifecycle stage 2:
 // owner-proof challenge → create-managed) and records the ids.
 func (w *Wallet) CreateWallet(ctx context.Context, instructorID string) (*domain.Wallet, error) {
 	if w.money == nil {
@@ -167,7 +167,7 @@ func (w *Wallet) CreateWallet(ctx context.Context, instructorID string) (*domain
 	return w.store.GetWalletByInstructor(ctx, instructorID)
 }
 
-// ActivateRail runs the NGN rail onboarding (step 5 of the strict flow:
+// ActivateRail runs the NGN rail onboarding (lifecycle stage 4:
 // start-nigeria with the host's BVN) and marks the wallet ready to fund.
 func (w *Wallet) ActivateRail(ctx context.Context, instructorID, bvn string) (*domain.Wallet, error) {
 	if w.money == nil {
@@ -214,11 +214,14 @@ func (w *Wallet) SetupStatus(ctx context.Context, instructorID string) (*domain.
 	switch {
 	case wallet.BmoniUserID == "":
 		st.Stage = domain.SetupUnprovisioned
-	case !wallet.BmoniKYCSubmitted:
-		st.Stage = domain.SetupKYC
 	case wallet.BmoniWalletID == "":
+		// Lifecycle stage 2: the smart wallet precedes KYC.
 		st.Stage = domain.SetupWallet
+	case !wallet.BmoniKYCSubmitted:
+		// Lifecycle stage 3: verify identity (KYC) after the wallet exists.
+		st.Stage = domain.SetupKYC
 	case !wallet.BmoniRailActive:
+		// Lifecycle stage 4: activate the rail.
 		st.Stage = domain.SetupRail
 	default:
 		st.Stage = domain.SetupReady
@@ -228,6 +231,22 @@ func (w *Wallet) SetupStatus(ctx context.Context, instructorID string) (*domain.
 		}
 	}
 	return st, nil
+}
+
+// LookupBVN resolves the host's BVN to its holder record so the KYC form can
+// pre-fill and the host confirm before submitting (lifecycle stage 3 helper).
+func (w *Wallet) LookupBVN(ctx context.Context, instructorID, bvn string) (*domain.BVNRecord, error) {
+	if w.money == nil {
+		return nil, errors.New("money rail not configured")
+	}
+	wallet, err := w.store.GetWalletByInstructor(ctx, instructorID)
+	if err != nil {
+		return nil, err
+	}
+	if wallet.BmoniUserID == "" {
+		return nil, errors.New("create your BMONI user before looking up a BVN")
+	}
+	return w.money.LookupBVN(ctx, wallet.BmoniUserID, bvn)
 }
 
 // DepositAccount returns the host's NGN virtual bank account (account number

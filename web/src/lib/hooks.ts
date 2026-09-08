@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   api,
   AnswerReceipt,
+  BVNRecord,
   ClaimLookup,
   ClaimResult,
   DashboardStat,
@@ -280,6 +281,12 @@ export function useCreateBmoniUser() {
       void qc.invalidateQueries({ queryKey: ["wallet", "setup"] as const });
       void qc.invalidateQueries({ queryKey: qk.wallet });
     },
+  });
+}
+
+export function useLookupBVN() {
+  return useMutation({
+    mutationFn: (bvn: string) => api.post<BVNRecord>("/wallet/kyc/lookup", { bvn }),
   });
 }
 
