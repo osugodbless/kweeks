@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, FileQuestion, History, LayoutDashboard, Plus, ShieldCheck, Trophy, Users, Wallet, Zap } from "lucide-react";
+import { ArrowRight, Copy, FileQuestion, History, LayoutDashboard, Plus, ShieldCheck, Trophy, Users, Wallet, Zap } from "lucide-react";
 import { useDashboard, useWallet, useWalletSetup } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,80 @@ function Stat({ label, value, accent }: { label: string; value: ReactNode; accen
     <div className="rounded-3xl border-2 border-ink/5 bg-cream p-5">
       <p className="text-[11px] font-bold uppercase tracking-widest text-soft">{label}</p>
       <p className={`mt-2 font-display text-3xl font-semibold ${accent}`}>{value}</p>
+    </div>
+  );
+}
+
+function shortAddress(addr: string): string {
+  if (!addr) return "";
+  if (addr.length <= 16) return addr;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+/** The wallet's real identity once provisioned. Nothing is shown before setup,
+ *  so no fabricated internal id leaks into the UI. Once the wallet exists its
+ *  on-chain address appears (truncated, copyable); when the NGN rail is ready
+ *  the receiving bank account the host funds by transfer is shown first. */
+function WalletIdentity({
+  ready,
+  address,
+  accountNumber,
+  bankName,
+}: {
+  ready: boolean;
+  address?: string;
+  accountNumber?: string;
+  bankName?: string;
+}) {
+  const [copied, setCopied] = useState<string | null>(null);
+
+  async function copy(value: string, key: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(key);
+      setTimeout(() => setCopied((c) => (c === key ? null : c)), 1400);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
+
+  if (!address) return null; // not provisioned — stay empty
+
+  return (
+    <div className="mt-3 space-y-2">
+      {ready && accountNumber && (
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-white/40">NGN receiving account</p>
+          <div className="mt-1 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void copy(accountNumber, "acct")}
+              className="group flex cursor-pointer items-center gap-2 rounded-lg px-1.5 py-0.5 transition-colors hover:bg-white/5"
+              title="Copy account number"
+            >
+              <span className="font-display text-lg font-semibold tracking-wide text-cream">
+                {accountNumber.replace(/(\d{4})(?=\d)/g, "$1 ")}
+              </span>
+              <Copy className="size-3.5 text-white/40 group-hover:text-cream" />
+            </button>
+            {bankName && <span className="text-xs text-white/40">{bankName}</span>}
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-1.5 text-sm text-white/50">
+        <span className="text-xs font-bold uppercase tracking-widest text-white/35">Wallet address</span>
+        <button
+          type="button"
+          onClick={() => void copy(address, "addr")}
+          className="group flex cursor-pointer items-center gap-1.5 rounded-lg px-1.5 py-0.5 font-mono text-[13px] text-white/70 transition-colors hover:bg-white/5 hover:text-cream"
+          title="Copy wallet address"
+        >
+          {shortAddress(address)}
+          <Copy className="size-3 text-white/40 group-hover:text-cream" />
+          {copied && <span className="font-body text-[11px] font-bold text-mint">Copied</span>}
+        </button>
+      </div>
     </div>
   );
 }
@@ -98,11 +172,16 @@ export function InstructorWallet() {
             <span className="pointer-events-none absolute inset-0 rounded-[2rem] bg-dots-light opacity-60" />
             <div className="relative">
               <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/50">
-                <Wallet className="size-4 text-gold" /> Assigned wallet · NGN
+                <Wallet className="size-4 text-gold" /> Your wallet · NGN
               </p>
               <div className="mt-4">
                 <Money value={balance} tone="dark" className="text-5xl" />
-                <p className="mt-2 text-sm text-white/60">Wallet ID · {wallet?.id ?? "kweeks_ngn_…"}</p>
+                <WalletIdentity
+                  ready={setup?.stage === "ready"}
+                  address={setup?.bmoniWalletAddress || wallet?.bmoniWalletAddress}
+                  accountNumber={setup?.depositAccount?.accountNumber}
+                  bankName={setup?.depositAccount?.bankName}
+                />
               </div>
 
               <Button variant="gold" size="lg" className="mt-6 w-full" onClick={() => navigate("/instructor/fund")}>
