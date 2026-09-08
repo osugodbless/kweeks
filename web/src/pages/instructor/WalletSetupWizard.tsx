@@ -8,6 +8,7 @@ import {
   Landmark,
   Loader2,
   Lock,
+  RotateCw,
   ScanLine,
   ShieldCheck,
   Sparkles,
@@ -31,20 +32,22 @@ const NIGERIAN_STATES = [
   "Taraba", "Yobe", "Zamfara",
 ];
 
-// Strict BMONI lifecycle: create the smart wallet (stage 2) BEFORE verifying
-// identity (stage 3), then activate the rail (stage 4).
+// Strict BMONI lifecycle: create the smart wallet (stage 2), then verify
+// identity (stage 3: BVN resolve → confirm → documents → submit), then
+// activate the rail (stage 4). Document upload is its own wizard step.
 const STEPS = [
   { id: 1, label: "Create wallet", Icon: WalletIcon },
   { id: 2, label: "Verify identity", Icon: UserCheck },
-  { id: 3, label: "Activate NGN", Icon: Landmark },
+  { id: 3, label: "Upload documents", Icon: FileCheck },
+  { id: 4, label: "Activate NGN", Icon: Landmark },
 ] as const;
 
 const STAGE_TO_STEP: Record<WalletSetupStage, number> = {
   unprovisioned: 1,
   wallet: 1,
   kyc: 2,
-  rail: 3,
-  ready: 4,
+  rail: 4,
+  ready: 5,
 };
 
 const BVN_RE = /^\d{11}$/;
@@ -67,7 +70,6 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
     firstName: "", lastName: "", dateOfBirth: "", gender: "male",
     bvn: "", street: "", city: "", state: "Lagos", postalCode: "101241",
   });
-  // The BVN typed into the look-up box; the holder record resolves from it.
   const [lookupInput, setLookupInput] = useState("");
   const [bvnResolved, setBvnResolved] = useState(false);
   const [idFile, setIdFile] = useState<File | null>(null);
@@ -79,18 +81,25 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
   const activeStep = step ?? (setup ? (STAGE_TO_STEP[setup.stage] ?? 1) : 1);
 
   const stage = setup?.stage ?? "unprovisioned";
-  const done = activeStep >= 4 || stage === "ready";
+  const done = activeStep >= 5 || stage === "ready";
 
   const needsUser = Boolean(setup && !setup.bmoniUserId);
   const railOn = setup?.railConfigured === true;
-  const onKycStep = activeStep === 2 && railOn && !needsUser;
 
-  // Step 1 auto-creates the wallet (stage 2 of the lifecycle) when visible.
+  // Step 1 auto-creates the wallet ONCE per open (stage 2 of the lifecycle).
+  // Never re-fires on failure — that caused an infinite retry spinner. A failed
+  // attempt surfaces the error with a manual Retry button below.
+  const walletAttempted = useRef(false);
   useEffect(() => {
-    if (open && activeStep === 1 && !needsUser && !createWallet.isPending && !createWallet.isSuccess) {
+    if (!open) {
+      walletAttempted.current = false;
+      return;
+    }
+    if (stage === "wallet" && railOn && !needsUser && !walletAttempted.current) {
+      walletAttempted.current = true;
       createWallet.mutateAsync().catch(() => {});
     }
-  }, [open, activeStep, needsUser, createWallet]);
+  }, [open, stage, railOn, needsUser, createWallet]);
 
   const submitting = lookupBVN.isPending || submitKYC.isPending || uploadKYC.isPending || createWallet.isPending || activateRail.isPending;
 
@@ -122,7 +131,7 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
     }
   }
 
-  function validateKYC() {
+  function validateProfile() {
     const next: Record<string, string> = {};
     if (!kyc.firstName.trim()) next.firstName = "Enter your legal first name.";
     if (!kyc.lastName.trim()) next.lastName = "Enter your legal last name.";
@@ -132,29 +141,40 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
     if (!kyc.city.trim()) next.city = "Enter your city.";
     if (!kyc.state) next.state = "Pick your state.";
     if (!/^\d{6}$/.test(kyc.postalCode)) next.postalCode = "6-digit postal code.";
-    if (!idFile) next.idFile = "National ID / passport is required.";
-    if (!poaFile) next.poaFile = "Proof of address is required.";
     return next;
   }
 
-  async function handleKYC(event: FormEvent) {
+  // Step 2: the host reviews + confirms the resolved profile. Nothing is
+  // written yet — documents (next step) must be uploaded before PATCH /kyc.
+  function handleConfirm(event: FormEvent) {
     event.preventDefault();
     setError("");
-    const next = validateKYC();
+    const next = validateProfile();
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
+    setStep(3);
+  }
+
+  // Step 3: upload the required documents, then submit the KYC profile
+  // (strict submit order: documents → PATCH /kyc).
+  async function handleSubmitDocs(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    const next: Record<string, string> = {};
+    if (!idFile) next.idFile = "National ID / passport is required.";
+    if (!poaFile) next.poaFile = "Proof of address is required.";
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
     try {
-      // Strict KYC order: documents are uploaded before the profile is
-      // submitted (PATCH /kyc), and both are required for NGN.
       await uploadKYC.mutateAsync({ kind: "identification", file: idFile! });
       await uploadKYC.mutateAsync({ kind: "proof-of-address", file: poaFile! });
       await submitKYC.mutateAsync(kyc);
       setBvn(kyc.bvn);
-      setStep(3);
+      setStep(4);
       void refetch();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not submit your identity — check the details and try again.");
+      setError(err instanceof ApiError ? err.message : "Could not submit your documents — try again.");
     }
   }
 
@@ -168,7 +188,7 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
     }
     try {
       await activateRail.mutateAsync(finalBvn);
-      setStep(4);
+      setStep(5);
       void refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not activate the NGN rail — try again.");
@@ -192,17 +212,18 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
   }
 
   const deposit = setup?.depositAccount;
+  const docsMissing = !idFile || !poaFile;
 
   return (
     <Modal open={open} onClose={resetAndClose} hideClose={done}>
       {/* Stepper */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         {STEPS.map((s, i) => (
-          <div key={s.id} className="flex flex-1 items-center gap-2">
-            <div className="flex items-center gap-2">
+          <div key={s.id} className="flex flex-1 items-center gap-1.5">
+            <div className="flex items-center gap-1.5">
               <span
                 className={cn(
-                  "grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold transition-colors",
+                  "grid size-7 shrink-0 place-items-center rounded-full text-[13px] font-bold transition-colors",
                   activeStep > s.id || done
                     ? "bg-mint text-white"
                     : activeStep === s.id
@@ -210,14 +231,9 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
                       : "bg-ink/5 text-soft",
                 )}
               >
-                {activeStep > s.id || done ? <Check className="size-4" strokeWidth={3} /> : s.id}
+                {activeStep > s.id || done ? <Check className="size-3.5" strokeWidth={3} /> : s.id}
               </span>
-              <span
-                className={cn(
-                  "hidden text-xs font-bold sm:block",
-                  activeStep === s.id ? "text-ink" : "text-soft",
-                )}
-              >
+              <span className={cn("hidden text-[11px] font-bold lg:block", activeStep === s.id ? "text-ink" : "text-soft")}>
                 {s.label}
               </span>
             </div>
@@ -238,28 +254,37 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
               </p>
             </div>
 
-            <div className="flex items-center gap-3 rounded-2xl border-2 border-violet/20 bg-violet/5 px-5 py-4">
-              {createWallet.isPending ? (
-                <>
-                  <Loader2 className="size-5 animate-spin text-violet" />
-                  <p className="text-sm font-bold text-violet">Creating your smart wallet…</p>
-                </>
-              ) : createWallet.isError ? (
+            {createWallet.isPending && (
+              <div className="flex items-center gap-3 rounded-2xl border-2 border-violet/20 bg-violet/5 px-5 py-4">
+                <Loader2 className="size-5 animate-spin text-violet" />
+                <p className="text-sm font-bold text-violet">Creating your smart wallet…</p>
+              </div>
+            )}
+
+            {createWallet.isSuccess && (
+              <div className="flex items-center gap-3 rounded-2xl border-2 border-mint/30 bg-mint/10 px-5 py-4">
+                <span className="grid size-9 place-items-center rounded-xl bg-mint text-white">
+                  <WalletIcon className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-mint-dark">Wallet ready</p>
+                  <p className="truncate font-mono text-xs text-soft">{setup?.bmoniWalletAddress ?? "…"}</p>
+                </div>
+              </div>
+            )}
+
+            {createWallet.isError && (
+              <div className="space-y-3 rounded-2xl border-2 border-coral/30 bg-coral/5 px-5 py-4">
                 <p className="text-sm font-bold text-coral">
-                  {(createWallet.error as Error)?.message ?? "Wallet creation failed — try again."}
+                  {createWallet.error instanceof ApiError
+                    ? createWallet.error.message
+                    : (createWallet.error as Error)?.message ?? "Wallet creation failed."}
                 </p>
-              ) : (
-                <>
-                  <span className="grid size-9 place-items-center rounded-xl bg-violet text-white">
-                    <WalletIcon className="size-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold">Wallet ready</p>
-                    <p className="truncate font-mono text-xs text-soft">{setup?.bmoniWalletAddress ?? "…"}</p>
-                  </div>
-                </>
-              )}
-            </div>
+                <Button variant="outline" size="md" loading={createWallet.isPending} icon={<RotateCw className="size-4" />} onClick={() => createWallet.mutateAsync().catch(() => {})}>
+                  Retry wallet creation
+                </Button>
+              </div>
+            )}
 
             {error && (
               <p role="alert" className="rounded-2xl border-2 border-coral/30 bg-coral/10 px-4 py-3 text-sm font-bold text-coral">
@@ -268,26 +293,22 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
             )}
 
             <Button
-              variant="mint"
-              size="lg"
-              disabled={!createWallet.isSuccess}
-              onClick={() => setStep(2)}
-              icon={<ChevronRight className="size-5" />}
-              className="w-full"
+              variant="mint" size="lg" disabled={!createWallet.isSuccess}
+              onClick={() => setStep(2)} icon={<ChevronRight className="size-5" />} className="w-full"
             >
               Continue to identity
             </Button>
           </div>
         )}
 
-        {/* Step 2: Verify identity (lifecycle stage 3) */}
-        {!done && onKycStep && (
+        {/* Step 2: Verify identity — BVN resolve → autofill → confirm */}
+        {!done && activeStep === 2 && railOn && !needsUser && (
           <div className="space-y-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-soft">Step 2 · Verify your identity</p>
               <p className="mt-1 text-sm leading-relaxed text-soft">
-                Start with your BVN. We look it up and pre-fill your details for you to confirm,
-                then you upload your documents.
+                Start with your BVN. We look it up and pre-fill your details — review and confirm
+                them, then you upload your documents in the next step.
               </p>
             </div>
 
@@ -314,11 +335,11 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
                 </div>
               </form>
             ) : (
-              <form onSubmit={handleKYC} noValidate className="space-y-4">
+              <form onSubmit={handleConfirm} noValidate className="space-y-4">
                 <div className="flex items-start gap-2.5 rounded-2xl border-2 border-mint/30 bg-mint/10 px-4 py-3">
                   <Check className="mt-0.5 size-4 shrink-0 text-mint-dark" strokeWidth={3} />
                   <p className="text-sm font-bold text-mint-dark">
-                    Records found — confirm your details below, complete your address, then upload your documents.
+                    Records found — confirm your details, complete your address, then continue to documents.
                   </p>
                 </div>
 
@@ -396,43 +417,76 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
                   />
                 </div>
 
-                {/* Required documents, uploaded before PATCH /kyc per the strict flow. */}
-                <div className="rounded-2xl border-2 border-ink/10 bg-white p-4">
-                  <p className="flex items-center gap-2 text-sm font-bold">
-                    <FileCheck className="size-4 text-violet" /> Documents <span className="text-coral">· required</span>
-                  </p>
-                  <p className="mt-0.5 text-xs text-soft">
-                    Identification and proof of address are uploaded before your profile is submitted.
-                  </p>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <FileInput required label="National ID / passport" file={idFile} onChange={setIdFile} error={errors.idFile} />
-                    <FileInput required label="Proof of address" file={poaFile} onChange={setPoaFile} error={errors.poaFile} />
-                  </div>
-                </div>
-
                 <button type="button" onClick={() => setBvnResolved(false)} className="w-full cursor-pointer text-center text-sm font-bold text-violet hover:text-violet-dark">
                   ← Use a different BVN
                 </button>
 
-                {error && (
-                  <p role="alert" className="rounded-2xl border-2 border-coral/30 bg-coral/10 px-4 py-3 text-sm font-bold text-coral">
-                    {error}
-                  </p>
-                )}
-
-                <Button type="submit" variant="violet" size="lg" loading={submitting} icon={<ShieldCheck className="size-5" />} className="w-full">
-                  {submitting ? "Submitting…" : "Submit & continue"}
+                <Button type="submit" variant="violet" size="lg" icon={<ChevronRight className="size-5" />} className="w-full">
+                  Confirm & continue to documents
                 </Button>
               </form>
             )}
           </div>
         )}
 
-        {/* Step 3: Activate rail (lifecycle stage 4) */}
+        {/* Step 3: Upload documents (required, before PATCH /kyc) */}
         {!done && activeStep === 3 && railOn && !needsUser && (
+          <form onSubmit={handleSubmitDocs} noValidate className="space-y-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-soft">Step 3 · Upload your documents</p>
+              <p className="mt-1 text-sm leading-relaxed text-soft">
+                Both documents are required and are uploaded before your identity profile is
+                submitted for verification.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border-2 border-ink/10 bg-white p-4">
+              <p className="flex items-center gap-2 text-sm font-bold">
+                <FileCheck className="size-4 text-violet" /> Identification <span className="text-coral">· required</span>
+              </p>
+              <p className="mt-0.5 text-xs text-soft">A clear photo of your national ID, passport or driver's licence.</p>
+              <div className="mt-3">
+                <FileInput required label="National ID / passport" file={idFile} onChange={setIdFile} error={errors.idFile} />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border-2 border-ink/10 bg-white p-4">
+              <p className="flex items-center gap-2 text-sm font-bold">
+                <FileCheck className="size-4 text-violet" /> Proof of address <span className="text-coral">· required</span>
+              </p>
+              <p className="mt-0.5 text-xs text-soft">A recent utility bill, bank statement or government letter with your address.</p>
+              <div className="mt-3">
+                <FileInput required label="Proof of address" file={poaFile} onChange={setPoaFile} error={errors.poaFile} />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 rounded-2xl border-2 border-violet/20 bg-violet/5 px-4 py-3">
+              <ShieldCheck className="size-5 shrink-0 text-violet" />
+              <p className="text-sm font-bold text-violet">
+                {kyc.firstName || "Your"} {kyc.lastName || ""} · {kyc.dateOfBirth || "—"} — confirming with the BVN you verified.
+              </p>
+            </div>
+
+            {error && (
+              <p role="alert" className="rounded-2xl border-2 border-coral/30 bg-coral/10 px-4 py-3 text-sm font-bold text-coral">
+                {error}
+              </p>
+            )}
+
+            <Button type="submit" variant="violet" size="lg" loading={submitting} icon={<ShieldCheck className="size-5" />} disabled={docsMissing && !submitting} className="w-full">
+              {submitting ? "Submitting…" : "Submit documents & finish verification"}
+            </Button>
+            {docsMissing && (
+              <p className="text-center text-xs font-bold text-soft">Add both documents to continue.</p>
+            )}
+          </form>
+        )}
+
+        {/* Step 4: Activate rail (lifecycle stage 4) */}
+        {!done && activeStep === 4 && railOn && !needsUser && (
           <form onSubmit={handleActivate} noValidate className="space-y-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-soft">Step 3 · Activate NGN rail</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-soft">Step 4 · Activate NGN rail</p>
               <p className="mt-1 text-sm leading-relaxed text-soft">
                 Final step. Your BVN is verified against your profile and the naira rail is linked
                 to your wallet, giving you a Nigerian bank account you can fund by transfer.

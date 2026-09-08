@@ -9,6 +9,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 
 	"github.com/osugodbless/kweeks/internal/domain"
 )
@@ -215,6 +216,34 @@ func (c *Client) UploadKycDocument(ctx context.Context, userID, kind string, dat
 	return nil
 }
 
+// existingCNGNWallet returns the user's NGN/CNGN wallet when one exists. The
+// account/wallets endpoint 400s with "No embedded smart wallet group found for
+// this user" before any wallet is created; that is treated as none rather than
+// an error, so the caller proceeds to create-managed.
+func (c *Client) existingCNGNWallet(ctx context.Context, userID string) (id, addr string, ok bool, err error) {
+	var wallets []struct {
+		ID            string `json:"id"`
+		Currency      string `json:"currency"`
+		WalletAddress string `json:"walletAddress"`
+		IsActive      bool   `json:"isActive"`
+	}
+	if err := c.do(ctx, http.MethodGet,
+		"/v1/users/"+userID+"/smart-wallets/account/wallets", nil, &wallets); err != nil {
+		var apiErr *APIError
+		if errors.As(err, &apiErr) && apiErr.Status == 400 &&
+			strings.Contains(apiErr.Body, "No embedded smart wallet group") {
+			return "", "", false, nil
+		}
+		return "", "", false, err
+	}
+	for _, w := range wallets {
+		if w.Currency == "NGN" || w.Currency == "CNGN" {
+			return w.ID, w.WalletAddress, true, nil
+		}
+	}
+	return "", "", false, nil
+}
+
 // ownerAddress derives the EVM address for c.ownerKey.
 func (c *Client) ownerAddress() (string, error) {
 	addr, err := pubkeyToAddress(c.ownerKey)
@@ -226,11 +255,20 @@ func (c *Client) ownerAddress() (string, error) {
 
 // CreateWallet provisions a CNGN smart wallet owned by c.ownerKey, following
 // the documented handshake: owner-proof challenge → EIP-191 sign → create-managed.
+// Read-before-create first: create-managed has no uniqueness guard and returns
+// 409 "This item already exists" when the user already holds a CNGN wallet, so
+// an existing wallet is reused (idempotent retries and recovered users).
 // Returns the smart wallet id + address.
 func (c *Client) CreateWallet(ctx context.Context, userID string) (walletID, addr string, err error) {
 	if c.ownerKey == "" {
 		return "", "", errors.New("bmoni: owner key required to provision a wallet")
 	}
+	if id, ad, ok, err := c.existingCNGNWallet(ctx, userID); err != nil {
+		return "", "", err
+	} else if ok {
+		return id, ad, nil
+	}
+
 	owner, err := c.ownerAddress()
 	if err != nil {
 		return "", "", err

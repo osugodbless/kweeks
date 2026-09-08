@@ -45,6 +45,9 @@ func newMockRail(t *testing.T, handler func(w http.ResponseWriter, r *http.Reque
 			_, _ = w.Write([]byte(`{"bvn":"95888168924","firstName":"Bunch","lastName":"Dillon","dateOfBirth":"1990-01-15","gender":"male","phoneNumber":"+2348000000000","nin":"63184876213"}`))
 		case strings.HasSuffix(r.URL.Path, "/owner-proof-challenges"):
 			_, _ = w.Write([]byte(`{"challengeId":"ch_1","message":"please prove you own this key"}`))
+		case strings.HasSuffix(r.URL.Path, "/smart-wallets/account/wallets"):
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"message":["No embedded smart wallet group found for this user. Call POST .../owner-proof-challenges first."],"error":"Bad Request","statusCode":400}`))
 		case strings.HasSuffix(r.URL.Path, "/create-managed"):
 			_, _ = w.Write([]byte(`{"id":"wal_1","currency":"NGN","walletAddress":"0xRecipientAddress","isActive":true}`))
 		case strings.HasSuffix(r.URL.Path, "/onboarding/start-nigeria"):
@@ -164,6 +167,9 @@ func TestCreateWalletSignsOwnerProofEIP191(t *testing.T) {
 			gotProof = body["ownerProofSignature"]
 		}
 		switch {
+		case strings.HasSuffix(r.URL.Path, "/smart-wallets/account/wallets"):
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"message":["No embedded smart wallet group found for this user. Call POST .../owner-proof-challenges first."],"error":"Bad Request","statusCode":400}`))
 		case strings.HasSuffix(r.URL.Path, "/owner-proof-challenges"):
 			_, _ = w.Write([]byte(`{"challengeId":"ch_1","message":"prove it"}`))
 		default:
@@ -266,6 +272,58 @@ func TestPayWinnerToNigerianBankOfframp(t *testing.T) {
 	}
 	if offrampBody["bankAccountId"] != "ba_1" || offrampBody["fromAmount"] != "25.00" {
 		t.Fatalf("offramp body mismatch: %+v", offrampBody)
+	}
+}
+
+func TestCreateWalletReusesExistingCNGN(t *testing.T) {
+	calledCreateManaged := false
+	srv, c := newMockRail(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/smart-wallets/account/wallets"):
+			_, _ = w.Write([]byte(`[{"id":"wal_existing","currency":"NGN","walletAddress":"0xExisting","isActive":true}]`))
+		case strings.HasSuffix(r.URL.Path, "/create-managed"):
+			calledCreateManaged = true
+			_, _ = w.Write([]byte(`{}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	defer srv.Close()
+
+	walletID, addr, err := c.CreateWallet(context.Background(), "usr_demo_1")
+	if err != nil {
+		t.Fatalf("create wallet: %v", err)
+	}
+	if walletID != "wal_existing" || addr != "0xExisting" {
+		t.Fatalf("did not reuse existing wallet: %q %q", walletID, addr)
+	}
+	if calledCreateManaged {
+		t.Fatalf("create-managed called despite existing wallet (would 409)")
+	}
+}
+
+func TestCreateWalletProceedsWhenNoWalletGroup(t *testing.T) {
+	srv, c := newMockRail(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/smart-wallets/account/wallets"):
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"message":["No embedded smart wallet group found for this user. Call POST .../owner-proof-challenges first."],"error":"Bad Request","statusCode":400}`))
+		case strings.HasSuffix(r.URL.Path, "/owner-proof-challenges"):
+			_, _ = w.Write([]byte(`{"challengeId":"ch_1","message":"prove it"}`))
+		case strings.HasSuffix(r.URL.Path, "/create-managed"):
+			_, _ = w.Write([]byte(`{"id":"wal_new","currency":"NGN","walletAddress":"0xNew"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	defer srv.Close()
+
+	walletID, addr, err := c.CreateWallet(context.Background(), "usr_demo_1")
+	if err != nil {
+		t.Fatalf("create wallet: %v", err)
+	}
+	if walletID != "wal_new" || addr != "0xNew" {
+		t.Fatalf("wallet mismatch: %q %q", walletID, addr)
 	}
 }
 
