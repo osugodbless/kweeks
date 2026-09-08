@@ -32,6 +32,18 @@ const NIGERIAN_STATES = [
   "Taraba", "Yobe", "Zamfara",
 ];
 
+const ID_DOC_TYPES = [
+  { value: "passport", label: "International passport" },
+  { value: "national_id", label: "National ID (NIN slip)" },
+  { value: "drivers_license", label: "Driver's licence" },
+  { value: "government_id", label: "Government ID" },
+];
+
+const POA_DOC_TYPES = [
+  { value: "utility_bill", label: "Utility bill" },
+  { value: "bank_statement", label: "Bank statement" },
+];
+
 // Strict BMONI lifecycle: create the smart wallet (stage 2), then verify
 // identity (stage 3: BVN resolve → confirm → documents → submit), then
 // activate the rail (stage 4). Document upload is its own wizard step.
@@ -74,6 +86,10 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
   const [bvnResolved, setBvnResolved] = useState(false);
   const [idFile, setIdFile] = useState<File | null>(null);
   const [poaFile, setPoaFile] = useState<File | null>(null);
+  // Document metadata required by the BMONI upload contract.
+  const [idDocType, setIdDocType] = useState("passport");
+  const [idDocNumber, setIdDocNumber] = useState("");
+  const [poaDocType, setPoaDocType] = useState("utility_bill");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
 
@@ -155,20 +171,24 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
     setStep(3);
   }
 
-  // Step 3: upload the required documents, then submit the KYC profile
-  // (strict submit order: documents → PATCH /kyc).
+  // Step 3: upload the required documents (with their metadata), then submit
+  // the KYC profile (strict submit order: documents → PATCH /kyc).
   async function handleSubmitDocs(event: FormEvent) {
     event.preventDefault();
     setError("");
     const next: Record<string, string> = {};
     if (!idFile) next.idFile = "National ID / passport is required.";
     if (!poaFile) next.poaFile = "Proof of address is required.";
+    if (!idDocNumber.trim()) next.idDocNumber = "Enter the document number.";
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
     try {
-      await uploadKYC.mutateAsync({ kind: "identification", file: idFile! });
-      await uploadKYC.mutateAsync({ kind: "proof-of-address", file: poaFile! });
+      await uploadKYC.mutateAsync({
+        kind: "identification", file: idFile!, type: idDocType,
+        documentNumber: idDocNumber.trim(), issuingCountry: "NGA",
+      });
+      await uploadKYC.mutateAsync({ kind: "proof-of-address", file: poaFile!, type: poaDocType });
       await submitKYC.mutateAsync(kyc);
       setBvn(kyc.bvn);
       setStep(4);
@@ -444,9 +464,28 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
               <p className="flex items-center gap-2 text-sm font-bold">
                 <FileCheck className="size-4 text-violet" /> Identification <span className="text-coral">· required</span>
               </p>
-              <p className="mt-0.5 text-xs text-soft">A clear photo of your national ID, passport or driver's licence.</p>
+              <p className="mt-0.5 text-xs text-soft">A clear photo of the document you select.</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="idDocType" className="mb-2 block text-sm font-bold">Document type</label>
+                  <select
+                    id="idDocType" value={idDocType}
+                    onChange={(e) => setIdDocType(e.target.value)}
+                    className="w-full appearance-none rounded-2xl border-2 border-ink/10 bg-white px-4 py-3.5 font-bold text-ink outline-none transition-all focus:border-violet"
+                  >
+                    {ID_DOC_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <Field
+                  name="idDocNumber" label="Document number" value={idDocNumber}
+                  onChange={(e) => setIdDocNumber(e.target.value.slice(0, 40))}
+                  placeholder="e.g. A12345678" error={errors.idDocNumber} autoComplete="off" spellCheck="false"
+                />
+              </div>
               <div className="mt-3">
-                <FileInput required label="National ID / passport" file={idFile} onChange={setIdFile} error={errors.idFile} />
+                <FileInput required label="Upload the document photo" file={idFile} onChange={setIdFile} error={errors.idFile} />
               </div>
             </div>
 
@@ -454,9 +493,21 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
               <p className="flex items-center gap-2 text-sm font-bold">
                 <FileCheck className="size-4 text-violet" /> Proof of address <span className="text-coral">· required</span>
               </p>
-              <p className="mt-0.5 text-xs text-soft">A recent utility bill, bank statement or government letter with your address.</p>
+              <p className="mt-0.5 text-xs text-soft">A recent bill or statement showing your address.</p>
               <div className="mt-3">
-                <FileInput required label="Proof of address" file={poaFile} onChange={setPoaFile} error={errors.poaFile} />
+                <label htmlFor="poaDocType" className="mb-2 block text-sm font-bold">Document type</label>
+                <select
+                  id="poaDocType" value={poaDocType}
+                  onChange={(e) => setPoaDocType(e.target.value)}
+                  className="w-full appearance-none rounded-2xl border-2 border-ink/10 bg-white px-4 py-3.5 font-bold text-ink outline-none transition-all focus:border-violet"
+                >
+                  {POA_DOC_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mt-3">
+                <FileInput required label="Upload the proof photo" file={poaFile} onChange={setPoaFile} error={errors.poaFile} />
               </div>
             </div>
 

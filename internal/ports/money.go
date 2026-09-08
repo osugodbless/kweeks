@@ -21,8 +21,9 @@ type Money interface {
 	// so the KYC form can pre-fill and the host confirm. Writes nothing.
 	LookupBVN(ctx context.Context, userID, bvn string) (*domain.BVNRecord, error)
 	// UploadKycDocument submits one KYC document image (multipart) for the
-	// user. kind is identification | proof-of-address | biometric.
-	UploadKycDocument(ctx context.Context, userID, kind string, data []byte, filename string) error
+	// user. The image is sent under the `files` multipart field (selfie for
+	// biometric) with the required document-type metadata.
+	UploadKycDocument(ctx context.Context, userID string, doc domain.KycDocument) error
 	// CreateWallet provisions a CNGN smart wallet for the user via the
 	// owner-proof challenge + create-managed handshake. Returns wallet id +
 	// on-chain address.

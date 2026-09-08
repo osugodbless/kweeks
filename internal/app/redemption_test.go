@@ -30,7 +30,7 @@ func (f *fakeMoney) LookupBVN(ctx context.Context, userID, bvn string) (*domain.
 	return &domain.BVNRecord{BVN: bvn, FirstName: "Samson", LastName: "Jabo", DateOfBirth: "1990-01-15"}, nil
 }
 
-func (f *fakeMoney) UploadKycDocument(ctx context.Context, userID, kind string, data []byte, filename string) error {
+func (f *fakeMoney) UploadKycDocument(ctx context.Context, userID string, doc domain.KycDocument) error {
 	return nil
 }
 func (f *fakeMoney) CreateWallet(ctx context.Context, userID string) (string, string, error) {

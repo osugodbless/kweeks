@@ -38,7 +38,7 @@ func (f *wizardMoney) SubmitKYC(ctx context.Context, userID string, k domain.KYC
 	f.kycSeen = k
 	return nil
 }
-func (f *wizardMoney) UploadKycDocument(ctx context.Context, userID, kind string, data []byte, filename string) error {
+func (f *wizardMoney) UploadKycDocument(ctx context.Context, userID string, doc domain.KycDocument) error {
 	return nil
 }
 func (f *wizardMoney) CreateWallet(ctx context.Context, userID string) (string, string, error) {

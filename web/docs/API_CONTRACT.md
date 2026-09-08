@@ -76,9 +76,11 @@ record `{"bvn","firstName","lastName","dateOfBirth","gender","phoneNumber",...}`
 form for the host to edit and confirm.
 
 ### POST /api/wallet/kyc/documents/{kind}  (Bearer)
-Multipart `file` upload (JPEG/PNG). `kind` = `identification` |
-`proof-of-address`. Uploaded BEFORE `PATCH /kyc` per the strict KYC submit
-order; both are required for the NGN profile.
+Multipart upload (JPEG/PNG). `kind` = `identification` |
+`proof-of-address`. The image rides under the **`files`** field with
+`type`; identification also needs `documentNumber` + `issuingCountry`
+(biometric uses a `selfie` field). Uploaded BEFORE `PATCH /kyc` per the
+strict KYC submit order; both are required for the NGN profile.
 
 ### POST /api/wallet/kyc  (Bearer)
 Lifecycle stage 3. Body: `{"firstName","lastName","dateOfBirth","gender","bvn",

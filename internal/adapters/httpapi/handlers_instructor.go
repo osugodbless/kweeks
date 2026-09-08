@@ -360,7 +360,7 @@ func (s *Server) handleActivateRail(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleUploadKYC forwards a KYC document image (identification /
-// proof-of-address / biometric) to the rail.
+// proof-of-address / biometric) with its document-type metadata to the rail.
 func (s *Server) handleUploadKYC(w http.ResponseWriter, r *http.Request) {
 	if s.wallet == nil {
 		writeErr(w, errors.New("wallet service not configured"))
@@ -382,7 +382,10 @@ func (s *Server) handleUploadKYC(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, errors.New("upload a document image (JPEG/PNG)"))
 		return
 	}
-	file, hdr, err := r.FormFile("file")
+	// The image arrives under the `files` multipart field; document-type
+	// metadata rides alongside (identification also needs documentNumber +
+	// issuingCountry).
+	file, hdr, err := r.FormFile("files")
 	if err != nil {
 		writeErr(w, errors.New("upload a document image (JPEG/PNG)"))
 		return
@@ -393,7 +396,14 @@ func (s *Server) handleUploadKYC(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, errors.New("could not read the uploaded document"))
 		return
 	}
-	if err := s.wallet.UploadKYC(r.Context(), instructor.ID, kind, data, hdr.Filename); err != nil {
+	if err := s.wallet.UploadKYC(r.Context(), instructor.ID, domain.KycDocument{
+		Kind:           kind,
+		Data:           data,
+		Name:           hdr.Filename,
+		Type:           r.FormValue("type"),
+		DocumentNumber: r.FormValue("documentNumber"),
+		IssuingCountry: r.FormValue("issuingCountry"),
+	}); err != nil {
 		writeErr(w, err)
 		return
 	}

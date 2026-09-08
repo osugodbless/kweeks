@@ -29,7 +29,7 @@ func (f *personaRecordingMoney) SubmitKYC(ctx context.Context, userID string, k 
 func (f *personaRecordingMoney) LookupBVN(ctx context.Context, userID, bvn string) (*domain.BVNRecord, error) {
 	return &domain.BVNRecord{BVN: bvn, FirstName: "Adeola", LastName: "Peters", DateOfBirth: "1990-01-15", Gender: "male"}, nil
 }
-func (f *personaRecordingMoney) UploadKycDocument(ctx context.Context, userID, kind string, data []byte, filename string) error {
+func (f *personaRecordingMoney) UploadKycDocument(ctx context.Context, userID string, doc domain.KycDocument) error {
 	return nil
 }
 func (f *personaRecordingMoney) CreateWallet(ctx context.Context, userID string) (string, string, error) {

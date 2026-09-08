@@ -136,6 +136,25 @@ type BVNRecord struct {
 	NIN                string
 }
 
+// KycDocument is one KYC document upload. The BMONI API expects the image
+// under a multipart `files` array (selfie for biometric) plus document-type
+// metadata; identification additionally requires the document number and
+// issuing country.
+type KycDocument struct {
+	Kind string // identification | proof-of-address | biometric
+	Data []byte
+	Name string // original filename
+
+	// Type is the document type code, e.g. passport | national_id |
+	// drivers_license | government_id for identification, utility_bill |
+	// bank_statement for proof-of-address.
+	Type string
+	// DocumentNumber is required for identification only.
+	DocumentNumber string
+	// IssuingCountry is required for identification only (ISO code, e.g. NGA).
+	IssuingCountry string
+}
+
 // WalletTransaction is one wallet ledger row.
 type WalletTransaction struct {
 	ID        string       `json:"id"`

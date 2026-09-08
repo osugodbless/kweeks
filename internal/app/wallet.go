@@ -124,10 +124,9 @@ func (w *Wallet) SubmitKYC(ctx context.Context, instructorID string, k domain.KY
 	return w.store.GetWalletByInstructor(ctx, instructorID)
 }
 
-// UploadKYC forwards one KYC document image (identification / proof-of-address)
-// to the rail. Per the lifecycle these are uploaded before PATCH /kyc and are
-// required for the NGN profile.
-func (w *Wallet) UploadKYC(ctx context.Context, instructorID, kind string, data []byte, filename string) error {
+// UploadKYC forwards one KYC document image to the rail. Per the lifecycle
+// these are uploaded before PATCH /kyc and are required for the NGN profile.
+func (w *Wallet) UploadKYC(ctx context.Context, instructorID string, doc domain.KycDocument) error {
 	if w.money == nil {
 		return errors.New("money rail not configured")
 	}
@@ -138,7 +137,7 @@ func (w *Wallet) UploadKYC(ctx context.Context, instructorID, kind string, data 
 	if wallet.BmoniUserID == "" {
 		return errors.New("create your BMONI user before uploading KYC documents")
 	}
-	return w.money.UploadKycDocument(ctx, wallet.BmoniUserID, kind, data, filename)
+	return w.money.UploadKycDocument(ctx, wallet.BmoniUserID, doc)
 }
 
 // CreateWallet provisions the CNGN smart wallet (lifecycle stage 2:

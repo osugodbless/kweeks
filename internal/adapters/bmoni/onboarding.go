@@ -179,26 +179,56 @@ func (c *Client) SubmitKYC(ctx context.Context, userID string, k domain.KYCProfi
 }
 
 // UploadKycDocument submits one KYC document image (multipart) for the user.
-func (c *Client) UploadKycDocument(ctx context.Context, userID, kind string, data []byte, filename string) error {
-	if len(data) == 0 {
+// The live API expects the image under a multipart `files` array (`selfie` for
+// biometric) plus required text fields: identification needs type +
+// documentNumber + issuingCountry, proof-of-address needs type.
+func (c *Client) UploadKycDocument(ctx context.Context, userID string, doc domain.KycDocument) error {
+	if len(doc.Data) == 0 {
 		return errors.New("bmoni: empty document upload")
 	}
-	if filename == "" {
-		filename = kind + ".jpg"
+	switch doc.Kind {
+	case "identification", "proof-of-address", "biometric":
+	default:
+		return errors.New("bmoni: unknown kyc document kind " + doc.Kind)
+	}
+	if doc.Type == "" {
+		return errors.New("bmoni: kyc document type is required")
+	}
+	if doc.Kind == "identification" && doc.DocumentNumber == "" {
+		return errors.New("bmoni: identification documentNumber is required")
+	}
+	if doc.Kind == "identification" && doc.IssuingCountry == "" {
+		return errors.New("bmoni: identification issuingCountry is required")
+	}
+
+	name := doc.Name
+	if name == "" {
+		name = doc.Kind + ".jpg"
 	}
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
-	part, err := mw.CreateFormFile("file", filename)
+	// The image field: `files` for identification/proof-of-address, `selfie`
+	// for biometric.
+	fileField := "files"
+	if doc.Kind == "biometric" {
+		fileField = "selfie"
+	}
+	part, err := mw.CreateFormFile(fileField, name)
 	if err != nil {
 		return err
 	}
-	if _, err := part.Write(data); err != nil {
+	if _, err := part.Write(doc.Data); err != nil {
 		return err
+	}
+	_ = mw.WriteField("type", doc.Type)
+	if doc.Kind == "identification" {
+		_ = mw.WriteField("documentNumber", doc.DocumentNumber)
+		_ = mw.WriteField("issuingCountry", doc.IssuingCountry)
 	}
 	_ = mw.Close()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.baseURL+"/v1/users/"+userID+"/kyc/documents/"+kind, &buf)
+		c.baseURL+"/v1/users/"+userID+"/kyc/documents/"+doc.Kind, &buf)
 	if err != nil {
 		return err
 	}
@@ -206,12 +236,12 @@ func (c *Client) UploadKycDocument(ctx context.Context, userID, kind string, dat
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("bmoni upload %s: %w", kind, err)
+		return fmt.Errorf("bmoni upload %s: %w", doc.Kind, err)
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("bmoni upload %s: status %d: %s", kind, resp.StatusCode, truncate(string(raw), 300))
+		return fmt.Errorf("bmoni upload %s: status %d: %s", doc.Kind, resp.StatusCode, truncate(string(raw), 300))
 	}
 	return nil
 }

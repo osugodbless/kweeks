@@ -306,9 +306,20 @@ export function useSubmitKYC() {
 export function useUploadKYC() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { kind: string; file: File }) => {
+    mutationFn: (v: {
+      kind: string;
+      file: File;
+      type: string;
+      documentNumber?: string;
+      issuingCountry?: string;
+    }) => {
       const form = new FormData();
-      form.append("file", v.file);
+      form.append("files", v.file); // BMONI expects the image under `files`
+      form.append("type", v.type);
+      if (v.kind === "identification") {
+        form.append("documentNumber", v.documentNumber ?? "");
+        form.append("issuingCountry", v.issuingCountry ?? "NGA");
+      }
       return api.post(`/wallet/kyc/documents/${v.kind}`, form);
     },
     onSuccess: () => {

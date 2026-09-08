@@ -202,15 +202,47 @@ func TestActivateRail(t *testing.T) {
 }
 
 func TestUploadKycDocumentMultipart(t *testing.T) {
+	var bodyTxt string
 	srv, c := newMockRail(t, func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
-			t.Fatalf("expected multipart upload, got %q", r.Header.Get("Content-Type"))
+		ct := r.Header.Get("Content-Type")
+		if !strings.Contains(ct, "multipart/form-data") {
+			t.Fatalf("expected multipart upload, got %q", ct)
 		}
+		if err := r.ParseMultipartForm(2 << 20); err != nil {
+			t.Fatalf("parse multipart: %v", err)
+		}
+		// Image must ride under the `files` field (not `file`), with type metadata.
+		if len(r.MultipartForm.File["files"]) == 0 {
+			t.Fatalf("image not under the `files` field: %v", r.MultipartForm.File)
+		}
+		if got := r.FormValue("type"); got != "passport" {
+			t.Fatalf("type = %q", got)
+		}
+		if got := r.FormValue("documentNumber"); got != "A12345678" {
+			t.Fatalf("documentNumber = %q", got)
+		}
+		bodyTxt = "ok"
 		_, _ = w.Write([]byte(`{}`))
 	})
 	defer srv.Close()
-	if err := c.UploadKycDocument(context.Background(), "usr_demo_1", "identification", []byte("fakejpeg"), "id.jpg"); err != nil {
+	err := c.UploadKycDocument(context.Background(), "usr_demo_1", domain.KycDocument{
+		Kind: "identification", Data: []byte("fakejpeg"), Name: "id.jpg",
+		Type: "passport", DocumentNumber: "A12345678", IssuingCountry: "NGA",
+	})
+	if err != nil {
 		t.Fatalf("upload: %v", err)
+	}
+	if bodyTxt != "ok" {
+		t.Fatalf("upload did not reach the handler")
+	}
+}
+
+func TestUploadKycDocumentRejectsMissingMetadata(t *testing.T) {
+	srv, c := newMockRail(t, nil)
+	defer srv.Close()
+	err := c.UploadKycDocument(context.Background(), "usr_demo_1", domain.KycDocument{Kind: "identification", Data: []byte("x"), Type: "passport"})
+	if err == nil || !strings.Contains(err.Error(), "documentNumber") {
+		t.Fatalf("expected missing documentNumber error, got %v", err)
 	}
 }
 
