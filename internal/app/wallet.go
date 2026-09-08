@@ -43,9 +43,15 @@ func (w *Wallet) RailConfigured() bool {
 }
 
 // identity derives the BMONI user identity from the instructor's real signup
-// data (program-generated from user input, never from env persona).
+// data (program-generated from user input, never from env persona). The
+// explicit first/last name parts the host typed are used verbatim; only
+// pre-existing accounts created before name parts were stored fall back to a
+// best-effort split of the display name.
 func identityFor(instructor domain.Instructor) domain.UserIdentity {
-	first, last := splitName(instructor.Name)
+	first, last := instructor.FirstName, instructor.LastName
+	if first == "" && last == "" {
+		first, last = splitName(instructor.Name)
+	}
 	return domain.UserIdentity{
 		FirstName: first, LastName: last,
 		Email: instructor.Email, Phone: instructor.Phone,
@@ -195,11 +201,11 @@ func (w *Wallet) SetupStatus(ctx context.Context, instructorID string) (*domain.
 		return nil, err
 	}
 	st := &domain.SetupStatus{
-		BmoniUserID:   wallet.BmoniUserID,
-		KYCSubmitted:  wallet.BmoniKYCSubmitted,
-		BmoniWalletID: wallet.BmoniWalletID,
+		BmoniUserID:     wallet.BmoniUserID,
+		KYCSubmitted:    wallet.BmoniKYCSubmitted,
+		BmoniWalletID:   wallet.BmoniWalletID,
 		BmoniWalletAddr: wallet.BmoniWalletAddr,
-		RailActive:    wallet.BmoniRailActive,
+		RailActive:      wallet.BmoniRailActive,
 	}
 	if !w.RailConfigured() {
 		st.Stage = domain.SetupUnprovisioned

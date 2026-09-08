@@ -36,7 +36,7 @@ func TestInstructorDataIsolation(t *testing.T) {
 
 	// --- Instructor B signs up fresh with its own email. ---
 	rrB := authDo(api, "POST", "/api/auth/signup", map[string]string{
-		"name": "Bisi Baker", "email": "b@kweeks.ng", "password": "secret1",
+		"firstName": "Bisi", "lastName": "Baker", "email": "b@kweeks.ng", "password": "secret1",
 	}, "")
 	if rrB.Code != 200 {
 		t.Fatalf("B signup: %d %s", rrB.Code, rrB.Body.String())

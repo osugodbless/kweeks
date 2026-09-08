@@ -58,10 +58,11 @@ func bearerToken(r *http.Request) string {
 // ---- Auth ----
 
 type credentialsReq struct {
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Phone    string `json:"phone"`
-	Password string `json:"password"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Email     string `json:"email"`
+	Phone     string `json:"phone"`
+	Password  string `json:"password"`
 }
 
 func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +71,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, domain.ErrBadCredentials)
 		return
 	}
-	res, err := s.auth.Signup(r.Context(), req.Name, req.Email, req.Phone, req.Password)
+	res, err := s.auth.Signup(r.Context(), req.FirstName, req.LastName, req.Email, req.Phone, req.Password)
 	if err != nil {
 		writeErr(w, err)
 		return
@@ -96,7 +97,8 @@ func (s *Server) writeAuthResult(w http.ResponseWriter, res *app.SignupResult) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"token": res.Token,
 		"instructor": map[string]any{
-			"id": res.Instructor.ID, "name": res.Instructor.Name,
+			"id": res.Instructor.ID, "firstName": res.Instructor.FirstName,
+			"lastName": res.Instructor.LastName, "name": res.Instructor.Name,
 			"email": res.Instructor.Email, "phone": res.Instructor.Phone,
 			"avatar": res.Instructor.Avatar,
 		},
@@ -112,7 +114,8 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"instructor": map[string]any{
-			"id": instructor.ID, "name": instructor.Name,
+			"id": instructor.ID, "firstName": instructor.FirstName,
+			"lastName": instructor.LastName, "name": instructor.Name,
 			"email": instructor.Email, "phone": instructor.Phone,
 			"avatar": instructor.Avatar,
 		},
@@ -189,10 +192,33 @@ func (s *Server) handleWalletSetup(w http.ResponseWriter, r *http.Request) {
 		"stage": st.Stage, "bmoniUserId": st.BmoniUserID,
 		"kycSubmitted": st.KYCSubmitted, "bmoniWalletId": st.BmoniWalletID,
 		"bmoniWalletAddress": st.BmoniWalletAddr, "railActive": st.RailActive,
+		"railConfigured": s.wallet.RailConfigured(),
 		"depositAccount": map[string]string{
 			"accountNumber": st.DepositAccountNumber, "bankName": st.DepositBank,
 		},
 	})
+}
+
+// handleCreateBmoniUser (re)runs the strict-flow step 1: register the host's
+// BMONI user from their signup identity. Idempotent. It exists so a host whose
+// user creation failed at signup (rail hiccup, bad key, etc.) can retry from
+// the wallet wizard without re-signing up.
+func (s *Server) handleCreateBmoniUser(w http.ResponseWriter, r *http.Request) {
+	if s.wallet == nil {
+		writeErr(w, errors.New("wallet service not configured"))
+		return
+	}
+	instructor, _, err := s.auth.Resolve(r.Context(), bearerToken(r))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	wallet, err := s.wallet.CreateBmoniUser(r.Context(), instructor.ID)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"wallet": walletJSON(wallet)})
 }
 
 type kycReq struct {

@@ -13,16 +13,22 @@ Non-2xx returns `{"error": "..."}`. 401 = not authed, 403 = forbidden,
 ## Auth (instructor, multi-user)
 
 ### POST /api/auth/signup
-Body: `{"name":"Adeola Peters","email":"host@kweeks.ng","phone":"+2348012345678","password":"secret"}`
-Creates the instructor AND issues a NGN wallet immediately. `phone` is
-optional but strongly recommended; it is the host's own number, normalized
-server-side to E.164 (any of `+2348012345678`, `2348012345678`, `08012345678`,
-`8012345678` are accepted) and becomes their distinct BMONI user identity, so
-two hosts never share a wallet. Without a phone a deterministic unique phone
-is derived at provisioning. An unparseable phone returns 400 `{"error":"enter
-a valid phone number (E.164, e.g. +2348012345678)"}` — never the 401
-"invalid email or password".
-Returns: `{"token":"...","instructor":{"id","name","email","phone","avatar"},"wallet":{"id":"kweeks_ngn_8f2c1a","balanceNaira":"150000"}}`
+Body: `{"firstName":"Adeola","lastName":"Peters","email":"host@kweeks.ng","phone":"+2348012345678","password":"secret"}`
+Creates the instructor AND issues a NGN wallet immediately. `firstName`/`lastName`
+are the host's real names as typed on the form; they are passed to BMONI
+verbatim (never re-split from a single name field). `phone` is optional but
+strongly recommended; it is the host's own number, normalized server-side to
+E.164 (any of `+2348012345678`, `2348012345678`, `08012345678`, `8012345678`
+are accepted) and becomes their distinct BMONI user identity, so two hosts
+never share a wallet. Without a phone a deterministic unique phone is derived
+at provisioning. An unparseable phone returns 400 `{"error":"enter a valid
+phone number (E.164, e.g. +2348012345678)"}` — never the 401 "invalid email or
+password".
+When the money rail is configured the host's BMONI user is created
+automatically (create-user). If that call fails, signup still succeeds and
+returns a valid token; the account stays `unprovisioned` and the host can
+retry with `POST /api/wallet/create-user`.
+Returns: `{"token":"...","instructor":{"id","firstName","lastName","name","email","phone","avatar"},"wallet":{"id":"kweeks_ngn_8f2c1a","balanceNaira":"150000"}}`
 
 ### POST /api/auth/login
 Body: `{"email","password"}` → same shape as signup.
@@ -46,8 +52,15 @@ Returns updated `{"wallet":{"id","balanceNaira"}}`.
 ### GET /api/wallet/setup  (Bearer)
 Wallet-setup wizard status. Returns `{"stage":"unprovisioned"|"kyc"|"wallet"|"rail"|"ready",
 "bmoniUserId","kycSubmitted","bmoniWalletId","bmoniWalletAddress","railActive",
-"depositAccount":{"accountNumber","bankName"}}`. `ready` includes the NGN
-deposit account the host funds by bank transfer.
+"railConfigured","depositAccount":{"accountNumber","bankName"}}`. `railConfigured`
+is false when the BMONI keys are absent (no provisioning possible). `ready`
+includes the NGN deposit account the host funds by bank transfer.
+
+### POST /api/wallet/create-user  (Bearer)
+Strict-flow step 1 (idempotent). Creates (or recovers) the host's BMONI user
+from their signup identity and records `bmoniUserId`. Auto-run at signup when
+the rail is configured; exposed so a host whose user creation failed at signup
+can retry from the wizard. Returns `{"wallet":{...,"bmoniUserId"}}`.
 
 ### POST /api/wallet/kyc  (Bearer)
 Strict-flow step 2. Body: `{"firstName","lastName","dateOfBirth","gender","bvn",

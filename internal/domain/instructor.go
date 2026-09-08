@@ -5,7 +5,12 @@ import "time"
 // Instructor is an account that hosts quizzes. Signup provisions one and a
 // NGN wallet is issued for it immediately.
 type Instructor struct {
-	ID           string    `json:"id"`
+	ID        string `json:"id"`
+	FirstName string `json:"firstName,omitempty"`
+	LastName  string `json:"lastName,omitempty"`
+	// Name is the display name ("First Last"), derived from FirstName/LastName
+	// at signup and kept for avatar/header rendering. BMONI identity always
+	// uses the explicit parts, never a re-split of Name.
 	Name         string    `json:"name"`
 	Email        string    `json:"email"`
 	Phone        string    `json:"phone,omitempty"` // E.164; the host's own BMONI user identity
@@ -32,11 +37,11 @@ type Wallet struct {
 
 	// External BMONI identity, set as the wallet moves through the strict
 	// provisioning flow (create-user → KYC → wallet → rail).
-	BmoniUserID         string `json:"bmoniUserId,omitempty"`
-	BmoniKYCSubmitted   bool   `json:"bmoniKycSubmitted,omitempty"`
-	BmoniWalletID       string `json:"bmoniWalletId,omitempty"`
-	BmoniWalletAddr     string `json:"bmoniWalletAddress,omitempty"`
-	BmoniRailActive     bool   `json:"bmoniRailActive,omitempty"`
+	BmoniUserID       string `json:"bmoniUserId,omitempty"`
+	BmoniKYCSubmitted bool   `json:"bmoniKycSubmitted,omitempty"`
+	BmoniWalletID     string `json:"bmoniWalletId,omitempty"`
+	BmoniWalletAddr   string `json:"bmoniWalletAddress,omitempty"`
+	BmoniRailActive   bool   `json:"bmoniRailActive,omitempty"`
 }
 
 // WalletTxKind classifies a wallet ledger entry.
@@ -78,14 +83,14 @@ const (
 // SetupStatus is the wallet provisioning state + next action, surfaced by the
 // setup wizard.
 type SetupStatus struct {
-	Stage               SetupStage
-	BmoniUserID         string
-	KYCSubmitted        bool
-	BmoniWalletID       string
-	BmoniWalletAddr     string
-	RailActive          bool
+	Stage                SetupStage
+	BmoniUserID          string
+	KYCSubmitted         bool
+	BmoniWalletID        string
+	BmoniWalletAddr      string
+	RailActive           bool
 	DepositAccountNumber string
-	DepositBank         string
+	DepositBank          string
 }
 
 // UserIdentity is the real identity a host signs up with; it becomes their

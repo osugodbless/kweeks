@@ -270,6 +270,19 @@ export function useWalletSetup() {
   });
 }
 
+export function useCreateBmoniUser() {
+  const qc = useQueryClient();
+  const setWallet = useAuth((s) => s.setWallet);
+  return useMutation({
+    mutationFn: () => api.post<{ wallet: Wallet }>("/wallet/create-user"),
+    onSuccess: (res) => {
+      if (res?.wallet) setWallet(res.wallet);
+      void qc.invalidateQueries({ queryKey: ["wallet", "setup"] as const });
+      void qc.invalidateQueries({ queryKey: qk.wallet });
+    },
+  });
+}
+
 export function useSubmitKYC() {
   const qc = useQueryClient();
   const setWallet = useAuth((s) => s.setWallet);

@@ -26,7 +26,7 @@ func TestSignupAcceptsLocalFormatPhones(t *testing.T) {
 		tc := tc
 		t.Run(tc.label, func(t *testing.T) {
 			rr := authDo(api, "POST", "/api/auth/signup", map[string]string{
-				"name": "Adeola Peters", "email": "new+" + tc.phone + "@kweeks.ng",
+				"firstName": "Adeola", "lastName": "Peters", "email": "new+" + tc.phone + "@kweeks.ng",
 				"phone": tc.phone, "password": "secret1",
 			}, "")
 			if rr.Code != http.StatusOK {
@@ -47,7 +47,7 @@ func TestSignupAcceptsLocalFormatPhones(t *testing.T) {
 func TestSignupRejectsGarbagePhoneClearly(t *testing.T) {
 	api, _ := buildAuthServer(t)
 	rr := authDo(api, "POST", "/api/auth/signup", map[string]string{
-		"name": "Adeola Peters", "email": "new2@kweeks.ng",
+		"firstName": "Adeola", "lastName": "Peters", "email": "new2@kweeks.ng",
 		"phone": "not-a-phone", "password": "secret1",
 	}, "")
 	if rr.Code != http.StatusBadRequest {

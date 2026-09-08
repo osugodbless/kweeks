@@ -57,6 +57,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/wallet", s.requireAuth(s.handleWallet))
 	mux.HandleFunc("POST /api/wallet/fund", s.requireAuth(s.handleFundWallet))
 	mux.HandleFunc("GET /api/wallet/setup", s.requireAuth(s.handleWalletSetup))
+	mux.HandleFunc("POST /api/wallet/create-user", s.requireAuth(s.handleCreateBmoniUser))
 	mux.HandleFunc("POST /api/wallet/kyc", s.requireAuth(s.handleSubmitKYC))
 	mux.HandleFunc("POST /api/wallet/kyc/documents/{kind}", s.requireAuth(s.handleUploadKYC))
 	mux.HandleFunc("POST /api/wallet/create", s.requireAuth(s.handleCreateWallet))

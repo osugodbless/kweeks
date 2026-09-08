@@ -22,10 +22,12 @@ type wizardMoney struct {
 	rail        bool
 	kycSeen     domain.KYCProfile
 	bvnSeen     string
+	idSeen      domain.UserIdentity
 }
 
 func (f *wizardMoney) CreateUser(ctx context.Context, id domain.UserIdentity) (string, error) {
 	f.createdUser = true
+	f.idSeen = id
 	return "usr_wiz", nil
 }
 func (f *wizardMoney) SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error {
@@ -83,7 +85,7 @@ func buildWizardServer(t *testing.T, money ports.Money) (*Server, *memory.Store)
 func wizardSignup(t *testing.T, api *Server) string {
 	t.Helper()
 	rr := authDo(api, "POST", "/api/auth/signup", map[string]string{
-		"name": "Bunch Dillon", "email": "wiz@kweeks.ng", "phone": "+2348000000000", "password": "secret1",
+		"firstName": "Bunch", "lastName": "Dillon", "email": "wiz@kweeks.ng", "phone": "+2348000000000", "password": "secret1",
 	}, "")
 	if rr.Code != 200 {
 		t.Fatalf("signup: %d %s", rr.Code, rr.Body.String())

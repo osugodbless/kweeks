@@ -15,7 +15,8 @@ export function InstructorSignup() {
   const navigate = useNavigate();
   const { signup } = useAuth();
 
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -26,8 +27,8 @@ export function InstructorSignup() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError("");
-    if (!name.trim()) {
-      setError("Enter your full name.");
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("Enter your first and last name.");
       return;
     }
     if (!EMAIL_RE.test(email.trim())) {
@@ -45,7 +46,7 @@ export function InstructorSignup() {
 
     setSubmitting(true);
     try {
-      await signup(name.trim(), email.trim().toLowerCase(), phone.trim(), password);
+      await signup(firstName.trim(), lastName.trim(), email.trim().toLowerCase(), phone.trim(), password);
       navigate("/instructor/dashboard", { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Sign up failed — try again.");
@@ -66,16 +67,28 @@ export function InstructorSignup() {
         </p>
 
         <form onSubmit={handleSubmit} noValidate className="mt-7 space-y-5">
-          <Field
-            name="name"
-            label="Full name"
-            icon={<UserRound className="size-5" />}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Adeola Peters"
-            autoComplete="name"
-            spellCheck="false"
-          />
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field
+              name="firstName"
+              label="First name"
+              icon={<UserRound className="size-5" />}
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="Adeola"
+              autoComplete="given-name"
+              spellCheck="false"
+            />
+            <Field
+              name="lastName"
+              label="Last name"
+              icon={<UserRound className="size-5" />}
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder="Peters"
+              autoComplete="family-name"
+              spellCheck="false"
+            />
+          </div>
           <Field
             name="email"
             label="Email"

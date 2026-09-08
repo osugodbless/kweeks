@@ -37,7 +37,7 @@ export function InstructorWallet() {
   const { data: setup } = useWalletSetup();
   const [setupOpen, setSetupOpen] = useState(false);
 
-  const first = instructor?.name?.split(" ")[0] ?? "host";
+  const first = instructor?.firstName ?? instructor?.name?.split(" ")[0] ?? "host";
   const balance = walletView?.wallet.balanceNaira ?? wallet?.balanceNaira ?? "0";
   const quizzes = dash?.quizzes ?? [];
   const liveQuiz = quizzes.find((q) => q.roomId && (q.state === "lobby" || q.state === "live"));

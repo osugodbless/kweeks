@@ -16,7 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import { ApiError, type WalletSetupStage } from "@/lib/api";
-import { useActivateRail, useCreateWallet, useSubmitKYC, useUploadKYC, useWalletSetup } from "@/lib/hooks";
+import { useActivateRail, useCreateBmoniUser, useCreateWallet, useSubmitKYC, useUploadKYC, useWalletSetup } from "@/lib/hooks";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -51,6 +51,7 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
   const { data: setup, refetch } = useWalletSetup();
   const submitKYC = useSubmitKYC();
   const uploadKYC = useUploadKYC();
+  const createUser = useCreateBmoniUser();
   const createWallet = useCreateWallet();
   const activateRail = useActivateRail();
 
@@ -72,6 +73,12 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
 
   const stage = setup?.stage ?? "unprovisioned";
   const done = activeStep >= 4 || stage === "ready";
+
+  // No BMONI user yet: either the rail is off entirely, or create-user failed
+  // at signup and the host can retry it here. Until a user exists the KYC form
+  // would only error, so it is hidden behind these panels.
+  const needsUser = Boolean(setup && !setup.bmoniUserId);
+  const railOn = setup?.railConfigured === true;
 
   // Step 2 auto-creates the wallet when it becomes visible.
   useEffect(() => {
@@ -132,6 +139,17 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
     }
   }
 
+  async function handleCreateUser() {
+    setError("");
+    try {
+      await createUser.mutateAsync();
+      setStep(1);
+      void refetch();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not create your BMONI user — try again.");
+    }
+  }
+
   function resetAndClose() {
     setStep(null);
     onClose();
@@ -174,7 +192,7 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
 
       <div className="mt-6">
         {/* Step 1: KYC */}
-        {!done && activeStep === 1 && (
+        {!done && activeStep === 1 && railOn && !needsUser && (
           <form onSubmit={handleKYC} noValidate className="space-y-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-soft">Step 1 · Verify your identity</p>
@@ -418,8 +436,32 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
           </div>
         )}
 
-        {/* Unprovisioned / rail off */}
-        {stage === "unprovisioned" && setup && !setup.bmoniUserId && (
+        {/* No BMONI user yet but the rail is reachable: create-user failed at
+            signup, so offer the idempotent retry instead of a dead-end form. */}
+        {needsUser && railOn && (
+          <div className="space-y-4 text-center">
+            <span className="mx-auto grid size-14 place-items-center rounded-full bg-violet/10 text-violet">
+              <UserCheck className="size-6" />
+            </span>
+            <p className="text-sm leading-relaxed text-soft">
+              Your BMONI user was not created at signup. Fix it now so you can verify your identity,
+              create your wallet and activate naira.
+            </p>
+            <Button
+              variant="violet"
+              size="lg"
+              loading={createUser.isPending}
+              icon={<UserCheck className="size-5" />}
+              onClick={handleCreateUser}
+              className="w-full"
+            >
+              {createUser.isPending ? "Creating…" : "Create my BMONI user"}
+            </Button>
+          </div>
+        )}
+
+        {/* Rail is not configured: no provisioning is possible from here. */}
+        {!railOn && (
           <div className="space-y-4 text-center">
             <span className="mx-auto grid size-14 place-items-center rounded-full bg-coral/10 text-coral">
               <Lock className="size-6" />
@@ -428,7 +470,7 @@ export function WalletSetupWizard({ open, onClose }: { open: boolean; onClose: (
               The money rail is not reachable right now. Your account still works with wallet
               credit — retry provisioning from here once the rail is configured.
             </p>
-            <Button variant="violet" size="lg" loading={submitKYC.isPending} onClick={() => { setStep(1); }} className="w-full">
+            <Button variant="violet" size="lg" loading={createUser.isPending} onClick={() => { setStep(1); }} className="w-full">
               Retry setup
             </Button>
           </div>

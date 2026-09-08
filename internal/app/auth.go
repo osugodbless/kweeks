@@ -64,13 +64,16 @@ type SignupResult struct {
 	ProvisionErr error
 }
 
-// Signup creates an instructor and immediately issues a NGN wallet. phone is
-// the host's own E.164 number; it becomes their BMONI user identity so every
-// host provisions a distinct wallet (never the shared persona phone).
-func (a *Auth) Signup(ctx context.Context, name, email, phone, password string) (*SignupResult, error) {
-	name = strings.TrimSpace(name)
+// Signup creates an instructor and immediately issues a NGN wallet. firstName
+// and lastName are the host's real names as typed on the form (never re-split
+// from a single name field): they are what becomes the host's BMONI user
+// identity so every host provisions a distinct wallet. phone is the host's own
+// E.164 number; it also feeds the BMONI identity.
+func (a *Auth) Signup(ctx context.Context, firstName, lastName, email, phone, password string) (*SignupResult, error) {
+	firstName = strings.TrimSpace(firstName)
+	lastName = strings.TrimSpace(lastName)
 	email = strings.TrimSpace(strings.ToLower(email))
-	if name == "" || !strings.Contains(email, "@") || len(password) < 6 {
+	if firstName == "" || lastName == "" || !strings.Contains(email, "@") || len(password) < 6 {
 		return nil, domain.ErrBadCredentials
 	}
 	// The phone becomes the host's BMONI user identity, so it must be a real
@@ -88,8 +91,11 @@ func (a *Auth) Signup(ctx context.Context, name, email, phone, password string) 
 	if err != nil {
 		return nil, err
 	}
+	name := strings.TrimSpace(firstName + " " + lastName)
 	instructor := &domain.Instructor{
 		ID:           newID(),
+		FirstName:    firstName,
+		LastName:     lastName,
 		Name:         name,
 		Email:        email,
 		Phone:        phone,
@@ -104,18 +110,22 @@ func (a *Auth) Signup(ctx context.Context, name, email, phone, password string) 
 	if err != nil {
 		return nil, err
 	}
+	res := &SignupResult{Instructor: instructor, Wallet: wallet}
 	if a.onProvision != nil {
+		// Provisioning failure must never block signup: the local ledger
+		// wallet is the fallback and can be provisioned later from the wallet
+		// wizard (POST /api/wallet/create-user). The host still gets a real
+		// session so they are signed in and can fix it.
 		if perr := a.onProvision(ctx, instructor.ID); perr != nil {
-			// Provisioning failure must never block signup: the local ledger
-			// wallet is the fallback and can be provisioned later.
-			return &SignupResult{Instructor: instructor, Token: "", Wallet: wallet, ProvisionErr: perr}, nil
+			res.ProvisionErr = perr
 		}
 	}
 	token, err := a.createSession(ctx, instructor.ID)
 	if err != nil {
 		return nil, err
 	}
-	return &SignupResult{Instructor: instructor, Token: token, Wallet: wallet}, nil
+	res.Token = token
+	return res, nil
 }
 
 // Login verifies credentials and issues a fresh session.

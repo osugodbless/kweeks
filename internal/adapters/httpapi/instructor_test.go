@@ -65,7 +65,7 @@ func decodeBody(t *testing.T, rr *httptest.ResponseRecorder, out any) {
 func authSignup(t *testing.T, api *Server) (token, walletID string) {
 	t.Helper()
 	rr := authDo(api, "POST", "/api/auth/signup", map[string]string{
-		"name": "Adeola Peters", "email": "host@kweeks.ng", "password": "secret1",
+		"firstName": "Adeola", "lastName": "Peters", "email": "host@kweeks.ng", "password": "secret1",
 	}, "")
 	if rr.Code != 200 {
 		t.Fatalf("signup status %d: %s", rr.Code, rr.Body.String())
@@ -130,7 +130,7 @@ func TestAuthRejectsWrongPasswordAndDuplicateEmail(t *testing.T) {
 		t.Fatalf("bad login expected 401 got %d", rr.Code)
 	}
 	if rr := authDo(api, "POST", "/api/auth/signup", map[string]string{
-		"name": "Adeola2", "email": "host@kweeks.ng", "password": "secret1",
+		"firstName": "Adeola2", "lastName": "Peters", "email": "host@kweeks.ng", "password": "secret1",
 	}, ""); rr.Code != 409 {
 		t.Fatalf("dup signup expected 409 got %d", rr.Code)
 	}

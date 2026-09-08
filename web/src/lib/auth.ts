@@ -6,7 +6,7 @@ interface AuthState {
   wallet: Wallet | null;
   loaded: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, phone: string, password: string) => Promise<void>;
+  signup: (firstName: string, lastName: string, email: string, phone: string, password: string) => Promise<void>;
   refresh: () => Promise<void>;
   setWallet: (w: Wallet) => void;
   logout: () => void;
@@ -23,8 +23,8 @@ export const useAuth = create<AuthState>((set) => ({
     set({ instructor: res.instructor, wallet: res.wallet, loaded: true });
   },
 
-  signup: async (name, email, phone, password) => {
-    const res = await api.post<AuthResult>("/auth/signup", { name, email, phone, password });
+  signup: async (firstName, lastName, email, phone, password) => {
+    const res = await api.post<AuthResult>("/auth/signup", { firstName, lastName, email, phone, password });
     setToken(res.token);
     set({ instructor: res.instructor, wallet: res.wallet, loaded: true });
   },

@@ -23,14 +23,18 @@ func (f *personaRecordingMoney) CreateUser(ctx context.Context, id domain.UserId
 	f.users = append(f.users, id)
 	return "usr-" + id.Phone, nil
 }
-func (f *personaRecordingMoney) SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error { return nil }
+func (f *personaRecordingMoney) SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error {
+	return nil
+}
 func (f *personaRecordingMoney) UploadKycDocument(ctx context.Context, userID, kind string, data []byte, filename string) error {
 	return nil
 }
 func (f *personaRecordingMoney) CreateWallet(ctx context.Context, userID string) (string, string, error) {
 	return "wal-" + userID, "0x" + userID, nil
 }
-func (f *personaRecordingMoney) ActivateRail(ctx context.Context, userID, walletAddr, bvn string) error { return nil }
+func (f *personaRecordingMoney) ActivateRail(ctx context.Context, userID, walletAddr, bvn string) error {
+	return nil
+}
 func (f *personaRecordingMoney) DepositAccount(ctx context.Context, userID, walletID string) (string, string, error) {
 	return "0123456789", "Providus", nil
 }
@@ -199,5 +203,24 @@ func TestUniquePhoneForIsDeterministicAndDistinct(t *testing.T) {
 		if len(p) != len("+234")+10 || p[:4] != "+234" {
 			t.Fatalf("phone %q is not E.164 Nigerian format", p)
 		}
+	}
+}
+
+func TestIdentityForUsesExplicitNameParts(t *testing.T) {
+	got := identityFor(domain.Instructor{
+		FirstName: "Chiamaka", LastName: "Okafor-Osei",
+		Name: "Chiamaka Okafor-Osei", Email: "c@kweeks.ng", Phone: "+2348012345678",
+	})
+	if got.FirstName != "Chiamaka" || got.LastName != "Okafor-Osei" {
+		t.Fatalf("explicit name parts not used verbatim: %+v", got)
+	}
+}
+
+func TestIdentityForFallsBackToSplitForLegacyAccounts(t *testing.T) {
+	got := identityFor(domain.Instructor{
+		Name: "Adeola Peters Okafor", Email: "a@kweeks.ng", Phone: "+2348011111111",
+	})
+	if got.FirstName != "Adeola" || got.LastName != "Peters Okafor" {
+		t.Fatalf("legacy split wrong: first=%q last=%q", got.FirstName, got.LastName)
 	}
 }

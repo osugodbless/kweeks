@@ -83,6 +83,8 @@ export const api = {
 
 export interface Instructor {
   id: string;
+  firstName?: string;
+  lastName?: string;
   name: string;
   email: string;
   phone?: string;
@@ -108,6 +110,7 @@ export interface WalletSetup {
   bmoniWalletId: string;
   bmoniWalletAddress: string;
   railActive: boolean;
+  railConfigured: boolean;
   depositAccount: { accountNumber: string; bankName: string };
 }
 
