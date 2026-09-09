@@ -116,7 +116,7 @@ func TestCreateClaimEmailsImmediately(t *testing.T) {
 	mail := &fakeMail{send: func(to, code, amount, url string) { sent = true }}
 	red := NewRedemption(st, clk, nil, mail).WithPublicURL("https://kweeks.ng")
 
-	claim, err := red.CreateClaim(context.Background(), roomID, email, 25000)
+	claim, err := red.CreateClaim(context.Background(), roomID, email)
 	if err != nil {
 		t.Fatalf("create claim: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestSubmitBankPayoutHappyPath(t *testing.T) {
 	money := &fakeMoney{bankAccountID: "ba_1", holderName: "Winner Name", payoutRef: "prop_1"}
 	red := NewRedemption(st, clk, money, nil)
 
-	claim, err := red.CreateClaim(context.Background(), roomID, email, 25000)
+	claim, err := red.CreateClaim(context.Background(), roomID, email)
 	if err != nil {
 		t.Fatalf("create claim: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestSubmitBankPayoutWrongCodeOrEmail(t *testing.T) {
 
 	money := &fakeMoney{bankAccountID: "ba_1", holderName: "Winner Name", payoutRef: "prop_1"}
 	red := NewRedemption(st, clk, money, nil)
-	claim, err := red.CreateClaim(context.Background(), roomID, email, 25000)
+	claim, err := red.CreateClaim(context.Background(), roomID, email)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +202,7 @@ func TestSubmitBankPayoutMarksFailedOnOfframpError(t *testing.T) {
 
 	money := &fakeMoney{bankAccountID: "ba_1", holderName: "Winner Name", payErr: domain.ErrInsufficientBalance}
 	red := NewRedemption(st, clk, money, nil)
-	claim, err := red.CreateClaim(context.Background(), roomID, email, 25000)
+	claim, err := red.CreateClaim(context.Background(), roomID, email)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestResolveClaimAndListBanks(t *testing.T) {
 
 	money := &fakeMoney{bankAccountID: "ba_1", holderName: "Winner Name", payoutRef: "prop_1"}
 	red := NewRedemption(st, clk, money, nil)
-	claim, err := red.CreateClaim(context.Background(), roomID, email, 25000)
+	claim, err := red.CreateClaim(context.Background(), roomID, email)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -48,7 +48,9 @@ func (r *Redemption) nowTime() time.Time {
 // CreateClaim is the exactly-once claim write. The winner's email must match a
 // podium winner for the quiz. The claim code is generated here and returned to
 // the caller; it is delivered to the winner's session only, never broadcast.
-func (r *Redemption) CreateClaim(ctx context.Context, roomID, email string, amount domain.Amount) (*domain.Claim, error) {
+// The claim amount is the winner's SPECIFIC share of the pool — the rank-based
+// SplitPodium share for that winner — never the whole pool.
+func (r *Redemption) CreateClaim(ctx context.Context, roomID, email string) (*domain.Claim, error) {
 	room, err := r.store.GetRoom(ctx, roomID)
 	if err != nil {
 		return nil, err
@@ -75,9 +77,13 @@ func (r *Redemption) CreateClaim(ctx context.Context, roomID, email string, amou
 		return nil, err
 	}
 	winners := domain.SelectWinners(standings, quiz.WinnerCount)
-	if !containsWinnerID(winners, participant.ID) {
+	rank := winnerRank(winners, participant.ID)
+	if rank < 0 {
 		return nil, domain.ErrNotWinner
 	}
+	// The winner's share mirrors the podium display: split the pool across the
+	// configured winner count and take the share at this winner's rank.
+	amount := domain.SplitPodium(quiz.Pool, quiz.WinnerCount)[rank]
 
 	// Exactly-once: a second claim for the same winner returns the existing
 	// one rather than erroring, so a double-tap or replay is harmless.
@@ -111,6 +117,17 @@ func (r *Redemption) CreateClaim(ctx context.Context, roomID, email string, amou
 	return claim, nil
 }
 
+// winnerRank returns the 0-based rank of a podium winner within the declared
+// winners list, or -1 when the participant is not a winner.
+func winnerRank(winners []domain.Standing, participantID string) int {
+	for i, w := range winners {
+		if w.ParticipantID == participantID {
+			return i
+		}
+	}
+	return -1
+}
+
 // Standings is a thin passthrough to the game service's standings logic; the
 // redemption flow needs the same ordering to confirm winners.
 func (r *Redemption) Standings(ctx context.Context, roomID string) ([]domain.Standing, error) {
@@ -139,15 +156,6 @@ func (r *Redemption) Standings(ctx context.Context, roomID string) ([]domain.Sta
 		out = append(out, *s)
 	}
 	return domain.SortStandings(out), nil
-}
-
-func containsWinnerID(winners []domain.Standing, participantID string) bool {
-	for _, w := range winners {
-		if w.ParticipantID == participantID {
-			return true
-		}
-	}
-	return false
 }
 
 // ClaimURL builds the public claim link pre-filled with the code + email.

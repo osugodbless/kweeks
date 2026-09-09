@@ -268,17 +268,7 @@ func (s *Server) handleRedeem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	roomID := r.PathValue("roomID")
-	room, err := s.game.GetRoom(r.Context(), roomID)
-	if err != nil {
-		writeErr(w, err)
-		return
-	}
-	quiz, err := s.game.GetQuiz(r.Context(), room.QuizID)
-	if err != nil {
-		writeErr(w, err)
-		return
-	}
-	claim, err := s.red.CreateClaim(r.Context(), roomID, req.Email, quiz.Pool)
+	claim, err := s.red.CreateClaim(r.Context(), roomID, req.Email)
 	if err != nil {
 		writeErr(w, err)
 		return

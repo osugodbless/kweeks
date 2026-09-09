@@ -22,6 +22,7 @@ export function InstructorLiveRoom() {
   const { connected } = useRoomSocket(roomId);
 
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [error, setError] = useState("");
   const [now, setNow] = useState(() => Date.now());
 
@@ -42,12 +43,26 @@ export function InstructorLiveRoom() {
     return Math.max(0, deadline - now);
   }, [question, now]);
 
+  function joinUrl(code: string) {
+    return `${window.location.origin}/join?code=${code}`;
+  }
+
   async function copyCode() {
     if (!room?.code) return;
     try {
       await navigator.clipboard.writeText(room.code);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
+
+  async function copyJoinLink(code: string) {
+    try {
+      await navigator.clipboard.writeText(joinUrl(code));
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 1500);
     } catch {
       /* clipboard unavailable */
     }
@@ -88,15 +103,31 @@ export function InstructorLiveRoom() {
           </div>
 
           {room?.code && (
-            <button
-              type="button"
-              onClick={() => void copyCode()}
-              className="flex cursor-pointer items-center gap-3 rounded-2xl border-2 border-violet/30 bg-cream px-5 py-3 font-display text-2xl font-semibold tracking-wide text-ink transition-colors hover:border-violet"
-            >
-              {room.code}
-              <Copy className="size-4 text-soft" />
-              {copied && <span className="text-xs font-bold text-violet-dark">Copied</span>}
-            </button>
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-widest text-soft">Room code</span>
+                <button
+                  type="button"
+                  onClick={() => void copyCode()}
+                  className="flex cursor-pointer items-center gap-3 rounded-2xl border-2 border-violet/30 bg-cream px-5 py-3 font-display text-2xl font-semibold tracking-wide text-ink transition-colors hover:border-violet"
+                >
+                  {room.code}
+                  <Copy className="size-4 text-soft" />
+                  {copied && <span className="text-xs font-bold text-violet-dark">Copied</span>}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => void copyJoinLink(room.code)}
+                className="flex max-w-full cursor-pointer items-center gap-2 rounded-full border border-ink/10 bg-cream px-3 py-1.5 text-sm font-bold text-soft transition-colors hover:border-violet hover:text-violet"
+                title="Copy join link for players"
+              >
+                <Presentation className="size-3.5" />
+                <span className="truncate font-mono text-xs">{joinUrl(room.code)}</span>
+                <Copy className="size-3.5" />
+                {copiedLink && <span className="text-xs font-bold text-violet-dark">Copied</span>}
+              </button>
+            </div>
           )}
         </div>
 

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Check, Coins, Hash, Mail, ShieldCheck, Sparkles, Timer, Trophy, UserRound, Users } from "lucide-react";
 import { api, ApiError, type PublicRoom } from "@/lib/api";
 import { useJoinRoom } from "@/lib/hooks";
@@ -23,10 +23,11 @@ const HOW_PLAYS = [
 
 export function PlayerJoin() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { setRoom, setParticipant } = usePlayer();
   const joinRoom = useJoinRoom();
 
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(params.get("code") ?? "");
   const [room, setRoomData] = useState<PublicRoom | null>(null);
   const [lookupError, setLookupError] = useState("");
   const [lookingUp, setLookingUp] = useState(false);
@@ -57,6 +58,18 @@ export function PlayerJoin() {
       setLookingUp(false);
     }
   }
+
+  // When the host shares a deep link (/join?code=AB12), prefill + resolve the
+  // room automatically so the player lands straight on the join form. One-shot,
+  // guarded by the room/lookingUp flags.
+  useEffect(() => {
+    const fromLink = params.get("code");
+    if (fromLink && !room && !lookingUp) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void lookup();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
 
   function validate() {
     const next: Record<string, string> = {};

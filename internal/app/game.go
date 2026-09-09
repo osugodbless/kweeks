@@ -71,6 +71,14 @@ func (g *Game) OpenRoom(ctx context.Context, r *domain.Room) error {
 	if quiz == nil {
 		return domain.ErrQuizNotFound
 	}
+	// A room may only open when the host's available balance can fund the
+	// pool. If the host has no wallet row (test fixtures / pre-auth seeding)
+	// the check is skipped so those paths keep working.
+	if wallet, werr := g.store.GetWalletByInstructor(ctx, r.HostID); werr == nil && wallet != nil {
+		if quiz.Pool > 0 && wallet.Balance < quiz.Pool {
+			return domain.ErrInsufficientBalance
+		}
+	}
 	r.Pacing = quiz.Pacing
 	r.State = domain.RoomLobby
 	r.CurrentQuestionIdx = -1

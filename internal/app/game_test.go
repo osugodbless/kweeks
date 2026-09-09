@@ -182,7 +182,7 @@ func TestRedemptionExactlyOnceAndWinnerOnly(t *testing.T) {
 	red := NewRedemption(st, clock.NewReal(), nil, nil)
 
 	// alice (winner, rank 1) can claim.
-	c1, err := red.CreateClaim(ctx, "room-1", "alice@x.com", 60000)
+	c1, err := red.CreateClaim(ctx, "room-1", "alice@x.com")
 	if err != nil {
 		t.Fatalf("alice claim: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestRedemptionExactlyOnceAndWinnerOnly(t *testing.T) {
 		t.Fatal("claim code empty")
 	}
 	// Exactly-once: second claim returns the same record.
-	c2, err := red.CreateClaim(ctx, "room-1", "alice@x.com", 60000)
+	c2, err := red.CreateClaim(ctx, "room-1", "alice@x.com")
 	if err != nil {
 		t.Fatalf("alice second claim errored: %v", err)
 	}
@@ -198,7 +198,7 @@ func TestRedemptionExactlyOnceAndWinnerOnly(t *testing.T) {
 		t.Fatal("exactly-once violated: duplicate claim created")
 	}
 	// A non-winner (someone who never joined) cannot claim.
-	if _, err := red.CreateClaim(ctx, "room-1", "mallory@x.com", 60000); err != domain.ErrNotWinner {
+	if _, err := red.CreateClaim(ctx, "room-1", "mallory@x.com"); err != domain.ErrNotWinner {
 		t.Fatalf("expected ErrNotWinner for non-participant, got %v", err)
 	}
 }

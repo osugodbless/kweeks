@@ -176,9 +176,44 @@ func TestDashboardHistoryReflectQuizAndFunding(t *testing.T) {
 	}
 }
 
+func TestRoomOpenRequiresFundedPool(t *testing.T) {
+	api, _ := buildAuthServer(t)
+	token, _ := authSignup(t, api) // balance is 0
+
+	ctx := context.Background()
+	quiz := &domain.Quiz{
+		ID: "q-unfunded", InstructorID: "instructor-demo", Title: "Funded?",
+		Pool: 50000, WinnerCount: 1, Pacing: domain.PacingManual,
+		DefaultDuration: 60 * time.Second,
+		Questions:       []domain.Question{{ID: "q1", Prompt: "P?", Options: []string{"a", "b"}, CorrectIndex: 1}},
+	}
+	if err := api.game.CreateQuiz(ctx, quiz); err != nil {
+		t.Fatal(err)
+	}
+
+	// Opening a room for a pool the balance cannot fund must be rejected.
+	rr := authDo(api, "POST", "/api/rooms", map[string]string{"quizId": "q-unfunded"}, token)
+	if rr.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("open with unfunded pool got %d, want 422: %s", rr.Code, rr.Body.String())
+	}
+
+	// After funding, opening succeeds.
+	if rr := authDo(api, "POST", "/api/wallet/fund", map[string]any{"amountNaira": "2000", "method": "credit"}, token); rr.Code != 200 {
+		t.Fatalf("fund: %d", rr.Code)
+	}
+	rr = authDo(api, "POST", "/api/rooms", map[string]string{"quizId": "q-unfunded"}, token)
+	if rr.Code != 201 {
+		t.Fatalf("open after funding got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestRoomOpenReturnsCodeAndStateByCode(t *testing.T) {
 	api, _ := buildAuthServer(t)
 	token, _ := authSignup(t, api)
+	// A room may only open when the host balance funds the pool (1000 naira).
+	if rr := authDo(api, "POST", "/api/wallet/fund", map[string]any{"amountNaira": "2000", "method": "credit"}, token); rr.Code != 200 {
+		t.Fatalf("fund: %d %s", rr.Code, rr.Body.String())
+	}
 
 	ctx := context.Background()
 	quiz := &domain.Quiz{
