@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Check, FileQuestion, Plus, Presentation, Trash2, Trophy } from "lucide-react";
 import { ApiError, type QuizDetail, type QuizQuestion } from "@/lib/api";
@@ -9,6 +9,7 @@ import { Chip } from "@/components/ui/chip";
 import { Field } from "@/components/ui/field";
 import { Footer } from "@/components/ui/footer";
 import { InstructorNav } from "@/components/ui/instructor-nav";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/cn";
 
 const POOL_MIN = 1000;
@@ -87,6 +88,8 @@ function BuilderForm({ existing, existingId }: BuilderFormProps) {
     existing?.questions.length ? existing.questions.map((q) => ({ ...q })) : [newQuestion()],
   );
   const [error, setError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<QuizQuestion | null>(null);
+  const [addedToast, setAddedToast] = useState<{ id: string; num: number } | null>(null);
 
   const poolNum = useMemo(() => parseInt(poolNaira || "0", 10), [poolNaira]);
 
@@ -96,11 +99,24 @@ function BuilderForm({ existing, existingId }: BuilderFormProps) {
 
   function removeQuestion(id: string) {
     setQuestions((qs) => qs.filter((q) => q.id !== id));
+    setConfirmDelete(null);
   }
 
   function addQuestion() {
-    setQuestions((qs) => [...qs, newQuestion()]);
+    const q = newQuestion();
+    setQuestions((qs) => [...qs, q]);
+    setAddedToast({ id: q.id, num: questions.length + 1 });
   }
+
+  // Scroll the freshly added question into view and auto-dismiss the toast.
+  useEffect(() => {
+    if (!addedToast) return;
+    const timer = setTimeout(() => setAddedToast(null), 2600);
+    setTimeout(() => {
+      document.getElementById(`question-${addedToast.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [addedToast]);
 
   function validate(): string | null {
     if (!title.trim()) return "Give the quiz a title.";
@@ -294,7 +310,7 @@ function BuilderForm({ existing, existingId }: BuilderFormProps) {
 
         <div className="mt-5 space-y-6">
           {questions.map((q, qi) => (
-            <section key={q.id} className="rounded-[2rem] border-2 border-ink/5 bg-cream p-6 sm:p-7">
+            <section key={q.id} id={`question-${q.id}`} className="scroll-mt-24 rounded-[2rem] border-2 border-ink/5 bg-cream p-6 sm:p-7">
               <div className="flex items-start justify-between gap-4">
                 <span className="flex items-center gap-2 font-display text-lg font-semibold">
                   <span className="grid size-8 place-items-center rounded-xl bg-violet/10 text-violet-dark">{qi + 1}</span>
@@ -302,7 +318,7 @@ function BuilderForm({ existing, existingId }: BuilderFormProps) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => removeQuestion(q.id)}
+                  onClick={() => setConfirmDelete(q)}
                   disabled={questions.length === 1}
                   aria-label={`Delete question ${qi + 1}`}
                   className="grid size-9 cursor-pointer place-items-center rounded-xl text-soft transition-colors hover:bg-coral/10 hover:text-coral disabled:cursor-not-allowed disabled:opacity-40"
@@ -403,6 +419,32 @@ function BuilderForm({ existing, existingId }: BuilderFormProps) {
           </Button>
         </div>
       </div>
+
+      {/* Confirm before deleting a question */}
+      <ConfirmDialog
+        open={Boolean(confirmDelete)}
+        danger
+        title={confirmDelete ? `Delete question ${questions.findIndex((q) => q.id === confirmDelete.id) + 1}?` : "Delete question?"}
+        body="This question and its options will be removed from the quiz. This can't be undone."
+        confirmLabel="Delete question"
+        cancelLabel="Keep it"
+        onConfirm={() => {
+          if (confirmDelete) removeQuestion(confirmDelete.id);
+        }}
+        onCancel={() => setConfirmDelete(null)}
+      />
+
+      {/* Transient "question added" toast */}
+      {addedToast && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[90] flex justify-center px-4">
+          <div className="flex items-center gap-2 rounded-full border-2 border-mint/40 bg-cream px-5 py-3 font-bold text-mint-dark card-3d">
+            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-mint text-white">
+              <Check className="size-3.5" strokeWidth={3.5} />
+            </span>
+            Question {addedToast.num} added — scrolling you down to enter it.
+          </div>
+        </div>
+      )}
 
       <Footer className="mt-16" />
     </main>

@@ -29,6 +29,9 @@ export function InstructorLiveRoom() {
   const question = room?.currentQuestion ?? null;
   const isManual = room?.pacing === "manual";
   const state = room?.state ?? "lobby";
+  const qCount = room?.questionCount ?? 0;
+  // The last question is being shown: there is nothing after it to advance to.
+  const isOnLast = state === "live" && room?.currentIndex != null && qCount > 0 && room.currentIndex >= qCount - 1;
 
   // Tick for the projector countdown.
   useEffect(() => {
@@ -253,10 +256,16 @@ export function InstructorLiveRoom() {
                     <Play className="size-5 fill-current" /> Start the quiz
                   </Button>
                 )}
-                {state === "live" && isManual && (
+                {state === "live" && isManual && !isOnLast && (
                   <Button variant="violet" size="lg" loading={control.next.isPending} className="w-full" onClick={() => run(() => control.next.mutateAsync(roomId!), "Next question")}>
                     Next question
                   </Button>
+                )}
+                {state === "live" && isManual && isOnLast && (
+                  <div className="rounded-2xl border-2 border-ink/10 bg-white px-4 py-3 text-center">
+                    <p className="text-sm font-bold text-soft">Last question — no more to advance to.</p>
+                    <p className="mt-0.5 text-xs text-soft">Declare the winners when the round ends.</p>
+                  </div>
                 )}
                 {state === "live" && (
                   <Button variant="gold" size="lg" loading={control.podium.isPending} className="w-full" onClick={() => run(() => control.podium.mutateAsync(roomId!), "Declare winners")}>

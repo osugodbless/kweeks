@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { LayoutDashboard, LogIn, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Wordmark } from "@/components/ui/wordmark";
 import { cn } from "@/lib/cn";
 import type { CSSProperties } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const PUBLIC_LINKS = [
   { label: "Play", to: "/join" },
@@ -24,6 +26,7 @@ function scrollTo(id: string) {
 export function Navbar() {
   const { instructor, logout } = useAuth();
   const { pathname } = useLocation();
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const onLanding = pathname === "/";
 
   return (
@@ -78,7 +81,7 @@ export function Navbar() {
               </Link>
               <button
                 type="button"
-                onClick={logout}
+                onClick={() => setConfirmLogout(true)}
                 aria-label="Sign out"
                 title="Sign out"
                 className="grid size-10 cursor-pointer place-items-center rounded-full border-2 border-ink/10 bg-cream text-soft transition-colors hover:border-coral hover:text-coral"
@@ -98,6 +101,20 @@ export function Navbar() {
           )}
         </nav>
       </div>
+
+      <ConfirmDialog
+        open={confirmLogout}
+        signOut
+        title="Sign out of kweeks?"
+        body="You'll need to sign in again to host quizzes or manage your wallet."
+        confirmLabel="Sign out"
+        cancelLabel="Stay signed in"
+        onConfirm={() => {
+          setConfirmLogout(false);
+          logout();
+        }}
+        onCancel={() => setConfirmLogout(false)}
+      />
     </header>
   );
 }

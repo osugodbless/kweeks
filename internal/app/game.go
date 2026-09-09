@@ -145,10 +145,10 @@ func (g *Game) Next(ctx context.Context, roomID string) error {
 	}
 	next := room.CurrentQuestionIdx + 1
 	if next >= len(quiz.Questions) {
-		// No questions remain: the podium is reachable after the last answer
-		// window. We leave the room live; FinalizePodium is called by the
-		// scheduler/instructor.
-		return domain.ErrRoomWrongState
+		// The last question's window has closed and there is no further
+		// question to advance to. The quiz must be closed by declaring the
+		// podium.
+		return domain.ErrNoMoreQuestions
 	}
 	room.CurrentQuestionIdx = next
 	room.QuestionStartedAt = g.nowTime()

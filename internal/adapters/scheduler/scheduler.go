@@ -81,7 +81,7 @@ func (s *Scheduler) tick(ctx context.Context, now time.Time) {
 			continue // window still open
 		}
 		if err := s.game.Next(ctx, room.ID); err != nil {
-			if err == domain.ErrRoomWrongState {
+			if err == domain.ErrRoomWrongState || err == domain.ErrNoMoreQuestions {
 				// No next question: the last window closed, so resolve.
 				s.resolve(ctx, room.ID)
 				continue

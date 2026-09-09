@@ -27,6 +27,7 @@ var (
 	ErrQuestionNotCurrent    = errors.New("question is not the current one")
 	ErrNoWinners             = errors.New("no winners to declare")
 	ErrNotWinner             = errors.New("participant is not a podium winner")
+	ErrNoMoreQuestions       = errors.New("all questions answered — declare the winners to close the quiz")
 	ErrClaimExists           = errors.New("claim already exists for this winner")
 	ErrBadClaimCode          = errors.New("invalid claim code")
 	ErrInvalidTransition     = errors.New("invalid claim state transition")

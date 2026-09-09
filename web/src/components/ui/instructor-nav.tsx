@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { FileQuestion, History, LayoutDashboard, LogOut, Wallet } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -5,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { Money } from "@/components/ui/money";
 import { InstructorAvatar } from "@/components/ui/avatar";
 import { Chip } from "@/components/ui/chip";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const NAV = [
   { label: "Dashboard", to: "/instructor/dashboard", Icon: LayoutDashboard },
@@ -14,6 +16,7 @@ const NAV = [
 
 export function InstructorNav({ active }: { active?: string }) {
   const { instructor, wallet, logout } = useAuth();
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 border-b border-ink/5 bg-canvas/85 backdrop-blur-md">
@@ -59,7 +62,7 @@ export function InstructorNav({ active }: { active?: string }) {
               <InstructorAvatar name={instructor.name} className="size-9" />
               <button
                 type="button"
-                onClick={logout}
+                onClick={() => setConfirmLogout(true)}
                 aria-label="Sign out"
                 title="Sign out"
                 className="grid size-9 cursor-pointer place-items-center rounded-full border-2 border-ink/10 bg-cream text-soft transition-colors hover:border-coral hover:text-coral"
@@ -94,6 +97,20 @@ export function InstructorNav({ active }: { active?: string }) {
           </Chip>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmLogout}
+        signOut
+        title="Sign out of kweeks?"
+        body="You'll need to sign in again to host quizzes or manage your wallet."
+        confirmLabel="Sign out"
+        cancelLabel="Stay signed in"
+        onConfirm={() => {
+          setConfirmLogout(false);
+          logout();
+        }}
+        onCancel={() => setConfirmLogout(false)}
+      />
     </header>
   );
 }
