@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Check, FileQuestion, Plus, Presentation, Trash2, Trophy } from "lucide-react";
+import { Check, FileQuestion, Plus, Presentation, Trash2, Trophy, Wallet } from "lucide-react";
 import { ApiError, type QuizDetail, type QuizQuestion } from "@/lib/api";
-import { useCreateQuiz, useOpenRoom, useQuiz, useUpdateQuiz } from "@/lib/hooks";
+import { useCreateQuiz, useOpenRoom, useQuiz, useUpdateQuiz, useWallet } from "@/lib/hooks";
 import { naira } from "@/lib/player";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -78,6 +78,7 @@ function BuilderForm({ existing, existingId }: BuilderFormProps) {
   const createQuiz = useCreateQuiz();
   const updateQuiz = useUpdateQuiz();
   const openRoom = useOpenRoom();
+  const { data: walletView } = useWallet();
 
   const [title, setTitle] = useState(existing?.title ?? "");
   const [poolNaira, setPoolNaira] = useState(existing?.poolNaira ?? "50000");
@@ -92,6 +93,18 @@ function BuilderForm({ existing, existingId }: BuilderFormProps) {
   const [addedToast, setAddedToast] = useState<{ id: string; num: number } | null>(null);
 
   const poolNum = useMemo(() => parseInt(poolNaira || "0", 10), [poolNaira]);
+
+  // Live affordability so the host sees the gap at the point of action, before
+  // ever clicking "Save & open room".
+  const available = useMemo(() => parseInt(walletView?.wallet.balanceNaira ?? "0", 10) || 0, [walletView]);
+  const shortfall = Math.max(0, poolNum - available);
+  const insufficient = shortfall > 0;
+
+  const ctaRef = useRef<HTMLDivElement | null>(null);
+  // When a submit fails, keep the message on screen right where the button is.
+  useEffect(() => {
+    if (error) ctaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [error]);
 
   function updateQuestion(id: string, patch: Partial<QuizQuestion>) {
     setQuestions((qs) => qs.map((q) => (q.id === id ? { ...q, ...patch } : q)));
@@ -181,21 +194,6 @@ function BuilderForm({ existing, existingId }: BuilderFormProps) {
         <p className="mt-3 max-w-xl text-lg text-soft">
           {existingId ? "Editing an existing deck — save and open a room when ready." : "Name the deck, set the prize, write the questions. Open the room when it's ready."}
         </p>
-
-        {error && (
-          <div role="alert" className="mt-6 rounded-2xl border-2 border-coral/30 bg-coral/10 px-4 py-3 text-sm font-bold text-coral">
-            <p>{error}</p>
-            {error.toLowerCase().includes("insufficient") && (
-              <button
-                type="button"
-                onClick={() => navigate("/instructor/fund")}
-                className="mt-2 cursor-pointer rounded-full bg-coral px-4 py-2 text-xs font-bold text-white"
-              >
-                Fund wallet →
-              </button>
-            )}
-          </div>
-        )}
 
         {/* Deck settings */}
         <section className="mt-10 rounded-[2rem] border-2 border-ink/5 bg-cream p-7 card-3d">
@@ -406,16 +404,57 @@ function BuilderForm({ existing, existingId }: BuilderFormProps) {
           ))}
         </div>
 
-        <div className="mt-8 rounded-[2rem] border-2 border-gold/30 bg-gold/10 p-6 text-center">
+        <div ref={ctaRef} className="mt-8 scroll-mt-24 rounded-[2rem] border-2 border-gold/30 bg-gold/10 p-6 text-center">
           <p className="font-display text-xl font-semibold text-ink">
             Ready? Open the room and put <Chip tone="mint"><Trophy className="size-3" /> {naira(poolNum)}</Chip> on the line.
           </p>
           <p className="mt-1 text-sm text-soft">
             The pool is funded from your wallet when the room opens. Players join with a code, no app needed.
           </p>
-          <Button variant="coral" size="lg" loading={saving} onClick={() => void handleOpenRoom()} className="mt-5">
+
+          {(insufficient || error) && (
+            <div
+              role="alert"
+              className={
+                "mt-5 rounded-2xl border-2 border-coral/40 bg-coral/10 px-4 py-3 text-left " +
+                (insufficient ? "" : "")
+              }
+            >
+              <p className="flex items-start gap-2 text-sm font-bold text-coral">
+                <Wallet className="mt-0.5 size-4 shrink-0" />
+                <span>
+                  {insufficient ? (
+                    <>
+                      Not enough to fund this pool. Available {naira(available)} — you're short{" "}
+                      <span className="whitespace-nowrap">{naira(shortfall)}</span>.
+                    </>
+                  ) : (
+                    error
+                  )}
+                </span>
+              </p>
+              {(insufficient || (error && error.toLowerCase().includes("insufficient"))) && (
+                <button
+                  type="button"
+                  onClick={() => navigate("/instructor/fund")}
+                  className="mt-3 cursor-pointer rounded-full bg-coral px-5 py-2.5 text-sm font-bold text-white press-3d"
+                >
+                  Fund wallet →
+                </button>
+              )}
+            </div>
+          )}
+
+          <Button
+            variant="coral"
+            size="lg"
+            loading={saving}
+            disabled={insufficient}
+            onClick={() => void handleOpenRoom()}
+            className="mt-5"
+          >
             {saving ? "Opening room…" : "Save & open room"}
-            <Presentation className="size-5" />
+            {!saving && <Presentation className="size-5" />}
           </Button>
         </div>
       </div>
