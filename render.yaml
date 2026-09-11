@@ -1,0 +1,42 @@
+# Render Blueprint for kweeks.
+# Deploy from the Render dashboard ("New Web Service" -> "Blueprint") and it
+# will build the React frontend + Go binary, then serve both on :8080.
+services:
+  - type: web
+    name: kweeks
+    runtime: go
+    plan: free
+    buildCommand: ./scripts/render-build.sh
+    startCommand: ./app
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: KWEEKS_ENV
+        value: production
+      - key: KWEEKS_HTTP_ADDR
+        value: ":8080"
+      # The externally reachable origin, used to build /claim links in emails.
+      - key: KWEEKS_PUBLIC_URL
+        value: https://kweeks.onrender.com
+      - key: KWEEKS_WEB_ROOT
+        value: web/dist
+      # Set these in the Render dashboard (secrets, never in the repo).
+      - key: DATABASE_URL
+        sync: false
+      - key: BMONI_BASE_URL
+        sync: false
+      - key: BMONI_API_KEY
+        sync: false
+      - key: BMONI_OWNER_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
