@@ -66,7 +66,7 @@ const SECURITY = [
   { Icon: Coins, title: "Naira only", copy: "One currency, no conversion surprises." },
   { Icon: ShieldCheck, title: "Escrow while live", copy: "The pool is locked in a real wallet until winners are declared." },
   { Icon: Gift, title: "Winner-only claims", copy: "Only the podium can claim, only with their own session." },
-  { Icon: Banknote, title: "Full history", copy: "Every activity is recorded on the instructor ledger." },
+  { Icon: Banknote, title: "Full history", copy: "Every activity is recorded on the host ledger." },
 ];
 
 export function LandingPage() {
@@ -94,7 +94,7 @@ export function LandingPage() {
             </h1>
 
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-soft">
-              Instructors fund a naira prize pool, players join on their phones with a
+              Hosts fund a naira prize pool, players join on their phones with a
               code, and the fastest minds split the pot. Same second. Same question.
               Real money out.
             </p>
@@ -288,7 +288,7 @@ export function LandingPage() {
         <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
           <div className="max-w-2xl">
             <span className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-cream px-4 py-1.5 text-sm font-bold uppercase tracking-wider text-soft">
-              <Wallet className="size-4 text-gold-dark" /> For instructors
+              <Wallet className="size-4 text-gold-dark" /> For hosts
             </span>
             <h2 className="mt-5 font-display text-4xl font-semibold tracking-tight sm:text-5xl">
               Run a room. <span className="text-shine">Fund a pool.</span>

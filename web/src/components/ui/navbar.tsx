@@ -14,7 +14,7 @@ const PUBLIC_LINKS = [
 
 const ANCHORS = [
   { id: "for-players", label: "For players" },
-  { id: "for-instructors", label: "For instructors" },
+  { id: "for-instructors", label: "For hosts" },
   { id: "how-it-works", label: "How it works" },
   { id: "security", label: "Security" },
 ];

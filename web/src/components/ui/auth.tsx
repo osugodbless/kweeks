@@ -31,7 +31,7 @@ export function AuthShell({ children, tagline, chipAmount, className }: AuthShel
               <span className="text-shine">Pay the winners.</span>
             </h1>
             <p className="mt-4 max-w-sm text-white/60">
-              One instructor account holds your wallet, your quizzes and your full
+              One host account holds your wallet, your quizzes and your full
               payout history in one place.
             </p>
             <div className="mt-10 flex items-center gap-3 rounded-3xl border border-white/10 bg-white/5 p-5">

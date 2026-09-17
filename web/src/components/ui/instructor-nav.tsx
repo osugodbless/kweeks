@@ -31,7 +31,7 @@ export function InstructorNav({ active }: { active?: string }) {
             </span>
           </NavLink>
 
-          <nav className="hidden items-center gap-1 md:flex" aria-label="Instructor navigation">
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Host navigation">
             {NAV.map(({ label, to, Icon }) => (
               <NavLink
                 key={to}

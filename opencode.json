@@ -15,14 +15,11 @@
         "baseURL": "https://agentrouter.org/v1"
       },
       "models": {
-        "gpt-5.5": {
-          "name": "gpt-5.5"
-        },
-	"deepseek-v4-flash": {
-	  "name": "deepseek-v4-flash"
-	}
+        "deepseek-v4-flash": {
+          "name": "deepseek-v4-flash"
+        }
       }
     }
   },
-  "model": "agentrouter/gpt-5.5"
+  "model": "agentrouter/deepseek-v4-flash"
 }
