@@ -1,0 +1,1413 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Kweeks — full product tour</title>
+    <style>
+      @font-face {
+        font-family: "Fredoka";
+        font-style: normal;
+        font-weight: 300 700;
+        font-display: block;
+        src: url("assets/fonts/fredoka-latin.woff2") format("woff2");
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+          U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+          U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      @font-face {
+        font-family: "Fredoka";
+        font-style: normal;
+        font-weight: 300 700;
+        font-display: block;
+        src: url("assets/fonts/fredoka-latin-ext.woff2") format("woff2");
+        unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+          U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+          U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+          U+A720-A7FF;
+      }
+      @font-face {
+        font-family: "Karla";
+        font-style: normal;
+        font-weight: 200 800;
+        font-display: block;
+        src: url("assets/fonts/karla-latin.woff2") format("woff2");
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+          U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+          U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      @font-face {
+        font-family: "Karla";
+        font-style: normal;
+        font-weight: 200 800;
+        font-display: block;
+        src: url("assets/fonts/karla-latin-ext.woff2") format("woff2");
+        unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+          U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+          U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+          U+A720-A7FF;
+      }
+
+      :root {
+        --canvas: #faf3e7;
+        --cream: #fffaf0;
+        --ink: #24163f;
+        --soft: #6b5f8d;
+        --coral: #ff4d5f;
+        --coral-dark: #e23a4b;
+        --coral-ink: #b32c3a;
+        --violet: #6c4cf1;
+        --violet-dark: #5133d6;
+        --mint: #16c47f;
+        --mint-dark: #0b9a62;
+        --mint-ink: #056b41;
+        --gold: #f6a91b;
+        --gold-dark: #da8c05;
+        --gold-ink: #8a5a00;
+        --sky: #38a8ff;
+        --sky-dark: #1785de;
+        --display: "Fredoka", "Trebuchet MS", system-ui, sans-serif;
+        --body: "Karla", "Trebuchet MS", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: var(--canvas); }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: var(--body);
+      }
+      .clip { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; }
+
+      .bg { position: absolute; inset: 0; }
+      .dots {
+        position: absolute; inset: 0;
+        background-image: radial-gradient(rgba(36, 22, 63, 0.1) 1.5px, transparent 1.5px);
+        background-size: 28px 28px;
+      }
+      .dots-light {
+        position: absolute; inset: 0; border-radius: inherit;
+        background-image: radial-gradient(rgba(255, 255, 255, 0.13) 1.5px, transparent 1.5px);
+        background-size: 28px 28px;
+      }
+      .glow {
+        position: absolute; display: block; border-radius: 50%;
+        filter: blur(110px); opacity: 0.16;
+        transform-origin: 50% 50%; will-change: transform, opacity;
+      }
+      .g1 { left: -140px; top: -120px; width: 720px; height: 720px;
+            background: radial-gradient(closest-side, rgba(108, 76, 241, 0.8), rgba(108, 76, 241, 0)); }
+      .g2 { right: -160px; bottom: -160px; width: 820px; height: 820px;
+            background: radial-gradient(closest-side, rgba(246, 169, 27, 0.7), rgba(246, 169, 27, 0)); }
+
+      /* ---------- app frame ---------- */
+      .wrap { position: absolute; inset: 0; display: flex; flex-direction: column; }
+      .appbar {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 30px 58px 0;
+      }
+      .screen { flex: 1; display: grid; place-items: center; padding: 18px 64px 56px; }
+      .stage { width: 100%; }
+
+      .wordmark { display: flex; align-items: center; gap: 14px; }
+      .wm-tile {
+        display: grid; place-items: center; width: 50px; height: 50px;
+        border-radius: 14px; background: var(--ink);
+      }
+      .wm-tile svg path { fill: var(--cream); }
+      .wm-name { font-family: var(--display); font-weight: 600; font-size: 30px; letter-spacing: -0.01em; }
+      .wm-dot { color: var(--coral-dark); }
+
+      .nav { display: flex; align-items: center; gap: 10px; }
+      .navitem {
+        padding: 11px 22px; border-radius: 999px; font-weight: 700; font-size: 17px; color: var(--soft);
+      }
+      .navitem.active { background: var(--violet); color: #fff; }
+      .wallet-chip {
+        display: inline-flex; align-items: center; gap: 9px; padding: 11px 20px;
+        border-radius: 999px; background: var(--cream); border: 2px solid rgba(36, 22, 63, 0.08);
+        font-weight: 700; font-size: 17px;
+      }
+      .avatar {
+        display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%;
+        background: var(--violet); color: #fff; font-family: var(--display); font-weight: 600; font-size: 19px;
+      }
+      .code-pill {
+        display: inline-flex; align-items: center; gap: 10px; padding: 11px 20px; border-radius: 999px;
+        border: 2px solid rgba(108, 76, 241, 0.3); background: var(--cream);
+        font-family: var(--display); font-weight: 600; font-size: 22px; letter-spacing: 2px;
+      }
+
+      /* ---------- typography ---------- */
+      .h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 54px; line-height: 1.04; letter-spacing: -0.01em; }
+      .h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 36px; line-height: 1.1; }
+      .h3 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 25px; }
+      .sub { margin: 12px 0 0; font-size: 20px; line-height: 1.5; color: var(--soft); }
+      .small { font-size: 16px; color: var(--soft); line-height: 1.5; }
+      .accent { color: var(--violet); }
+      .money { font-family: var(--display); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+      .naira { font-size: 0.62em; margin-right: 0.05em; }
+      b { font-weight: 700; }
+
+      /* ---------- chips ---------- */
+      .chip {
+        display: inline-flex; align-items: center; gap: 9px; padding: 9px 18px; border-radius: 999px;
+        font-weight: 700; font-size: 15px; letter-spacing: 1.6px; text-transform: uppercase;
+      }
+      .chip.mint { background: rgba(22, 196, 127, 0.12);         color: var(--mint-ink); }
+      .chip.gold { background: var(--gold); color: var(--ink); }
+      .chip.violet { background: rgba(108, 76, 241, 0.1); color: var(--violet-dark); }
+      .chip.coral { background: rgba(255, 77, 95, 0.12); color: var(--coral-ink); }
+      .chip.soft { background: rgba(36, 22, 63, 0.06); color: var(--soft); }
+      .eyebrow {
+        display: inline-flex; align-items: center; gap: 9px; padding: 10px 20px; border-radius: 999px;
+        background: var(--cream); box-shadow: 0 10px 26px -16px rgba(36, 22, 63, 0.5);
+        font-weight: 700; font-size: 15px; letter-spacing: 3px; text-transform: uppercase; color: var(--soft);
+      }
+      .dot { display: block; width: 10px; height: 10px; border-radius: 50%; }
+      .dot.coral { background: var(--coral); }
+      .dot.mint { background: var(--mint); }
+      .dot.gold { background: var(--gold); }
+
+      /* ---------- surfaces ---------- */
+      .card {
+        position: relative; background: var(--cream); border-radius: 30px;
+        border: 2px solid rgba(36, 22, 63, 0.05);
+        box-shadow: 0 44px 84px -52px rgba(36, 22, 63, 0.5); padding: 34px;
+      }
+      .inkcard {
+        position: relative; background: var(--ink); color: var(--cream); border-radius: 30px;
+        box-shadow: 0 50px 96px -52px rgba(36, 22, 63, 0.8); padding: 34px;
+      }
+      .card.tight, .inkcard.tight { padding: 26px; }
+
+      /* ---------- buttons / fields ---------- */
+      .btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 12px;
+        padding: 17px 34px; border-radius: 999px; font-family: var(--display); font-weight: 600; font-size: 23px;
+      }
+      .btn.sm { padding: 11px 22px; font-size: 17px; }
+      .btn.coral { background: var(--coral); color: #fff; box-shadow: 0 5px 0 var(--coral-dark); }
+      .btn.mint { background: var(--mint); color: var(--ink); box-shadow: 0 5px 0 var(--mint-dark); }
+      .btn.violet { background: var(--violet); color: #fff; box-shadow: 0 5px 0 var(--violet-dark); }
+      .btn.gold { background: var(--gold); color: var(--ink); box-shadow: 0 5px 0 var(--gold-dark); }
+      .btn.ghost { border: 2px solid rgba(36, 22, 63, 0.14); background: #fff; color: var(--ink); }
+      .field {
+        border: 2px solid rgba(36, 22, 63, 0.1); border-radius: 18px; background: #fff; padding: 13px 18px;
+      }
+      .field .lab { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--soft); }
+      .field .val { margin-top: 4px; font-size: 20px; font-weight: 700; }
+      .field .val.ph { color: rgba(107, 95, 141, 0.6); font-weight: 600; }
+
+      /* ---------- scene 1 ---------- */
+      .hook { display: flex; flex-direction: column; align-items: center; text-align: center; }
+      .hook-h1 { margin: 34px 0 0; font-family: var(--display); font-weight: 600; font-size: 74px; line-height: 1.06; letter-spacing: -0.02em; }
+      .hook-h1 .line { display: block; }
+      .hook-h1 .line.two { color: var(--ink); }
+      .hook-h1 .line.two .money {         color: var(--mint-ink); }
+      .pool { margin-top: 32px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+      .money-huge { display: flex; align-items: baseline; font-size: 160px; line-height: 1;         color: var(--mint-ink); will-change: transform; }
+      .hook-tag { margin: 30px 0 0; font-family: var(--display); font-weight: 500; font-size: 38px; color: var(--soft); }
+
+      /* ---------- generic two-col ---------- */
+      .cols { display: grid; gap: 34px; align-items: start; }
+      .cols.c090 { grid-template-columns: 0.9fr 1.1fr; }
+      .cols.c062 { grid-template-columns: 0.62fr 0.38fr; }
+      .cols.c115 { grid-template-columns: 1.15fr 0.85fr; }
+      .cols.c1010 { grid-template-columns: 1fr 1fr; }
+      .stack { display: flex; flex-direction: column; gap: 22px; }
+      .stack.sm { gap: 14px; }
+      .row { display: flex; align-items: center; gap: 14px; }
+
+      /* ---------- scene 2 brand panel ---------- */
+      .brandpanel {
+        position: relative; border-radius: 30px; background: var(--ink); color: var(--cream);
+        padding: 46px; display: flex; flex-direction: column; justify-content: center; min-height: 620px;
+        box-shadow: 0 50px 96px -52px rgba(36, 22, 63, 0.8); overflow: hidden;
+      }
+      .brandpanel .wm-name { color: var(--cream); }
+      .brandpanel h2 { margin: 34px 0 0; font-family: var(--display); font-weight: 600; font-size: 48px; line-height: 1.1; }
+      .brandpanel .tag { margin-top: 24px; }
+      .brandpanel .note { margin-top: 30px; font-size: 16px; color: rgba(255, 255, 255, 0.6); line-height: 1.55; }
+      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .fstack { display: flex; flex-direction: column; gap: 14px; }
+
+      /* ---------- scene 3 dashboard ---------- */
+      .dash-head { display: flex; align-items: flex-end; justify-content: space-between; }
+      .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 26px; }
+      .stat { border-radius: 24px; border: 2px solid rgba(36, 22, 63, 0.05); background: var(--cream); padding: 22px; }
+      .stat .lab { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--soft); }
+      .stat .num { margin-top: 8px; font-family: var(--display); font-weight: 600; font-size: 38px; }
+      .qrow { display: flex; align-items: center; gap: 16px; border-radius: 20px; border: 2px solid rgba(36, 22, 63, 0.05); background: #fff; padding: 14px 18px; }
+      .qicon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; background: rgba(108, 76, 241, 0.1); color: var(--violet); }
+      .addr { display: flex; align-items: center; gap: 10px; margin-top: 16px; font-family: ui-monospace, monospace; font-size: 15px; color: rgba(255, 255, 255, 0.65); }
+
+      /* ---------- scene 4 fund ---------- */
+      .picks { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+      .pick { border: 2px solid rgba(36, 22, 63, 0.1); background: #fff; color: var(--soft); border-radius: 999px; padding: 11px 20px; font-weight: 700; font-size: 17px; }
+      .pick.on { border-color: var(--mint); background: var(--mint); color: var(--ink); }
+      .method { display: flex; align-items: center; gap: 16px; border: 2px solid rgba(36, 22, 63, 0.1); background: #fff; border-radius: 20px; padding: 16px 20px; }
+      .method.on { border-color: var(--violet); background: rgba(108, 76, 241, 0.05); }
+      .micon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; background: rgba(36, 22, 63, 0.06); color: var(--soft); }
+      .method.on .micon { background: var(--violet); color: #fff; }
+
+      /* ---------- scene 5 builder ---------- */
+      .slider { position: relative; height: 22px; border-radius: 999px; background: rgba(36, 22, 63, 0.08); overflow: hidden; }
+      .slider .fill { position: absolute; inset: 0; width: 100%; background: var(--mint); border-radius: 999px; transform-origin: left center; }
+      .slider .knob { position: absolute; top: 50%; width: 30px; height: 30px; margin-top: -15px; margin-left: -15px; border-radius: 50%; background: #fff; border: 3px solid var(--mint); box-shadow: 0 4px 10px rgba(36, 22, 63, 0.25); }
+      .pillrow { display: flex; gap: 10px; flex-wrap: wrap; }
+      .pill { border: 2px solid rgba(36, 22, 63, 0.1); background: #fff; color: var(--soft); border-radius: 999px; padding: 10px 20px; font-weight: 700; font-size: 16px; }
+      .pill.on-gold { border-color: var(--gold); background: var(--gold); color: var(--ink); }
+      .pill.on-violet { border-color: var(--violet); background: var(--violet); color: #fff; }
+      .pill.on-sky { border-color: var(--sky); background: var(--sky); color: #fff; }
+      .opt {
+        display: flex; align-items: center; gap: 14px; border-radius: 18px; border: 2px solid rgba(36, 22, 63, 0.1);
+        background: #fff; padding: 14px 18px; font-weight: 700; font-size: 22px;
+      }
+      .opt.correct { border-color: rgba(22, 196, 127, 0.6); background: rgba(22, 196, 127, 0.06); }
+      .ring { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 3px solid rgba(36, 22, 63, 0.2); color: var(--ink); font-size: 16px; }
+      .ring.on { border-color: var(--mint); background: var(--mint); }
+
+      /* ---------- scene 6 live room ---------- */
+      .proj { position: relative; }
+      .proj .dots-light { opacity: 0.55; }
+      .qprompt { margin: 18px 0 0; font-family: var(--display); font-weight: 600; font-size: 34px; line-height: 1.12; }
+      .timer-row { display: flex; align-items: baseline; justify-content: space-between; margin-top: 20px; font-weight: 700; font-size: 14px; letter-spacing: 3px; text-transform: uppercase; color: rgba(255, 255, 255, 0.55); }
+      .track { margin-top: 10px; height: 16px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+      .track .fill { width: 100%; height: 100%; background: var(--gold); border-radius: 999px; transform-origin: left center; }
+      .ptile { display: flex; align-items: center; gap: 12px; border-radius: 16px; border: 2px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.06); padding: 12px 16px; font-weight: 700; font-size: 19px; }
+      .pkey { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: rgba(255, 255, 255, 0.12); font-family: var(--display); font-weight: 600; font-size: 16px; color: rgba(255, 255, 255, 0.75); }
+      .bigcode { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+      .bigcode .c { font-family: var(--display); font-weight: 600; font-size: 58px; letter-spacing: 4px; }
+      .roster { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 14px; }
+      .rchip { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; border: 2px solid rgba(36, 22, 63, 0.08); background: #fff; padding: 7px 13px; font-size: 15px; font-weight: 700; color: var(--soft); }
+      .rchip .ava { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-size: 12px; font-weight: 600; }
+
+      /* ---------- scene 7 history ---------- */
+      .led { border-radius: 26px; border: 2px solid rgba(36, 22, 63, 0.05); background: var(--cream); overflow: hidden; box-shadow: 0 44px 84px -52px rgba(36, 22, 63, 0.5); }
+      .led-head { display: grid; grid-template-columns: 1fr 9rem 10rem 8rem; gap: 14px; padding: 16px 26px; border-bottom: 2px solid rgba(36, 22, 63, 0.05); font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--soft); }
+      .led-row { display: grid; grid-template-columns: 1fr 9rem 10rem 8rem; gap: 14px; align-items: center; padding: 16px 26px; border-top: 2px solid rgba(36, 22, 63, 0.05); }
+      .led-row:first-child { border-top: none; }
+      .led-row .t { font-weight: 700; font-size: 20px; }
+      .led-row .m { font-size: 15px; color: var(--soft); margin-top: 2px; }
+      .amt { text-align: right; font-family: var(--display); font-weight: 600; font-size: 22px; }
+      .amt.in {         color: var(--mint-ink); }
+      .amt.out { color: var(--soft); }
+
+      /* ---------- scene 8 join ---------- */
+      .prizecard { border-radius: 26px; border: 2px solid rgba(22, 196, 127, 0.3); background: rgba(22, 196, 127, 0.09); padding: 26px; }
+      .step { display: flex; align-items: flex-start; gap: 14px; }
+      .step .n { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 14px; background: var(--cream); color: var(--violet); font-family: var(--display); font-weight: 600; box-shadow: 0 4px 0 rgba(108, 76, 241, 0.15); }
+      .avgrid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+      .avcell { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; font-family: var(--display); font-weight: 600; font-size: 22px; }
+      .avcell.on { outline: 3px solid var(--violet); outline-offset: 2px; }
+      .banner { display: flex; align-items: center; gap: 12px; border-radius: 18px; border: 2px solid rgba(22, 196, 127, 0.3); background: rgba(22, 196, 127, 0.09); padding: 14px 18px; font-weight: 700;         color: var(--mint-ink); }
+
+      /* ---------- scene 9 lobby ---------- */
+      .splitchips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+      .waitcard { border-radius: 26px; border: 2px solid rgba(246, 169, 27, 0.4); background: rgba(246, 169, 27, 0.1); padding: 28px; text-align: center; }
+      .pulse { display: grid; place-items: center; width: 62px; height: 62px; margin: 0 auto; border-radius: 50%; background: var(--gold); color: var(--ink); will-change: transform; }
+
+      /* ---------- scene 10 question ---------- */
+      .opts2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 26px; }
+      .qopt {
+        position: relative; display: flex; align-items: center; gap: 18px; min-height: 92px; padding: 18px 22px;
+        border-radius: 22px; border: 3px solid rgba(36, 22, 63, 0.12); background: #fff; font-weight: 700; font-size: 28px;
+        will-change: transform;
+      }
+      .qkey { display: grid; place-items: center; width: 52px; height: 52px; flex: 0 0 auto; border-radius: 15px; background: rgba(36, 22, 63, 0.06); color: var(--soft); font-family: var(--display); font-weight: 600; font-size: 23px; }
+      .qmark { position: absolute; left: 22px; top: 50%; display: grid; place-items: center; width: 52px; height: 52px; margin-top: -26px; border-radius: 15px; color: var(--ink); font-size: 28px; font-weight: 700; opacity: 0; }
+      .qmark.ok { background: var(--mint); }
+      .qmark.no { background: var(--coral); }
+      .cursor { position: absolute; right: 46px; bottom: 26px; width: 42px; height: 42px; opacity: 0; will-change: transform; }
+      .receipt {
+        position: absolute; left: 50%; bottom: 40px; display: flex; align-items: center; gap: 18px;
+        padding: 20px 30px 20px 22px; border-radius: 24px; border: 3px solid rgba(22, 196, 127, 0.5);
+        background: #eafaf3; box-shadow: 0 26px 50px -30px rgba(11, 154, 98, 0.7); opacity: 0; will-change: transform;
+      }
+      .receipt .ic { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%; background: var(--mint); color: var(--ink); font-size: 30px; font-weight: 700; }
+      .receipt .tx { font-size: 24px; font-weight: 700; }
+      .receipt .tx b { font-family: var(--display); font-weight: 600; font-size: 27px; }
+
+      /* ---------- scene 11 standings ---------- */
+      .sttable { border-radius: 26px; border: 2px solid rgba(36, 22, 63, 0.05); background: var(--cream); overflow: hidden; box-shadow: 0 44px 84px -52px rgba(36, 22, 63, 0.5); }
+      .st-head { display: grid; grid-template-columns: 4rem 1fr 7rem 7rem; gap: 14px; padding: 14px 26px; border-bottom: 2px solid rgba(36, 22, 63, 0.05); font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--soft); }
+      .st-row { display: grid; grid-template-columns: 4rem 1fr 7rem 7rem; gap: 14px; align-items: center; padding: 14px 26px; border-top: 2px solid rgba(36, 22, 63, 0.05); }
+      .st-row.me { background: rgba(246, 169, 27, 0.16); }
+      .st-rank { font-family: var(--display); font-weight: 600; font-size: 22px; }
+      .st-name { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 22px; }
+      .you { margin-left: 10px; border-radius: 999px; background: var(--ink); color: var(--cream); padding: 4px 12px; font-size: 12px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; }
+      .st-c { text-align: right; font-family: var(--display); font-weight: 600; font-size: 22px; color: var(--violet-dark); }
+      .st-s { text-align: right; font-size: 17px; font-weight: 700; color: var(--soft); }
+      .st-row.me .st-c, .st-row.me .st-s { color: var(--ink); }
+
+      /* ---------- scene 12 podium ---------- */
+      .podium-hero { display: flex; flex-direction: column; align-items: center; text-align: center; }
+      .crown { display: grid; place-items: center; width: 118px; height: 118px; margin: 24px auto 0; border-radius: 50%; background: var(--gold); color: var(--ink); will-change: transform; }
+      .banked { margin: 22px 0 0; font-family: var(--display); font-weight: 600; font-size: 60px; line-height: 1.05; color: var(--cream); }
+      .banked .money { color: var(--mint); }
+      .wrow { display: flex; align-items: center; gap: 16px; border-radius: 20px; border: 2px solid rgba(36, 22, 63, 0.05); background: #fff; padding: 14px 18px; }
+      .wrow.me { border-color: var(--gold); background: rgba(246, 169, 27, 0.12); }
+      .wrank { font-family: var(--display); font-weight: 600; font-size: 22px; width: 28px; }
+      .claimcard { border-radius: 26px; border: 2px solid rgba(246, 169, 27, 0.45); background: rgba(246, 169, 27, 0.12); padding: 24px; }
+      .claimcode { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+      .claimcode .code { flex: 1; border-radius: 18px; background: #fff; padding: 16px 22px; font-family: var(--display); font-weight: 600; font-size: 34px; letter-spacing: 3px; }
+      .claimcode .copy { border-radius: 18px; background: rgba(36, 22, 63, 0.08); padding: 16px 22px; font-weight: 700; font-size: 18px; letter-spacing: 2px; text-transform: uppercase; }
+      .redeem { margin-top: 14px; border-radius: 999px; background: var(--gold); color: var(--ink); padding: 18px; text-align: center; font-family: var(--display); font-weight: 600; font-size: 28px; letter-spacing: 2px; text-transform: uppercase; box-shadow: 0 6px 0 var(--gold-dark); }
+      .burst { position: absolute; width: 0; height: 0; z-index: 6; }
+      .particle { position: absolute; left: 0; top: 0; border-radius: 3px; opacity: 0; will-change: transform, opacity; }
+
+      /* ---------- scene 13 claim ---------- */
+      .prow { display: flex; align-items: center; justify-content: space-between; border-radius: 18px; border: 2px solid rgba(36, 22, 63, 0.05); background: #fff; padding: 16px 20px; }
+      .prow.mint { border-color: rgba(22, 196, 127, 0.35); background: rgba(22, 196, 127, 0.09); }
+      .select { display: flex; align-items: center; justify-content: space-between; border-radius: 18px; border: 2px solid rgba(36, 22, 63, 0.1); background: #fff; padding: 15px 20px; font-weight: 700; font-size: 20px; }
+      #s13-paid { opacity: 0; }
+
+      /* ---------- scene 14 close ---------- */
+      .close { display: flex; flex-direction: column; align-items: center; text-align: center; }
+      .wm-big { display: flex; align-items: center; gap: 22px; }
+      .wm-big .wm-tile { width: 104px; height: 104px; border-radius: 28px; }
+      .wm-big .wm-tile svg path { fill: var(--cream); }
+      .wm-big .wm-name { font-family: var(--display); font-weight: 600; font-size: 100px; letter-spacing: -0.02em; }
+      .close-tag { margin: 34px 0 0; font-family: var(--display); font-weight: 500; font-size: 44px; color: var(--soft); }
+      .rules { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 44px; width: 1180px; }
+      .rule { border-radius: 24px; border: 2px solid rgba(36, 22, 63, 0.06); background: var(--cream); padding: 22px; text-align: left; }
+      .rule .t { margin-top: 10px; font-family: var(--display); font-weight: 600; font-size: 22px; }
+      .rule .c { margin-top: 6px; font-size: 15px; color: var(--soft); line-height: 1.45; }
+      .tech { margin-top: 26px; font-size: 16px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--soft); }
+      .out { margin: 18px 0 0; font-family: var(--display); font-weight: 600; font-size: 40px; color: var(--violet); }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="kweeks-demo"
+      data-root="true"
+      data-start="0"
+      data-width="1920"
+      data-height="1080"
+      data-fps="30"
+      data-duration="63"
+    >
+      <div class="bg" data-layout-ignore="true" aria-hidden="true">
+        <div class="dots" data-layout-ignore="true"></div>
+      </div>
+      <span class="glow g1 music-glow" data-layout-ignore="true" aria-hidden="true"></span>
+      <span class="glow g2 music-glow" data-layout-ignore="true" aria-hidden="true"></span>
+
+      <!-- ============ 1 · HOOK ============ -->
+      <section class="clip" id="s1" data-start="0" data-duration="5.5">
+        <div class="wrap" id="s1-wrap">
+          <div class="screen">
+            <div class="hook">
+              <div class="wordmark" id="s1-wm">
+                <span class="wm-tile">
+                  <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
+                    <path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z" />
+                  </svg>
+                </span>
+                <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+              </div>
+              <h1 class="hook-h1">
+                <span class="line" id="s1-l1">Quiz night.</span>
+                <span class="line two" id="s1-l2">The prize is <span class="money">real money</span>.</span>
+              </h1>
+              <div class="pool" id="s1-pool">
+                <span class="eyebrow">Prize pool · on the line</span>
+                <div class="money-huge"><span class="naira">&#8358;</span><span id="s1-amount">0</span></div>
+              </div>
+              <p class="hook-tag" id="s1-tag">Answer fast. Take the pool.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 2 · HOST SIGNUP ============ -->
+      <section class="clip" id="s2" data-start="5.5" data-duration="4.5">
+        <div class="wrap" id="s2-wrap">
+          <div class="appbar">
+            <div class="wordmark">
+              <span class="wm-tile"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z"/></svg></span>
+              <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+            </div>
+            <div class="nav">
+              <span class="navitem">For players</span>
+              <span class="navitem active">For hosts</span>
+              <span class="navitem">How it works</span>
+              <span class="navitem">Security</span>
+            </div>
+          </div>
+          <div class="screen">
+            <div class="stage">
+              <div class="cols c090">
+                <aside class="brandpanel">
+                  <span class="dots-light" data-layout-ignore="true" aria-hidden="true"></span>
+                  <div class="wordmark" style="position: relative">
+                    <span class="wm-tile"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z"/></svg></span>
+                    <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+                  </div>
+                  <h2 style="position: relative">
+                    <span style="display: block">Fund the pool.</span>
+                    <span style="display: block">Run the room.</span>
+                    <span style="display: block">Pay the winners.</span>
+                  </h2>
+                  <div class="tag" style="position: relative"><span class="chip gold"><span class="dot gold"></span>Your own wallet is issued at signup</span></div>
+                  <p class="note" style="position: relative">Host accounts are free. Players always play free. Your phone number is your private wallet identity — never shared with players.</p>
+                </aside>
+                <section class="card">
+                  <h2>Create your host account</h2>
+                  <p class="sub">One account to build quizzes, fund pools and pay out winners.</p>
+                  <div class="fstack" style="margin-top: 26px">
+                    <div class="grid2">
+                      <div class="field"><div class="lab">First name</div><div class="val">Adeola</div></div>
+                      <div class="field"><div class="lab">Last name</div><div class="val">Peters</div></div>
+                    </div>
+                    <div class="field"><div class="lab">Email</div><div class="val">adeola@kweeks.ng</div></div>
+                    <div class="field"><div class="lab">Phone number</div><div class="val">+234 801 234 5678</div></div>
+                    <div class="field"><div class="lab">Password</div><div class="val">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</div></div>
+                    <div class="btn coral" style="width: 100%">Create account</div>
+                    <p class="small" style="text-align: center; margin: 0">Already have an account? <b style="color: var(--violet-dark)">Sign in instead</b></p>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 3 · WALLET DASHBOARD ============ -->
+      <section class="clip" id="s3" data-start="10.0" data-duration="4.5">
+        <div class="wrap" id="s3-wrap">
+          <div class="appbar">
+            <div class="wordmark">
+              <span class="wm-tile"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z"/></svg></span>
+              <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+            </div>
+            <div class="nav">
+              <span class="navitem active">Dashboard</span>
+              <span class="navitem">Create quiz</span>
+              <span class="navitem">History</span>
+              <span class="wallet-chip"><span class="money" style="color: var(--mint-ink)">&#8358;120,000</span></span>
+              <span class="avatar">A</span>
+            </div>
+          </div>
+          <div class="screen">
+            <div class="stage">
+              <div class="dash-head">
+                <div>
+                  <span class="chip soft">Wallet dashboard</span>
+                  <h1 class="h1" style="margin-top: 16px">Welcome back, <span class="accent">Adeola</span></h1>
+                </div>
+                <div class="btn coral sm">+ Create a quiz</div>
+              </div>
+              <div class="stats">
+                <div class="stat"><div class="lab">Quizzes hosted</div><div class="num" style="color: var(--violet-dark)">12</div></div>
+                <div class="stat"><div class="lab">Players hosted</div><div class="num" style="color: var(--sky-dark)">340</div></div>
+                <div class="stat"><div class="lab">Winners paid</div><div class="num" style="color: var(--coral)">36</div></div>
+                <div class="stat"><div class="lab">Available</div><div class="num money" style="color: var(--mint-ink)">&#8358;120,000</div></div>
+              </div>
+              <div class="cols c115" style="margin-top: 24px">
+                <section class="inkcard tight">
+                  <span class="dots-light" data-layout-ignore="true" aria-hidden="true"></span>
+                  <div style="position: relative">
+                    <span class="chip" style="background: rgba(255,255,255,0.1); color: var(--gold)">Your wallet · NGN</span>
+                    <div class="money" style="font-size: 58px; color: var(--mint); margin-top: 14px">&#8358;120,000</div>
+                    <div class="addr">0x7f3a&#8230;b21c</div>
+                    <div class="btn gold" style="width: 100%; margin-top: 22px">Fund wallet</div>
+                    <div class="row" style="margin-top: 18px; gap: 9px">
+                      <span class="chip" style="background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.75)">Card</span>
+                      <span class="chip" style="background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.75)">Transfer</span>
+                      <span class="chip" style="background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.75)">Instant top-up</span>
+                    </div>
+                  </div>
+                </section>
+                <section class="card tight">
+                  <div class="row" style="justify-content: space-between">
+                    <h3 class="h3">Your quizzes</h3>
+                    <span class="small" style="color: var(--violet-dark); font-weight: 700">View history &#8594;</span>
+                  </div>
+                  <div class="stack sm" style="margin-top: 16px">
+                    <div class="qrow">
+                      <span class="qicon">&#127942;</span>
+                      <div style="flex: 1">
+                        <div style="font-weight: 700; font-size: 20px">Lagos General Knowledge</div>
+                        <div class="small">10 questions · top 3 · <span class="money" style="        color: var(--mint-ink); font-size: 15px">&#8358;50,000</span></div>
+                      </div>
+                      <span class="btn violet sm">Open room</span>
+                    </div>
+                    <div class="qrow">
+                      <span class="qicon">&#127942;</span>
+                      <div style="flex: 1">
+                        <div style="font-weight: 700; font-size: 20px">Naija Music Trivia</div>
+                        <div class="small">8 questions · top 1 · <span class="money" style="        color: var(--mint-ink); font-size: 15px">&#8358;20,000</span></div>
+                      </div>
+                      <span class="btn ghost sm">Edit</span>
+                    </div>
+                    <div style="border-radius: 20px; border: 2px solid rgba(246,169,27,0.3); background: rgba(246,169,27,0.1); padding: 16px 18px; font-size: 15px; line-height: 1.45">
+                      <b>Players join with your room code.</b> Open a room and share the code — no app, no install.
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 4 · FUND WALLET ============ -->
+      <section class="clip" id="s4" data-start="14.5" data-duration="4.0">
+        <div class="wrap" id="s4-wrap">
+          <div class="appbar">
+            <div class="wordmark">
+              <span class="wm-tile"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z"/></svg></span>
+              <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+            </div>
+            <div class="nav">
+              <span class="navitem active">Dashboard</span>
+              <span class="navitem">Create quiz</span>
+              <span class="navitem">History</span>
+              <span class="wallet-chip"><span class="money" style="color: var(--mint-ink)">&#8358;<span id="s4-bal">120,000</span></span></span>
+              <span class="avatar">A</span>
+            </div>
+          </div>
+          <div class="screen">
+            <div class="stage" style="max-width: 780px; margin: 0 auto">
+              <span class="chip mint">Fund wallet</span>
+              <h1 class="h1" style="margin-top: 16px">Add naira to your <span class="accent">wallet</span></h1>
+              <p class="sub">Funds land instantly and are spendable on quiz pools. Available <span class="money" style="        color: var(--mint-ink); font-size: 20px">&#8358;<span id="s4-avail">120,000</span></span>.</p>
+              <div class="stack" style="margin-top: 24px">
+                <div class="card tight">
+                  <div class="field"><div class="lab">Amount</div><div class="val"><span style="color: var(--soft)">&#8358;</span> 50,000</div></div>
+                  <div class="picks">
+                    <span class="pick">&#8358;1,000</span>
+                    <span class="pick">&#8358;5,000</span>
+                    <span class="pick on" id="s4-pick">&#8358;50,000</span>
+                    <span class="pick">&#8358;100,000</span>
+                  </div>
+                </div>
+                <div class="card tight">
+                  <p class="h3" style="font-size: 20px">Funding method</p>
+                  <div class="stack sm" style="margin-top: 14px">
+                    <div class="method on">
+                      <span class="micon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>
+                      <div style="flex: 1"><div style="font-weight: 700; font-size: 19px">Wallet credit</div><div class="small">Instant platform credit</div></div>
+                      <span style="display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--violet); color: #fff">&#10003;</span>
+                    </div>
+                    <div class="method">
+                      <span class="micon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg></span>
+                      <div style="flex: 1"><div style="font-weight: 700; font-size: 19px">Bank transfer</div><div class="small">Transfer to your NGN account</div></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="btn mint" style="width: 100%">Fund &#8358;50,000</div>
+                <div class="banner" id="s4-ok" style="opacity: 0">
+                  <span style="display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--mint); color: var(--ink)">&#10003;</span>
+                  Wallet credited with &#8358;50,000 — it is spendable right away.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 5 · QUIZ BUILDER ============ -->
+      <section class="clip" id="s5" data-start="18.5" data-duration="5.0">
+        <div class="wrap" id="s5-wrap">
+          <div class="appbar">
+            <div class="wordmark">
+              <span class="wm-tile"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z"/></svg></span>
+              <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+            </div>
+            <div class="nav">
+              <span class="navitem">Dashboard</span>
+              <span class="navitem active">Create quiz</span>
+              <span class="navitem">History</span>
+              <span class="wallet-chip"><span class="money" style="color: var(--mint-ink)">&#8358;170,000</span></span>
+              <span class="avatar">A</span>
+            </div>
+          </div>
+          <div class="screen">
+            <div class="stage" style="max-width: 1180px; margin: 0 auto">
+              <span class="chip violet">Quiz builder</span>
+              <h1 class="h1" style="margin-top: 14px">Build your <span class="accent">quiz</span></h1>
+              <div class="card tight" style="margin-top: 20px">
+                <div class="cols c1010" style="gap: 26px">
+                  <div class="field"><div class="lab">Quiz title</div><div class="val">Naija General Knowledge</div></div>
+                  <div>
+                    <div class="row" style="justify-content: space-between">
+                      <span style="font-weight: 700; font-size: 17px">Prize pool</span>
+                      <span class="chip mint">&#8358;50,000</span>
+                    </div>
+                    <div class="slider" style="margin-top: 12px">
+                      <span class="fill" id="s5-fill"></span>
+                      <span class="knob" id="s5-knob" style="left: 24.6%"></span>
+                    </div>
+                    <div class="row" style="justify-content: space-between; margin-top: 8px; font-size: 14px; font-weight: 700; color: var(--soft)">
+                      <span>&#8358;1,000</span><span>&#8358;200,000</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p style="margin: 0; font-weight: 700; font-size: 17px">Winner count</p>
+                    <div class="pillrow" style="margin-top: 10px">
+                      <span class="pill">1 winner</span>
+                      <span class="pill on-gold">3 winners</span>
+                      <span class="pill">5 winners</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p style="margin: 0; font-weight: 700; font-size: 17px">Pacing</p>
+                    <div class="pillrow" style="margin-top: 10px">
+                      <span class="pill on-violet">Manual</span>
+                      <span class="pill">Auto</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="card tight" style="margin-top: 16px">
+                <div class="row" style="justify-content: space-between">
+                  <span class="h3">Question 1 of 10</span>
+                  <span class="chip soft">Push pacing · 15s each</span>
+                </div>
+                <p style="margin: 14px 0 0; font-weight: 700; font-size: 22px">Which city is Nigeria&rsquo;s federal capital?</p>
+                <div class="opts2" style="margin-top: 16px">
+                  <div class="opt correct"><span class="ring on">&#10003;</span>Abuja</div>
+                  <div class="opt"><span class="ring"></span>Lagos</div>
+                  <div class="opt"><span class="ring"></span>Kano</div>
+                  <div class="opt"><span class="ring"></span>Ibadan</div>
+                </div>
+              </div>
+              <div style="margin-top: 16px; border-radius: 26px; border: 2px solid rgba(246,169,27,0.3); background: rgba(246,169,27,0.1); padding: 20px 26px; display: flex; align-items: center; justify-content: space-between">
+                <div>
+                  <div class="h3">Ready? Open the room and put <span class="money" style="        color: var(--mint-ink); font-size: 24px">&#8358;50,000</span> on the line.</div>
+                  <div class="small" style="margin-top: 4px">The pool is funded from your wallet when the room opens.</div>
+                </div>
+                <span class="btn coral">Save &amp; open room</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 6 · LIVE ROOM ============ -->
+      <section class="clip" id="s6" data-start="23.5" data-duration="5.5">
+        <div class="wrap" id="s6-wrap">
+          <div class="appbar">
+            <div class="wordmark">
+              <span class="wm-tile"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z"/></svg></span>
+              <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+            </div>
+            <div class="nav">
+              <span class="navitem active">Dashboard</span>
+              <span class="navitem">Create quiz</span>
+              <span class="navitem">History</span>
+              <span class="chip coral"><span class="dot coral"></span>Room live</span>
+            </div>
+          </div>
+          <div class="screen">
+            <div class="stage">
+              <div class="cols c062">
+                <section class="inkcard proj">
+                  <span class="dots-light" data-layout-ignore="true" aria-hidden="true"></span>
+                  <div style="position: relative">
+                    <div class="row" style="justify-content: space-between">
+                      <span class="chip" style="background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7)">Projector preview</span>
+                      <span class="chip" style="background: rgba(22,196,127,0.16); color: var(--mint)"><span class="dot mint"></span>Realtime on</span>
+                    </div>
+                    <p style="margin: 20px 0 0; font-family: var(--display); font-size: 22px; color: rgba(255,255,255,0.55)">Question 3 of 10 · <span class="money" style="color: var(--mint)">&#8358;50,000</span> pool</p>
+                    <p class="qprompt">Which city is Nigeria&rsquo;s Centre of Excellence?</p>
+                    <div class="timer-row"><span>8s left</span><span>Manual pacing</span></div>
+                    <div class="track"><span class="fill" id="s6-fill"></span></div>
+                    <div class="opts2" style="margin-top: 20px; gap: 14px">
+                      <div class="ptile"><span class="pkey">A</span>Lagos</div>
+                      <div class="ptile"><span class="pkey">B</span>Abuja</div>
+                      <div class="ptile"><span class="pkey">C</span>Kano</div>
+                      <div class="ptile"><span class="pkey">D</span>Ibadan</div>
+                    </div>
+                  </div>
+                </section>
+                <div class="stack">
+                  <div class="card tight">
+                    <p class="lab small" style="font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--soft); margin: 0">Room code</p>
+                    <div class="bigcode"><span class="c">AB12</span><span class="chip soft">Copy</span></div>
+                    <div class="small" style="margin-top: 10px; font-family: ui-monospace, monospace">/join?code=AB12</div>
+                  </div>
+                  <div class="card tight">
+                    <div class="row" style="justify-content: space-between">
+                      <span class="h3" style="font-size: 20px">In the room</span>
+                      <span class="chip soft">4</span>
+                    </div>
+                    <div class="roster">
+                      <span class="rchip"><span class="ava" style="background: #ffe4db; color: #c23c10">Z</span>Zainab</span>
+                      <span class="rchip"><span class="ava" style="background: #d4f6ec; color: #0b9a62">A</span>Ada</span>
+                      <span class="rchip"><span class="ava" style="background: #ffe0e6; color: #e8405a">T</span>Tobi</span>
+                      <span class="rchip"><span class="ava" style="background: #dff6df; color: #2e9e4f">M</span>Musa</span>
+                    </div>
+                  </div>
+                  <div class="card tight">
+                    <span class="h3" style="font-size: 20px">Controls</span>
+                    <div class="stack sm" style="margin-top: 12px">
+                      <span class="btn violet sm" style="width: 100%">Next question</span>
+                      <span class="btn gold sm" style="width: 100%">Declare winners</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 7 · HISTORY ============ -->
+      <section class="clip" id="s7" data-start="29.0" data-duration="4.0">
+        <div class="wrap" id="s7-wrap">
+          <div class="appbar">
+            <div class="wordmark">
+              <span class="wm-tile"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z"/></svg></span>
+              <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+            </div>
+            <div class="nav">
+              <span class="navitem">Dashboard</span>
+              <span class="navitem">Create quiz</span>
+              <span class="navitem active">History</span>
+              <span class="wallet-chip"><span class="money" style="color: var(--mint-ink)">&#8358;170,000</span></span>
+              <span class="avatar">A</span>
+            </div>
+          </div>
+          <div class="screen">
+            <div class="stage" style="max-width: 1240px; margin: 0 auto">
+              <span class="chip violet">History</span>
+              <h1 class="h1" style="margin-top: 14px">Every funding, room &amp; <span class="accent">payout</span></h1>
+              <div class="led" style="margin-top: 22px">
+                <div class="led-head"><span>Activity</span><span>Type</span><span style="text-align: right">Amount</span><span style="text-align: right">Status</span></div>
+                <div class="led-row">
+                  <div><div class="t">Wallet funded</div><div class="m">Card · instant</div></div>
+                  <div><span class="chip mint">Funding</span></div>
+                  <div class="amt in">+&#8358;50,000</div>
+                  <div style="text-align: right"><span class="chip soft">Done</span></div>
+                </div>
+                <div class="led-row">
+                  <div><div class="t">Lagos General Knowledge</div><div class="m">10 questions · top 3 · room AB12</div></div>
+                  <div><span class="chip violet">Quiz</span></div>
+                  <div class="amt out">—</div>
+                  <div style="text-align: right"><span class="chip soft">Done</span></div>
+                </div>
+                <div class="led-row">
+                  <div><div class="t">Pool escrowed</div><div class="m">Room AB12 opened</div></div>
+                  <div><span class="chip gold">Pool</span></div>
+                  <div class="amt out">−&#8358;50,000</div>
+                  <div style="text-align: right"><span class="chip coral">Live</span></div>
+                </div>
+                <div class="led-row">
+                  <div><div class="t">Payout · Zainab</div><div class="m">1st place · claim KWA-8F2D</div></div>
+                  <div><span class="chip gold">Payout</span></div>
+                  <div class="amt out">−&#8358;25,000</div>
+                  <div style="text-align: right"><span class="chip mint">Paid</span></div>
+                </div>
+                <div class="led-row">
+                  <div><div class="t">Payout · Ada</div><div class="m">2nd place · claim KWB-2A91</div></div>
+                  <div><span class="chip gold">Payout</span></div>
+                  <div class="amt out">−&#8358;15,000</div>
+                  <div style="text-align: right"><span class="chip mint">Paid</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 8 · PLAYER JOIN ============ -->
+      <section class="clip" id="s8" data-start="33.0" data-duration="4.5">
+        <div class="wrap" id="s8-wrap">
+          <div class="appbar">
+            <div class="wordmark">
+              <span class="wm-tile"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z"/></svg></span>
+              <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+            </div>
+            <div class="nav">
+              <span class="code-pill"><span class="dot gold"></span>AB12</span>
+              <span class="chip soft">Waiting</span>
+            </div>
+          </div>
+          <div class="screen">
+            <div class="stage" style="max-width: 1560px; margin: 0 auto">
+              <div class="cols c090">
+                <div>
+                  <h1 class="h1" style="font-size: 62px">Ready to <span class="accent">play?</span></h1>
+                  <p class="sub">Grab the code your host is showing, claim your spot on the leaderboard, and answer fast enough to take a cut of the pool.</p>
+                  <div class="prizecard" style="margin-top: 22px">
+                    <span class="eyebrow" style="box-shadow: none; background: transparent; padding: 0">Prize pool</span>
+                    <div class="money" style="font-size: 64px;         color: var(--mint-ink); margin-top: 6px">&#8358;50,000</div>
+                    <p class="small" style="margin-top: 6px; color: var(--ink)">Live in &ldquo;Lagos General Knowledge&rdquo; · 4 players in the room.</p>
+                  </div>
+                  <div class="stack sm" style="margin-top: 22px">
+                    <div class="step"><span class="n">01</span><div><div style="font-weight: 700; font-size: 20px">Enter the room code</div><div class="small">Your host shares a 4-letter code on screen.</div></div></div>
+                    <div class="step"><span class="n">02</span><div><div style="font-weight: 700; font-size: 20px">Pick an avatar &amp; nickname</div><div class="small">That is your leaderboard face.</div></div></div>
+                    <div class="step"><span class="n">03</span><div><div style="font-weight: 700; font-size: 20px">Answer fast, cash out</div><div class="small">The podium splits the pool.</div></div></div>
+                  </div>
+                </div>
+                <section class="card">
+                  <span class="chip coral">Join a game</span>
+                  <h2 style="margin-top: 16px">Join &ldquo;Lagos General Knowledge&rdquo;</h2>
+                  <p class="sub" style="margin-top: 8px">Hosted by Adeola · 10 questions · top 3 split the pool</p>
+                  <div class="banner" style="margin-top: 20px">&#10003;&nbsp; Room found — pool locked at <span class="money" style="font-size: 19px">&#8358;50,000</span></div>
+                  <div class="grid2" style="margin-top: 18px">
+                    <div class="field"><div class="lab">Nickname</div><div class="val">Zainab</div></div>
+                    <div class="field"><div class="lab">Email</div><div class="val">zainab@example.com</div></div>
+                  </div>
+                  <p style="margin: 18px 0 0; font-weight: 700; font-size: 17px">Pick your player</p>
+                  <div class="avgrid">
+                    <span class="avcell" style="background: #ffe4db; color: #c23c10">Z</span>
+                    <span class="avcell on" style="background: #ffe4db; color: #c23c10">&#128640;</span>
+                    <span class="avcell" style="background: #d4f6ec; color: #0b9a62">&#128031;</span>
+                    <span class="avcell" style="background: #ffe0e6; color: #e8405a">&#128049;</span>
+                    <span class="avcell" style="background: #dff6df; color: #2e9e4f">&#128034;</span>
+                    <span class="avcell" style="background: #e9e2ff; color: #5f43e8">&#128123;</span>
+                    <span class="avcell" style="background: #fff2ca; color: #d99a00">&#9889;</span>
+                    <span class="avcell" style="background: #dff0ff; color: #1785de">&#128038;</span>
+                  </div>
+                  <div class="btn coral" style="width: 100%; margin-top: 20px">Join the game</div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 9 · LOBBY ============ -->
+      <section class="clip" id="s9" data-start="37.5" data-duration="3.5">
+        <div class="wrap" id="s9-wrap">
+          <div class="appbar">
+            <div class="wordmark">
+              <span class="wm-tile"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z"/></svg></span>
+              <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+            </div>
+            <div class="nav">
+              <span class="code-pill"><span class="dot gold"></span>AB12</span>
+              <span class="chip gold">Waiting</span>
+            </div>
+          </div>
+          <div class="screen">
+            <div class="stage">
+              <div class="cols c115">
+                <div>
+                  <h1 class="h1" style="font-size: 60px">You&rsquo;re in, <span class="accent">Zainab</span></h1>
+                  <p class="sub">&ldquo;Lagos General Knowledge&rdquo; is almost live. Keep this screen open — the first question drops the second the host hits start.</p>
+                  <div class="prizecard" style="margin-top: 22px">
+                    <span class="eyebrow" style="box-shadow: none; background: transparent; padding: 0">On the line</span>
+                    <div class="money" style="font-size: 60px;         color: var(--mint-ink); margin-top: 6px">&#8358;50,000</div>
+                    <p class="small" style="margin-top: 6px; color: var(--ink)">Pool split across the top 3 finishers.</p>
+                    <div class="splitchips">
+                      <span class="chip gold">1st takes &#8358;25,000</span>
+                      <span class="chip gold">2nd takes &#8358;15,000</span>
+                      <span class="chip gold">3rd takes &#8358;10,000</span>
+                    </div>
+                  </div>
+                  <div class="row" style="margin-top: 18px">
+                    <span class="btn ghost sm">Copy room code AB12</span>
+                  </div>
+                </div>
+                <section class="card">
+                  <div class="row" style="justify-content: space-between">
+                    <h3 class="h3">In the room</h3>
+                    <span class="chip soft">4 players</span>
+                  </div>
+                  <div class="roster" style="margin-top: 16px">
+                    <span class="rchip" style="border-color: var(--violet); background: rgba(108,76,241,0.08); color: var(--violet-dark)"><span class="ava" style="background: #ffe4db; color: #c23c10">Z</span>Zainab · You</span>
+                    <span class="rchip"><span class="ava" style="background: #d4f6ec; color: #0b9a62">A</span>Ada</span>
+                    <span class="rchip"><span class="ava" style="background: #ffe0e6; color: #e8405a">T</span>Tobi</span>
+                    <span class="rchip"><span class="ava" style="background: #dff6df; color: #2e9e4f">M</span>Musa</span>
+                  </div>
+                  <div class="waitcard" style="margin-top: 22px">
+                    <div class="pulse">&#127942;</div>
+                    <p class="h3" style="margin-top: 16px">Waiting for the host…</p>
+                    <p class="small" style="margin-top: 6px">4 players are in. The room fires on the host&rsquo;s signal.</p>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 10 · QUESTION ============ -->
+      <section class="clip" id="s10" data-start="41.0" data-duration="5.5">
+        <div class="wrap" id="s10-wrap">
+          <div class="appbar">
+            <div class="wordmark">
+              <span class="wm-tile"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z"/></svg></span>
+              <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+            </div>
+            <div class="nav">
+              <span class="code-pill"><span class="dot coral"></span>AB12</span>
+              <span class="chip coral">Live</span>
+            </div>
+          </div>
+          <div class="screen">
+            <div class="stage" style="max-width: 1300px; margin: 0 auto; position: relative; padding-bottom: 130px">
+              <div class="row" style="justify-content: space-between">
+                <span class="h2">Question <span class="accent">3</span> of 10</span>
+                <span class="btn ghost sm">Standings</span>
+              </div>
+              <div style="margin-top: 20px">
+                <div class="row" style="justify-content: space-between; font-weight: 700; font-size: 14px; letter-spacing: 3px; text-transform: uppercase; color: var(--soft)">
+                  <span>Time left</span><span class="money" style="font-size: 28px; color: var(--ink)" id="s10-timer">8.0s</span>
+                </div>
+                <div class="track" style="background: rgba(36,22,63,0.08); margin-top: 10px">
+                  <span class="fill" id="s10-fill" style="background: var(--gold)"></span>
+                </div>
+              </div>
+              <div class="card" style="margin-top: 22px">
+                <p style="margin: 0; font-family: var(--display); font-weight: 600; font-size: 40px; line-height: 1.1">Which city is Nigeria&rsquo;s Centre of Excellence?</p>
+                <div class="opts2">
+                  <div class="qopt" id="qA" data-layout-allow-overlap="true">
+                    <span class="qkey" id="qA-key">A</span>
+                    <span class="qmark ok" id="qA-ok">&#10003;</span>
+                    <span>Lagos</span>
+                    <span class="cursor" id="s10-cursor">
+                      <svg viewBox="0 0 24 24" width="42" height="42" aria-hidden="true">
+                        <path d="M5 3l14 7.5-6.2 1.6L9.4 19z" fill="#24163f" stroke="#fffaf0" stroke-width="1.6" stroke-linejoin="round"/>
+                      </svg>
+                    </span>
+                  </div>
+                  <div class="qopt" id="qB" data-layout-allow-overlap="true">
+                    <span class="qkey" id="qB-key">B</span>
+                    <span class="qmark no" id="qB-no">&#10005;</span>
+                    <span>Abuja</span>
+                  </div>
+                  <div class="qopt"><span class="qkey">C</span><span>Kano</span></div>
+                  <div class="qopt"><span class="qkey">D</span><span>Ibadan</span></div>
+                </div>
+                <p class="small" style="text-align: center; margin: 18px 0 0; font-weight: 700">Lock in. First correct tap counts.</p>
+              </div>
+              <div class="receipt" id="s10-receipt" style="bottom: 6px">
+                <span class="ic">&#10003;</span>
+                <span class="tx"><b>Correct!</b>&nbsp;&nbsp;+500 pts · 412ms</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 11 · STANDINGS ============ -->
+      <section class="clip" id="s11" data-start="46.5" data-duration="3.5">
+        <div class="wrap" id="s11-wrap">
+          <div class="appbar">
+            <div class="wordmark">
+              <span class="wm-tile"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z"/></svg></span>
+              <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+            </div>
+            <div class="nav">
+              <span class="code-pill"><span class="dot coral"></span>AB12</span>
+              <span class="chip coral">Live</span>
+            </div>
+          </div>
+          <div class="screen">
+            <div class="stage" style="max-width: 1180px; margin: 0 auto">
+              <div class="row" style="justify-content: space-between; align-items: flex-end">
+                <div>
+                  <span class="chip gold">Live standings</span>
+                  <h1 class="h1" style="margin-top: 14px">After question 3 <span style="color: var(--soft)">· 6 players</span></h1>
+                </div>
+                <span class="chip gold" style="padding: 16px 26px; font-size: 22px">You&rsquo;re 3rd</span>
+              </div>
+              <div class="sttable" style="margin-top: 20px">
+                <div class="st-head"><span>#</span><span>Player</span><span style="text-align: right">Correct</span><span style="text-align: right">Speed</span></div>
+                <div class="st-row">
+                  <div class="st-rank">1</div>
+                  <div class="st-name"><span class="ava" style="width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: #d4f6ec; color: #0b9a62; font-family: var(--display); font-weight: 600">A</span>Ada</div>
+                  <div class="st-c">3</div><div class="st-s">1.2s</div>
+                </div>
+                <div class="st-row">
+                  <div class="st-rank">2</div>
+                  <div class="st-name"><span class="ava" style="width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: #ffe0e6; color: #e8405a; font-family: var(--display); font-weight: 600">T</span>Tobi</div>
+                  <div class="st-c">2</div><div class="st-s">1.8s</div>
+                </div>
+                <div class="st-row me">
+                  <div class="st-rank">3</div>
+                  <div class="st-name"><span class="ava" style="width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: #ffe4db; color: #c23c10; font-family: var(--display); font-weight: 600">Z</span>Zainab<span class="you">You</span></div>
+                  <div class="st-c">2</div><div class="st-s">2.1s</div>
+                </div>
+                <div class="st-row">
+                  <div class="st-rank">4</div>
+                  <div class="st-name"><span class="ava" style="width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: #dff6df; color: #2e9e4f; font-family: var(--display); font-weight: 600">M</span>Musa</div>
+                  <div class="st-c">1</div><div class="st-s">2.6s</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 12 · PODIUM ============ -->
+      <section class="clip" id="s12" data-start="50.0" data-duration="4.5">
+        <div class="wrap" id="s12-wrap">
+          <div class="appbar">
+            <div class="wordmark">
+              <span class="wm-tile"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z"/></svg></span>
+              <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+            </div>
+            <div class="nav">
+              <span class="code-pill"><span class="dot mint"></span>AB12</span>
+              <span class="chip soft">Game over</span>
+            </div>
+          </div>
+          <div class="screen">
+            <div class="stage">
+              <div class="cols c1010">
+                <section class="inkcard">
+                  <span class="dots-light" data-layout-ignore="true" aria-hidden="true"></span>
+                  <div class="burst" id="field" data-layout-ignore="true" aria-hidden="true"></div>
+                  <div class="podium-hero" style="position: relative">
+                    <span class="chip gold">1st place</span>
+                    <div class="crown" id="s12-crown">
+                      <svg viewBox="0 0 24 24" width="62" height="62" aria-hidden="true"><path d="M3 7l4 4 5-7 5 7 4-4v10H3z" fill="#24163f"/></svg>
+                    </div>
+                    <h1 class="banked">You banked <span class="money"><span class="naira">&#8358;</span><span id="s12-amount">0</span></span></h1>
+                    <p class="sub" style="color: rgba(255,255,255,0.62)">4 players · top 3 split the &#8358;50,000 pool.</p>
+                  </div>
+                </section>
+                <div class="stack">
+                  <div class="card tight">
+                    <h3 class="h3">Final standings</h3>
+                    <div class="stack sm" style="margin-top: 14px">
+                      <div class="wrow me"><span class="wrank">1</span><span class="ava" style="background: #ffe4db; color: #c23c10">Z</span><div style="flex: 1; font-weight: 700; font-size: 21px">Zainab</div><span class="money" style="        color: var(--mint-ink); font-size: 21px">&#8358;25,000</span></div>
+                      <div class="wrow"><span class="wrank">2</span><span class="ava" style="background: #d4f6ec; color: #0b9a62">A</span><div style="flex: 1; font-weight: 700; font-size: 21px">Ada</div><span class="money" style="        color: var(--mint-ink); font-size: 21px">&#8358;15,000</span></div>
+                      <div class="wrow"><span class="wrank">3</span><span class="ava" style="background: #ffe0e6; color: #e8405a">T</span><div style="flex: 1; font-weight: 700; font-size: 21px">Tobi</div><span class="money" style="        color: var(--mint-ink); font-size: 21px">&#8358;10,000</span></div>
+                    </div>
+                  </div>
+                  <div class="claimcard">
+                    <p style="margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--gold-ink)">Your claim code</p>
+                    <div class="claimcode">
+                      <span class="code">KWA-8F2D</span>
+                      <span class="copy">Copy</span>
+                    </div>
+                    <div class="redeem">Redeem</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 13 · CLAIM & PAYOUT ============ -->
+      <section class="clip" id="s13" data-start="54.5" data-duration="4.5">
+        <div class="wrap" id="s13-wrap">
+          <div class="appbar">
+            <div class="wordmark">
+              <span class="wm-tile"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z"/></svg></span>
+              <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+            </div>
+            <div class="nav">
+              <span class="code-pill"><span class="dot gold"></span>KWA-8F2D</span>
+              <span class="chip mint">Claim</span>
+            </div>
+          </div>
+          <div class="screen">
+            <div class="stage" style="max-width: 1560px; margin: 0 auto">
+              <div class="cols c090">
+                <div>
+                  <span class="chip gold">Claim your prize</span>
+                  <h1 class="h1" style="margin-top: 14px">Your winnings, <span class="accent">sorted</span></h1>
+                  <p class="sub">Enter your claim code, pick the Nigerian bank account you want paid into, and the host wallet transfers your prize in seconds.</p>
+                  <div class="card tight" style="margin-top: 20px; border: 2px solid rgba(246,169,27,0.35); background: rgba(246,169,27,0.1)">
+                    <p style="margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--gold-ink)">Your prize</p>
+                    <div class="money" style="font-size: 56px;         color: var(--mint-ink); margin-top: 6px">&#8358;25,000</div>
+                    <p class="small" style="margin-top: 6px; color: var(--ink)">Claim code KWA-8F2D · sent to zainab@example.com</p>
+                    <div style="margin-top: 14px; border-radius: 18px; border: 2px solid rgba(22,196,127,0.3); background: rgba(22,196,127,0.09); padding: 14px 16px; font-size: 15px; color: var(--ink); line-height: 1.45">
+                      <b>Your claim code is private.</b> Anyone with it can claim your prize — keep it to yourself.
+                    </div>
+                  </div>
+                </div>
+                <section class="card" style="position: relative">
+                  <div id="s13-form">
+                    <span class="chip violet">Step 2 · Bank details</span>
+                    <h2 style="margin-top: 16px">Where should we pay?</h2>
+                    <p class="sub" style="margin-top: 8px">Pick the account your <span class="money" style="        color: var(--mint-ink); font-size: 20px">&#8358;25,000</span> prize lands in.</p>
+                    <div class="fstack" style="margin-top: 22px">
+                      <div>
+                        <div class="lab" style="font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--soft); margin-bottom: 8px">Bank</div>
+                        <div class="select">GTBank <span style="color: var(--soft)">&#9662;</span></div>
+                      </div>
+                      <div class="field"><div class="lab">Account number</div><div class="val">0123456789</div></div>
+                      <div class="btn mint" style="width: 100%">Pay me · &#8358;25,000</div>
+                      <p class="small" style="text-align: center; margin: 0">The host wallet sends the exact prize amount via BMONI. Nothing is deducted on your side.</p>
+                    </div>
+                  </div>
+                  <div id="s13-paid">
+                    <span class="chip mint">Step 2 · Payout</span>
+                    <h2 style="margin-top: 16px">Paid out</h2>
+                    <p class="sub" style="margin-top: 8px">The transfer settled. Check your bank — it should be there shortly.</p>
+                    <div class="stack sm" style="margin-top: 22px">
+                      <div class="prow"><span class="small" style="font-weight: 700">Prize</span><span class="money" style="font-size: 20px; color: var(--mint-ink)">&#8358;25,000</span></div>
+                      <div class="prow"><span class="small" style="font-weight: 700">Account</span><span style="font-weight: 700; font-size: 17px">&#8226;&#8226;&#8226;&#8226; 6789 · GTBank</span></div>
+                      <div class="prow mint"><span style="font-weight: 700; color: var(--mint-ink)">Settlement ref</span><span class="money" style="font-size: 19px; color: var(--mint-ink)">BMN-4C7A93</span></div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 14 · CLOSE ============ -->
+      <section class="clip" id="s14" data-start="59.0" data-duration="4.0">
+        <div class="wrap" id="s14-wrap">
+          <div class="screen">
+            <div class="close">
+              <div class="wm-big" id="s14-wm">
+                <span class="wm-tile">
+                  <svg viewBox="0 0 24 24" width="62" height="62" aria-hidden="true"><path d="M5 4h4v6l4-6h5l-5 7 5 9h-5l-3-6-1 1v5H5z"/></svg>
+                </span>
+                <span class="wm-name">Kweeks<span class="wm-dot">.</span></span>
+              </div>
+              <p class="close-tag" id="s14-tag">Answer fast. Take the pool.</p>
+              <div class="rules" id="s14-rules">
+                <div class="rule"><span class="chip mint">Naira only</span><div class="t">One currency</div><div class="c">No conversion surprises — every pool is NGN.</div></div>
+                <div class="rule"><span class="chip mint">Escrow</span><div class="t">Locked while live</div><div class="c">The pool is held in a real wallet until winners are declared.</div></div>
+                <div class="rule"><span class="chip mint">Winner-only</span><div class="t">Private claims</div><div class="c">Only the podium can claim, only with their own session.</div></div>
+                <div class="rule"><span class="chip mint">Ledger</span><div class="t">Full history</div><div class="c">Every funding, room and payout is recorded.</div></div>
+              </div>
+              <p class="tech" id="s14-tech">Go + React · one process · BMONI naira rails</p>
+              <p class="out" id="s14-out">Real money out.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ AUDIO ============ -->
+      <audio id="music-bed" data-start="0" data-duration="63" data-track-index="10" data-volume="0.3"
+        src="assets/music/kweeks-demo-bed.mp3"></audio>
+      <audio id="a-s1" data-start="1.4" data-duration="0.18" data-track-index="11" data-volume="0.55"
+        src="assets/sfx/impact/impactSoft_medium_001.ogg"></audio>
+      <audio id="a-s1b" data-start="2.9" data-duration="0.11" data-track-index="12" data-volume="0.4"
+        src="assets/sfx/interface/drop_002.ogg"></audio>
+      <audio id="a-s2" data-start="5.52" data-duration="0.11" data-track-index="13" data-volume="0.4"
+        src="assets/sfx/interface/drop_001.ogg"></audio>
+      <audio id="a-s3" data-start="10.02" data-duration="0.11" data-track-index="14" data-volume="0.4"
+        src="assets/sfx/interface/drop_001.ogg"></audio>
+      <audio id="a-s4" data-start="14.52" data-duration="0.11" data-track-index="15" data-volume="0.4"
+        src="assets/sfx/interface/drop_002.ogg"></audio>
+      <audio id="a-s4ok" data-start="17.0" data-duration="0.26" data-track-index="16" data-volume="0.6"
+        src="assets/sfx/casino/chips-collide-1.ogg"></audio>
+      <audio id="a-s5" data-start="18.52" data-duration="0.11" data-track-index="17" data-volume="0.4"
+        src="assets/sfx/interface/drop_001.ogg"></audio>
+      <audio id="a-s6" data-start="23.52" data-duration="0.18" data-track-index="18" data-volume="0.5"
+        src="assets/sfx/impact/impactSoft_medium_001.ogg"></audio>
+      <audio id="a-s7" data-start="29.02" data-duration="0.11" data-track-index="19" data-volume="0.4"
+        src="assets/sfx/interface/drop_001.ogg"></audio>
+      <audio id="a-s8" data-start="33.02" data-duration="0.12" data-track-index="20" data-volume="0.45"
+        src="assets/sfx/casino/card-place-1.ogg"></audio>
+      <audio id="a-s9" data-start="37.52" data-duration="0.46" data-track-index="21" data-volume="0.45"
+        src="assets/sfx/casino/card-place-2.ogg"></audio>
+      <audio id="a-s10" data-start="41.02" data-duration="0.18" data-track-index="22" data-volume="0.5"
+        src="assets/sfx/impact/impactSoft_medium_001.ogg"></audio>
+      <audio id="a-tap" data-start="44.3" data-duration="0.06" data-track-index="23" data-volume="0.65"
+        src="assets/sfx/ui/mouseclick1.ogg"></audio>
+      <audio id="a-correct" data-start="44.98" data-duration="1.48" data-track-index="24" data-volume="0.7"
+        src="assets/sfx/impact/impactBell_heavy_000.ogg"></audio>
+      <audio id="a-s11" data-start="46.52" data-duration="0.11" data-track-index="25" data-volume="0.4"
+        src="assets/sfx/interface/drop_001.ogg"></audio>
+      <audio id="a-s12" data-start="50.02" data-duration="0.23" data-track-index="26" data-volume="0.65"
+        src="assets/sfx/casino/chips-collide-2.ogg"></audio>
+      <audio id="a-s12b" data-start="52.4" data-duration="0.26" data-track-index="27" data-volume="0.55"
+        src="assets/sfx/casino/chips-collide-1.ogg"></audio>
+      <audio id="a-s13" data-start="54.52" data-duration="0.1" data-track-index="28" data-volume="0.5"
+        src="assets/sfx/interface/click_001.ogg"></audio>
+      <audio id="a-paid" data-start="56.6" data-duration="0.65" data-track-index="29" data-volume="0.7"
+        src="assets/sfx/impact/impactBell_heavy_003.ogg"></audio>
+      <audio id="a-s14" data-start="59.05" data-duration="0.3" data-track-index="30" data-volume="0.65"
+        src="assets/sfx/impact/impactBell_heavy_004.ogg"></audio>
+    </div>
+
+    <script src="assets/vendor/gsap.min.js"></script>
+    <script src="assets/audio-data.js"></script>
+    <script>
+      (function () {
+        var AUDIO = window.KWEEKS_AUDIO || { fps: 30, totalFrames: 0, frames: [] };
+        var DUR = 63;
+        function fmt(n) {
+          n = Math.round(n);
+          return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        var tl = gsap.timeline({ paused: true });
+
+        /* ---------- scene crossfades (shared background) ---------- */
+        var B = [0, 5.5, 10.0, 14.5, 18.5, 23.5, 29.0, 33.0, 37.5, 41.0, 46.5, 50.0, 54.5, 59.0, 63.0];
+        for (var i = 1; i <= 14; i++) {
+          var start = B[i - 1], next = B[i];
+          tl.fromTo("#s" + i + "-wrap", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, start + 0.05);
+          if (i < 14) {
+            tl.to("#s" + i + "-wrap", { opacity: 0, y: -14, duration: 0.55, ease: "power2.in" }, next - 0.55);
+          }
+        }
+
+        /* ---------- 1 hook ---------- */
+        tl.fromTo("#s1-wm", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" }, 0.1);
+        tl.fromTo("#s1-l1", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.55);
+        tl.fromTo("#s1-l2", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 1.05);
+        tl.fromTo("#s1-pool", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.55, ease: "power3.out" }, 1.55);
+        tl.fromTo("#s1-tag", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 2.85);
+        var c1 = { v: 0 };
+        tl.to(c1, { v: 50000, duration: 1.1, ease: "power2.out", onUpdate: function () {
+          document.getElementById("s1-amount").textContent = fmt(c1.v);
+        } }, 1.55);
+
+        /* ---------- 2 signup ---------- */
+        tl.fromTo("#s2 .brandpanel", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 5.62);
+        tl.fromTo("#s2 .card .field, #s2 .card .grid2", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out", stagger: 0.07 }, 5.9);
+
+        /* ---------- 3 dashboard ---------- */
+        tl.fromTo("#s3 .dash-head", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 10.1);
+        tl.fromTo("#s3 .stat", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out", stagger: 0.07 }, 10.35);
+        tl.fromTo("#s3 .cols > *", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out", stagger: 0.1 }, 10.7);
+
+        /* ---------- 4 fund ---------- */
+        tl.fromTo("#s4 .stage > .chip, #s4 .stage > .h1, #s4 .stage > .sub", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out", stagger: 0.06 }, 14.6);
+        tl.fromTo("#s4 .card", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out", stagger: 0.08 }, 14.85);
+        tl.fromTo("#s4 .btn.mint", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 15.15);
+        tl.to("#s4-ok", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 16.55);
+        var c4 = { v: 120000 };
+        tl.to(c4, { v: 170000, duration: 0.7, ease: "power2.out", onUpdate: function () {
+          var s = fmt(c4.v);
+          document.getElementById("s4-bal").textContent = s;
+          document.getElementById("s4-avail").textContent = s;
+        } }, 16.55);
+
+        /* ---------- 5 builder ---------- */
+        tl.fromTo("#s5 .stage > .chip, #s5 .stage > .h1", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out", stagger: 0.06 }, 18.6);
+        tl.fromTo("#s5 .card", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out", stagger: 0.1 }, 18.85);
+        tl.fromTo("#s5 .card .field, #s5 .pillrow", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out", stagger: 0.06 }, 19.1);
+        tl.fromTo("#s5 .opt", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out", stagger: 0.07 }, 19.5);
+        tl.fromTo("#s5 .stage > div:last-child", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 20.1);
+        tl.fromTo("#s5-fill", { scaleX: 0 }, { scaleX: 0.246, duration: 0.8, ease: "power2.out" }, 19.05);
+        tl.fromTo("#s5-knob", { opacity: 0 }, { opacity: 1, duration: 0.35 }, 19.3);
+
+        /* ---------- 6 live room ---------- */
+        tl.fromTo("#s6 .proj", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.6, ease: "power2.out" }, 23.62);
+        tl.fromTo("#s6 .stack > .card", { opacity: 0, x: 30 }, { opacity: 1, x: 0, duration: 0.5, ease: "power2.out", stagger: 0.1 }, 23.8);
+        var t6 = { v: 1 };
+        tl.to(t6, { v: 0.1, duration: 4.6, ease: "none", onUpdate: function () {
+          document.getElementById("s6-fill").style.transform = "scaleX(" + t6.v.toFixed(4) + ")";
+        } }, 24.4);
+
+        /* ---------- 7 history ---------- */
+        tl.fromTo("#s7 .stage > .chip, #s7 .stage > .h1", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out", stagger: 0.06 }, 29.1);
+        tl.fromTo("#s7 .led", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 29.3);
+        tl.fromTo("#s7 .led-row", { opacity: 0, x: -26 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out", stagger: 0.12 }, 29.6);
+
+        /* ---------- 8 join ---------- */
+        tl.fromTo("#s8 .cols > div", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, 33.12);
+        tl.fromTo("#s8 .card", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, 33.28);
+        tl.fromTo("#s8 .avcell", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.35, ease: "power3.out", stagger: 0.05 }, 33.7);
+
+        /* ---------- 9 lobby ---------- */
+        tl.fromTo("#s9 .cols > div", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, 37.62);
+        tl.fromTo("#s9 .card", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, 37.78);
+        tl.fromTo("#s9 .pulse", { scale: 0.82 }, { scale: 1, duration: 1.4, ease: "sine.inOut", repeat: 1, yoyo: true }, 38.4);
+
+        /* ---------- 10 question ---------- */
+        tl.fromTo("#s10 .row, #s10 .card", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out", stagger: 0.1 }, 41.12);
+        var t10 = { v: 1 };
+        tl.to(t10, { v: 0.08, duration: 4.3, ease: "none", onUpdate: function () {
+          document.getElementById("s10-fill").style.transform = "scaleX(" + t10.v.toFixed(4) + ")";
+          document.getElementById("s10-timer").textContent = (t10.v * 8).toFixed(1) + "s";
+        } }, 41.5);
+        tl.set("#s10-cursor", { x: 700, y: 430, opacity: 0, scale: 1 }, 0);
+        tl.fromTo("#s10-cursor", { x: 700, y: 430, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: 0.9, ease: "power2.inOut" }, 43.3);
+        tl.fromTo("#s10-cursor", { scale: 1 }, { scale: 0.78, duration: 0.09, ease: "power2.in", immediateRender: false }, 44.25);
+        tl.to("#s10-cursor", { scale: 1, duration: 0.14, ease: "power2.out" }, 44.34);
+        tl.to("#qA-key", { opacity: 0, duration: 0.12 }, 44.3);
+        tl.to("#qA", { backgroundColor: "#d9f7ea", borderColor: "#16c47f", duration: 0.18 }, 44.3);
+        tl.to("#qA-ok", { opacity: 1, duration: 0.18 }, 44.34);
+        tl.to("#qB", { backgroundColor: "#ffe3e7", borderColor: "#ff4d5f", duration: 0.18 }, 44.5);
+        tl.to("#qB-key", { opacity: 0, duration: 0.12 }, 44.5);
+        tl.to("#qB-no", { opacity: 1, duration: 0.18 }, 44.54);
+        // beat-locked: 45.00s — mint "Correct!" payoff
+        tl.fromTo("#s10-receipt", { xPercent: -50, opacity: 0, y: 26, scale: 0.92 }, { xPercent: -50, opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "power3.out" }, 44.98);
+
+        /* ---------- 11 standings ---------- */
+        tl.fromTo("#s11 .row", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 46.62);
+        tl.fromTo("#s11 .sttable", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 46.75);
+        tl.fromTo("#s11 .st-row", { opacity: 0, x: -28 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out", stagger: 0.1 }, 46.95);
+        tl.to("#s11 .st-row.me", { backgroundColor: "rgba(246,169,27,0.22)", duration: 0.3 }, 47.55);
+
+        /* ---------- 12 podium ---------- */
+        tl.fromTo("#s12 .inkcard", { opacity: 0, x: -26 }, { opacity: 1, x: 0, duration: 0.55, ease: "power2.out" }, 50.12);
+        tl.fromTo("#s12 .crown", { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "power3.out" }, 50.3);
+        tl.fromTo("#s12 .banked", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 50.45);
+        var c12 = { v: 0 };
+        tl.to(c12, { v: 25000, duration: 0.85, ease: "power2.out", onUpdate: function () {
+          document.getElementById("s12-amount").textContent = fmt(c12.v);
+        } }, 50.45);
+        tl.fromTo("#s12 .stack > .card", { opacity: 0, x: 26 }, { opacity: 1, x: 0, duration: 0.5, ease: "power2.out" }, 50.55);
+        // beat-locked: 51.27s (strong beat, s=0.86)
+        tl.fromTo("#s12 .claimcard", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 51.27);
+
+        /* ---------- confetti on the podium ---------- */
+        var field = document.getElementById("field");
+        var palette = ["#ff4d5f", "#f6a91b", "#16c47f", "#6c4cf1", "#38a8ff"];
+        var prand = function (n) { var x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+        var parts = [], P = 28;
+        for (var p = 0; p < P; p++) {
+          var el = document.createElement("div");
+          el.className = "particle";
+          var sz = 9 + prand(p * 3 + 1) * 9;
+          el.style.width = sz + "px"; el.style.height = sz * 0.72 + "px";
+          el.style.background = palette[p % palette.length];
+          field.appendChild(el);
+          var ang = -Math.PI / 2 + (prand(p * 5 + 2) * 2 - 1) * 0.7;
+          var spd = 300 + prand(p * 7 + 3) * 380;
+          parts.push({ el: el, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, spin: (prand(p * 11 + 4) * 2 - 1) * 320 });
+        }
+        var FLIGHT = 1.0, G = 1250, FADE = 0.28, drive = { T: 0 };
+        tl.fromTo(drive, { T: 0 }, { T: 1, duration: FLIGHT, ease: "none", onUpdate: function () {
+          var t = drive.T * FLIGHT, fade = Math.min(1, (1 - drive.T) / FADE);
+          for (var k = 0; k < parts.length; k++) {
+            var pt = parts[k];
+            pt.el.style.transform = "translate(" + (pt.vx * t).toFixed(1) + "px," + (pt.vy * t + 0.5 * G * t * t).toFixed(1) + "px) rotate(" + (pt.spin * t).toFixed(1) + "deg)";
+            pt.el.style.opacity = String(drive.T === 0 ? 0 : fade);
+          }
+        } }, 51.27); // beat-locked: 51.27s — confetti fires on the money landing
+
+        /* ---------- 13 claim & payout ---------- */
+        tl.fromTo("#s13 .cols > div", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, 54.62);
+        tl.fromTo("#s13 .card", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, 54.78);
+        tl.to("#s13-form", { opacity: 0, y: -18, duration: 0.4, ease: "power2.in" }, 56.4);
+        tl.fromTo("#s13-paid", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 56.6);
+
+        /* ---------- 14 close ---------- */
+        tl.fromTo("#s14-wm", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.55, ease: "power3.out" }, 59.1);
+        tl.fromTo("#s14-tag", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 59.45);
+        tl.fromTo("#s14 .rule", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out", stagger: 0.08 }, 59.75);
+        tl.fromTo("#s14-out", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 60.35);
+
+        /* ---------- audio-reactive glow + music fade ---------- */
+        var glows = gsap.utils.toArray(".music-glow");
+        var music = document.getElementById("music-bed");
+        var clock = { p: 0 };
+        tl.fromTo(clock, { p: 0 }, { p: 1, duration: DUR, ease: "none", onUpdate: function () {
+          var t = clock.p * DUR;
+          var idx = Math.round(clock.p * (AUDIO.totalFrames - 1));
+          var fr = AUDIO.frames[idx];
+          if (fr) {
+            var bass = fr.bands[0], amp = fr.rms;
+            for (var g = 0; g < glows.length; g++) {
+              glows[g].style.opacity = (0.12 + bass * 0.2).toFixed(3);
+              glows[g].style.transform = "scale(" + (1 + amp * 0.08).toFixed(3) + ")";
+            }
+          }
+          var v = t < 62.3 ? 0.3 : 0.3 * (1 - (t - 62.3) / 0.7);
+          if (music) music.volume = Math.max(0, v);
+        } }, 0);
+
+        window.__timelines["kweeks-demo"] = tl;
+      })();
+    </script>
+  </body>
+</html>
