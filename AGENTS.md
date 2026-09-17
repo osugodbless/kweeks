@@ -51,6 +51,8 @@ There is no README and no CI (`.github/` absent).
 - Frontend (from `web/`, or `npm --prefix web …`): `npm run typecheck`,
   `npm run lint`, `npm test` (vitest; single file: `npx vitest run
   src/lib/player.test.ts`), `npm run build` (= typecheck + vite build).
+- `web/` ships both `package-lock.json` and `bun.lock`. npm is canonical:
+  package.json scripts are npm-based and Render runs `npm --prefix web ci`.
 - Pre-commit check: `go test -race ./... && go vet ./...`, then in `web/`
   typecheck + lint + test + build.
 
