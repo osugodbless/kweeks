@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -30,12 +31,15 @@ export function Modal({ open, onClose, title, eyebrow, children, className, hide
 
   if (!open) return null;
 
-  return (
+  // Portal to <body> so the modal escapes any ancestor stacking context or
+  // containing block (e.g. the sticky, backdrop-blurred header) that would
+  // otherwise trap a fixed-position dialog behind the page.
+  return createPortal(
     <div
-      className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto p-4 sm:p-6"
+      className="fixed inset-0 z-[100] grid place-items-center overflow-y-auto p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-label={title ?? "Wallet setup"}
+      aria-label={title ?? "Dialog"}
     >
       <button
         type="button"
@@ -66,6 +70,7 @@ export function Modal({ open, onClose, title, eyebrow, children, className, hide
         {title && <h2 className="mt-1.5 font-display text-2xl font-semibold tracking-tight">{title}</h2>}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
