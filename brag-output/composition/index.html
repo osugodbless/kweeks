@@ -1028,7 +1028,7 @@
       </section>
 
       <!-- ============ AUDIO ============ -->
-      <audio id="music-bed" data-start="0" data-duration="20.2" data-track-index="10" data-volume="0.34"
+      <audio id="music-bed" data-start="0" data-duration="20.2" data-track-index="10" data-volume="1"
         src="assets/music/kweeks-bed.mp3"></audio>
       <audio id="sfx-s1-slam" data-start="0.12" data-duration="0.51" data-track-index="11" data-volume="0.8"
         src="assets/sfx/impact/impactSoft_heavy_000.ogg"></audio>
@@ -1206,7 +1206,8 @@
               glows[g].style.transform = "scale(" + (1 + amp * 0.1).toFixed(3) + ")";
             }
           }
-          var v = t < 19.6 ? 0.34 : 0.34 * (1 - (t - 19.6) / 0.6);
+          // data-volume=1; the bed level lives here so it is applied exactly once.
+          var v = t < 19.6 ? 0.42 : 0.42 * (1 - (t - 19.6) / 0.6);
           if (music) music.volume = Math.max(0, v);
         } }, 0);
 
