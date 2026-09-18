@@ -67,10 +67,11 @@ func CanTransition(from, to ClaimState) bool {
 }
 
 // NigerianBank is one supported Nigerian bank (CBN code + full name) used to
-// populate the winner's payout form.
+// populate the winner's payout form. The JSON keys are lowercase because the
+// frontend reads code/name directly.
 type NigerianBank struct {
-	Code string
-	Name string
+	Code string `json:"code"`
+	Name string `json:"name"`
 }
 
 // NigerianAccount is the winner's Nigerian bank account, collected on the claim

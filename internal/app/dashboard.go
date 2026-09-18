@@ -61,8 +61,9 @@ func (g *Game) Dashboard(ctx context.Context, instructorID string) (*DashboardSt
 			WinnerCount: q.WinnerCount, Pacing: string(q.Pacing),
 			QuestionCount: len(q.Questions), CreatedAt: q.CreatedAt,
 		})
-		// Player + active-room aggregates.
-		if room, err := g.store.LatestLiveRoom(ctx, q.ID); err == nil && room != nil {
+		// Attach the latest room in ANY state so the dashboard can offer a
+		// persistent results link for a finished quiz (not only live rooms).
+		if room, err := g.store.LatestRoom(ctx, q.ID); err == nil && room != nil {
 			players, _ := g.store.ListParticipants(ctx, room.ID)
 			for _, p := range players {
 				playerSeen[p.ID] = true
@@ -126,9 +127,6 @@ func (g *Game) History(ctx context.Context, instructorID string) ([]HistoryItem,
 			ID: q.ID, At: q.CreatedAt, Type: "quiz", Title: "Hosted · " + q.Title,
 			Meta: poolSummary(q),
 		})
-		if room, err := g.store.LatestLiveRoom(ctx, q.ID); err == nil && room != nil {
-			// room opened after hosting
-		}
 	}
 	// Paid winners.
 	for _, c := range claims {

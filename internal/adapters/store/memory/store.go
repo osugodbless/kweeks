@@ -167,6 +167,25 @@ func (s *Store) LatestLiveRoom(ctx context.Context, quizID string) (*domain.Room
 	return best, nil
 }
 
+func (s *Store) LatestRoom(ctx context.Context, quizID string) (*domain.Room, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var best *domain.Room
+	for _, r := range s.rooms {
+		if r.QuizID != quizID {
+			continue
+		}
+		if best == nil || r.StartedAt.After(best.StartedAt) {
+			cp := *r
+			best = &cp
+		}
+	}
+	if best == nil {
+		return nil, domain.ErrRoomNotFound
+	}
+	return best, nil
+}
+
 func (s *Store) JoinParticipant(ctx context.Context, p *domain.Participant) (*domain.Participant, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

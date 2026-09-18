@@ -43,6 +43,11 @@ type Config struct {
 	SmtpUser string
 	SmtpPass string
 	FromAddr string
+
+	// DummyClaim, when true, makes the winner payout succeed WITHOUT touching
+	// the money rail: the claim is marked paid immediately so a demo can show
+	// the full redeem -> "credited" flow. Turn it off for real payouts.
+	DummyClaim bool
 }
 
 // Load reads configuration from the environment.
@@ -65,6 +70,8 @@ func Load() (*Config, error) {
 		SmtpUser: getEnv("SMTP_USER", ""),
 		SmtpPass: getEnv("SMTP_PASS", ""),
 		FromAddr: getEnv("SMTP_FROM", "kweeks@example.com"),
+
+		DummyClaim: getEnvBool("DUMMY_CLAIM", false),
 	}
 
 	if err := c.validate(); err != nil {
@@ -83,6 +90,15 @@ func (c *Config) validate() error {
 func getEnv(key, def string) string {
 	if v, ok := os.LookupEnv(key); ok && v != "" {
 		return v
+	}
+	return def
+}
+
+func getEnvBool(key string, def bool) bool {
+	if v, ok := os.LookupEnv(key); ok && v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			return b
+		}
 	}
 	return def
 }

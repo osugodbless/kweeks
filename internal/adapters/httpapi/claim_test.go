@@ -26,7 +26,9 @@ type httpFakeMoney struct {
 func (f *httpFakeMoney) CreateUser(ctx context.Context, id domain.UserIdentity) (string, error) {
 	return "usr_host", nil
 }
-func (f *httpFakeMoney) SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error { return nil }
+func (f *httpFakeMoney) SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error {
+	return nil
+}
 func (f *httpFakeMoney) LookupBVN(ctx context.Context, userID, bvn string) (*domain.BVNRecord, error) {
 	return &domain.BVNRecord{BVN: bvn, FirstName: "Bunch", LastName: "Dillon", DateOfBirth: "1990-01-15"}, nil
 }
@@ -36,7 +38,9 @@ func (f *httpFakeMoney) UploadKycDocument(ctx context.Context, userID string, do
 func (f *httpFakeMoney) CreateWallet(ctx context.Context, userID string) (string, string, error) {
 	return "wal_host", "0xhost", nil
 }
-func (f *httpFakeMoney) ActivateRail(ctx context.Context, userID, walletAddr, bvn string) error { return nil }
+func (f *httpFakeMoney) ActivateRail(ctx context.Context, userID, walletAddr, bvn string) error {
+	return nil
+}
 func (f *httpFakeMoney) DepositAccount(ctx context.Context, userID, walletID string) (string, string, error) {
 	return "0123456789", "Providus", nil
 }
@@ -124,8 +128,13 @@ func TestResolveClaimEndpoint(t *testing.T) {
 	if out.Claim.State != "created" {
 		t.Fatalf("claim state = %q", out.Claim.State)
 	}
-	if len(out.Banks) != 1 || out.Banks[0].Code != "058" {
-		t.Fatalf("banks mismatch: %+v", out.Banks)
+	// A short rail list falls back to the comprehensive built-in list, and the
+	// wire contract is lowercase code/name (json tags on domain.NigerianBank).
+	if len(out.Banks) < 20 {
+		t.Fatalf("banks should be the complete fallback list, got %d", len(out.Banks))
+	}
+	if out.Banks[0].Code == "" || out.Banks[0].Name == "" {
+		t.Fatalf("banks missing code/name: %+v", out.Banks[0])
 	}
 
 	// Wrong email -> 403.

@@ -255,6 +255,32 @@ export interface QuizDetail {
   questions: QuizQuestion[];
 }
 
+/** One row of a quiz's persistent, post-game leaderboard. */
+export interface QuizResultRow {
+  participantId: string;
+  nickname: string;
+  avatar: string;
+  correctCount: number;
+  totalLatencyMs: number;
+  joinedAt: string;
+}
+
+/** The host's persistent results for a quiz (works after the room has closed). */
+export interface QuizResults {
+  quiz: {
+    id: string;
+    title: string;
+    poolNaira: string;
+    winnerCount: number;
+    pacing: "auto" | "manual";
+    questionCount: number;
+    createdAt: string;
+  };
+  room: { id: string; code: string; state: "lobby" | "live" | "podium" | "ended"; startedAt: string } | null;
+  standings: QuizResultRow[];
+  winners: QuizResultRow[];
+}
+
 export interface DashboardStat {
   quizzesHosted: number;
   playersHosted: number;

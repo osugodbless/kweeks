@@ -72,6 +72,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/quizzes", s.requireAuth(s.handleListQuizzes))
 	mux.HandleFunc("GET /api/quizzes/{quizID}", s.requireAuth(s.handleGetQuiz))
 	mux.HandleFunc("PUT /api/quizzes/{quizID}", s.requireAuth(s.handleUpdateQuiz))
+	mux.HandleFunc("GET /api/quizzes/{quizID}/results", s.requireAuth(s.handleQuizResults))
 
 	// Rooms
 	mux.HandleFunc("POST /api/rooms", s.requireAuth(s.handleOpenRoom))

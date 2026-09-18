@@ -243,7 +243,16 @@ export function InstructorWallet() {
                         <Money value={q.poolNaira} className="text-xs" />
                       </p>
                     </div>
-                    {q.roomId ? (
+                    {q.roomId && (q.state === "podium" || q.state === "ended") ? (
+                      <Link
+                        to={`/instructor/results?quiz=${q.id}`}
+                        className="flex items-center gap-1.5 rounded-full bg-gold px-4 py-2 text-xs font-bold text-ink press-3d"
+                        style={{ "--btn-deep-rgb": "var(--color-gold-dark)" } as CSSProperties}
+                      >
+                        <Trophy className="size-3.5" fill="currentColor" />
+                        Results
+                      </Link>
+                    ) : q.roomId ? (
                       <Link
                         to={`/instructor/live-room?room=${q.roomId}`}
                         className="flex items-center gap-1.5 rounded-full bg-violet px-4 py-2 text-xs font-bold text-white press-3d"

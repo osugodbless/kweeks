@@ -116,7 +116,9 @@ func (s *Server) handleListQuizzes(w http.ResponseWriter, r *http.Request) {
 			"winnerCount": q.WinnerCount, "pacing": q.Pacing, "questionCount": len(q.Questions),
 			"createdAt": q.CreatedAt,
 		}
-		if room, err := s.game.LatestLiveRoom(r.Context(), q.ID); err == nil && room != nil {
+		// Latest room in any state: a closed quiz still exposes its room so the
+		// dashboard can link to the persistent results view.
+		if room, err := s.game.LatestRoom(r.Context(), q.ID); err == nil && room != nil {
 			item["roomCode"] = room.Code
 			item["roomId"] = room.ID
 			item["state"] = room.State
@@ -149,6 +151,40 @@ func (s *Server) handleGetQuiz(w http.ResponseWriter, r *http.Request) {
 		"winnerCount": quiz.WinnerCount, "pacing": quiz.Pacing,
 		"defaultDurationMs": quiz.DefaultDuration.Milliseconds(),
 		"questions":         questions,
+	})
+}
+
+// handleQuizResults returns the persistent, host-owned results for a quiz: its
+// metadata, most recent room, the full leaderboard, and the declared winners.
+// It keeps working after the room closes and after the host logs back in.
+func (s *Server) handleQuizResults(w http.ResponseWriter, r *http.Request) {
+	res, err := s.game.QuizResults(r.Context(), r.PathValue("quizID"))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	// Results carry player nicknames, so only the owning instructor may read
+	// them. Another instructor's quiz is treated as not found.
+	if res.Quiz.InstructorID != instructorFrom(r) {
+		writeErr(w, domain.ErrQuizNotFound)
+		return
+	}
+	var room any
+	if res.Room != nil {
+		room = map[string]any{
+			"id": res.Room.ID, "code": res.Room.Code, "state": res.Room.State,
+			"startedAt": res.Room.StartedAt,
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"quiz": map[string]any{
+			"id": res.Quiz.ID, "title": res.Quiz.Title, "poolNaira": res.Quiz.Pool.DisplayString(),
+			"winnerCount": res.Quiz.WinnerCount, "pacing": res.Quiz.Pacing,
+			"questionCount": len(res.Quiz.Questions), "createdAt": res.Quiz.CreatedAt,
+		},
+		"room":      room,
+		"standings": res.Standings,
+		"winners":   res.Winners,
 	})
 }
 

@@ -42,6 +42,10 @@ type Store interface {
 	// LatestLiveRoom returns the most recently started room for a quiz, if one
 	// is in lobby/live state (dashboard "continue" affordance).
 	LatestLiveRoom(ctx context.Context, quizID string) (*domain.Room, error)
+	// LatestRoom returns the most recently created room for a quiz in ANY state
+	// (lobby/live/podium/ended). Used by the host's persistent post-quiz
+	// results view, which must keep working after the room has closed.
+	LatestRoom(ctx context.Context, quizID string) (*domain.Room, error)
 
 	// Participants (one row per email per room; rejoin merges)
 	JoinParticipant(ctx context.Context, p *domain.Participant) (*domain.Participant, error)

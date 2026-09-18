@@ -275,7 +275,15 @@ export function InstructorLiveRoom() {
                 {state === "podium" && (
                   <div className="rounded-2xl border-2 border-mint/30 bg-mint/10 px-4 py-4 text-center">
                     <p className="text-xs font-bold uppercase tracking-widest text-violet-dark">Room ended</p>
-                    <Link to="/instructor/history" className="mt-2 inline-block text-sm font-bold text-violet hover:text-violet-dark">
+                    {room?.quizId && (
+                      <Link
+                        to={`/instructor/results?quiz=${room.quizId}`}
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-ink transition-opacity hover:opacity-90"
+                      >
+                        <Trophy className="size-4" /> View full results
+                      </Link>
+                    )}
+                    <Link to="/instructor/history" className="mt-3 block text-sm font-bold text-violet hover:text-violet-dark">
                       View history →
                     </Link>
                   </div>

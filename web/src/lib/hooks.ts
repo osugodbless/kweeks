@@ -16,6 +16,7 @@ import {
   PublicRoom,
   QuizDetail,
   QuizListItem,
+  QuizResults,
   Standing,
   Wallet,
   WalletSetup,
@@ -101,6 +102,15 @@ export function useQuiz(id: string | undefined) {
     queryKey: qk.quiz(id ?? ""),
     queryFn: () => api.get<QuizDetail>(`/quizzes/${id}`),
     enabled: authed() && Boolean(id),
+  });
+}
+
+/** A quiz's persistent results — safe to call long after the room closed. */
+export function useQuizResults(quizId: string | undefined) {
+  return useQuery({
+    queryKey: ["quiz-results", quizId ?? ""] as const,
+    queryFn: () => api.get<QuizResults>(`/quizzes/${quizId}/results`),
+    enabled: authed() && Boolean(quizId),
   });
 }
 

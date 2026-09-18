@@ -25,7 +25,9 @@ func (f *fakeMoney) CreateUser(ctx context.Context, id domain.UserIdentity) (str
 	return "usr_host", nil
 }
 
-func (f *fakeMoney) SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error { return nil }
+func (f *fakeMoney) SubmitKYC(ctx context.Context, userID string, k domain.KYCProfile) error {
+	return nil
+}
 func (f *fakeMoney) LookupBVN(ctx context.Context, userID, bvn string) (*domain.BVNRecord, error) {
 	return &domain.BVNRecord{BVN: bvn, FirstName: "Samson", LastName: "Jabo", DateOfBirth: "1990-01-15"}, nil
 }
@@ -36,7 +38,9 @@ func (f *fakeMoney) UploadKycDocument(ctx context.Context, userID string, doc do
 func (f *fakeMoney) CreateWallet(ctx context.Context, userID string) (string, string, error) {
 	return "wal_host", "0xhost", nil
 }
-func (f *fakeMoney) ActivateRail(ctx context.Context, userID, walletAddr, bvn string) error { return nil }
+func (f *fakeMoney) ActivateRail(ctx context.Context, userID, walletAddr, bvn string) error {
+	return nil
+}
 func (f *fakeMoney) DepositAccount(ctx context.Context, userID, walletID string) (string, string, error) {
 	return "0123456789", "Providus", nil
 }
@@ -232,8 +236,39 @@ func TestResolveClaimAndListBanks(t *testing.T) {
 	if err != nil || got.ID != claim.ID {
 		t.Fatalf("resolve: %v %+v", err, got)
 	}
+	// The fake rail returns a short list; below the completeness floor the
+	// claim form falls back to the comprehensive built-in bank list.
 	banks, err := red.ListBanks(context.Background(), got)
-	if err != nil || len(banks) != 2 {
-		t.Fatalf("banks: %v %+v", err, banks)
+	if err != nil || len(banks) < 20 {
+		t.Fatalf("banks: %v (len %d)", err, len(banks))
+	}
+}
+
+// DUMMY_CLAIM settles the payout locally with no money rail: the claim must end
+// paid with a dummy reference and the winner's bank details recorded.
+func TestDummyPayoutMarksClaimPaid(t *testing.T) {
+	st := memory.New()
+	clk := clock.NewStatic(time.Date(2026, 9, 3, 12, 0, 0, 0, time.UTC))
+	roomID, email := seedHostAndWinner(t, st, clk, nil)
+
+	red := NewRedemption(st, clk, nil, nil).WithDummyPayout(true)
+	claim, err := red.CreateClaim(context.Background(), roomID, email)
+	if err != nil {
+		t.Fatal(err)
+	}
+	paid, err := red.SubmitBankPayout(context.Background(), claim.ClaimCode, email, domain.NigerianAccount{
+		AccountNumber: "0123456789", BankCode: "058", BankName: "GTB",
+	})
+	if err != nil {
+		t.Fatalf("dummy payout: %v", err)
+	}
+	if paid.State != domain.ClaimPaid {
+		t.Fatalf("state = %q, want paid", paid.State)
+	}
+	if !strings.HasPrefix(paid.PayoutRef, "DUMMY-") {
+		t.Fatalf("expected a DUMMY- payout ref, got %q", paid.PayoutRef)
+	}
+	if paid.BankName != "GTB" || paid.BankAccountNumber != "0123456789" {
+		t.Fatalf("bank details not recorded: %+v", paid)
 	}
 }

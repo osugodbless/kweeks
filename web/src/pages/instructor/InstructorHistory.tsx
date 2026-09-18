@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { History, Trophy } from "lucide-react";
 import { useHistory } from "@/lib/hooks";
 import { naira } from "@/lib/player";
@@ -82,6 +82,14 @@ export function InstructorHistory() {
                       <p className="truncate font-bold">{item.title}</p>
                       <p className="text-xs text-soft">{formatDate(item.at)}</p>
                       {item.meta && <p className="mt-0.5 text-xs text-soft">{item.meta}</p>}
+                      {item.type === "quiz" && (
+                        <Link
+                          to={`/instructor/results?quiz=${item.id}`}
+                          className="mt-1 inline-block text-xs font-bold text-violet underline-offset-2 hover:text-violet-dark hover:underline"
+                        >
+                          View results →
+                        </Link>
+                      )}
                     </div>
                     <div>
                       <Chip tone={meta.tone}>{meta.label}</Chip>

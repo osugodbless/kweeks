@@ -335,6 +335,12 @@ func (g *Game) LatestLiveRoom(ctx context.Context, quizID string) (*domain.Room,
 	return g.store.LatestLiveRoom(ctx, quizID)
 }
 
+// LatestRoom returns the most recent room for a quiz in any state, so the
+// dashboard can offer a results link for a closed quiz.
+func (g *Game) LatestRoom(ctx context.Context, quizID string) (*domain.Room, error) {
+	return g.store.LatestRoom(ctx, quizID)
+}
+
 // Winners recomputes the podium winners for a room from the live standings.
 // Deterministic and safe to call after FinalizePodium.
 func (g *Game) Winners(ctx context.Context, roomID string) ([]domain.Standing, error) {
@@ -351,4 +357,40 @@ func (g *Game) Winners(ctx context.Context, roomID string) ([]domain.Standing, e
 		return nil, err
 	}
 	return domain.SelectWinners(standings, quiz.WinnerCount), nil
+}
+
+// QuizResults is a quiz's persistent end-of-game view: the quiz, its most
+// recent room in any state, the full standings, and the declared winners.
+// Standings are recomputed from persisted participants + answers, so the view
+// keeps working long after the room has closed and across logout/login.
+type QuizResults struct {
+	Quiz      *domain.Quiz
+	Room      *domain.Room
+	Standings []domain.Standing
+	Winners   []domain.Standing
+}
+
+// QuizResults builds the host-facing results view for a quiz. A quiz with no
+// room yet resolves to an empty leaderboard rather than an error.
+func (g *Game) QuizResults(ctx context.Context, quizID string) (*QuizResults, error) {
+	quiz, err := g.store.GetQuiz(ctx, quizID)
+	if err != nil {
+		return nil, err
+	}
+	res := &QuizResults{Quiz: quiz, Standings: []domain.Standing{}}
+	room, err := g.store.LatestRoom(ctx, quizID)
+	if err != nil {
+		if errors.Is(err, domain.ErrRoomNotFound) {
+			return res, nil
+		}
+		return nil, err
+	}
+	res.Room = room
+	standings, err := g.Standings(ctx, room.ID)
+	if err != nil {
+		return nil, err
+	}
+	res.Standings = standings
+	res.Winners = domain.SelectWinners(standings, quiz.WinnerCount)
+	return res, nil
 }

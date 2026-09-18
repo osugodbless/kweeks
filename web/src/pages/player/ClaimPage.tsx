@@ -16,7 +16,7 @@ const NUBAN_RE = /^\d{10}$/;
 const PAYOUT_STATES: Record<string, { title: string; copy: string }> = {
   bank_submitted: { title: "Account locked in", copy: "Your bank account is verified. We are moving your prize now." },
   paying: { title: "Payout in flight", copy: "The money is on its way from the host wallet to your bank account." },
-  paid: { title: "Paid out", copy: "The transfer settled. Check your bank — it should be there shortly." },
+  paid: { title: "Paid out", copy: "Your money has been credited. Check your bank — it should be there shortly." },
   failed: { title: "Payout needs attention", copy: "The transfer could not complete. Please try again or contact the host." },
 };
 

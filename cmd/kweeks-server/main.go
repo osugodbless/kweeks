@@ -65,7 +65,8 @@ func run(logger *slog.Logger) error {
 	}
 	mail := mailer.New(cfg.SmtpHost, cfg.SmtpPort, cfg.SmtpUser, cfg.SmtpPass, cfg.FromAddr, logger)
 	red := app.NewRedemption(st, realClock, money, mail).
-		WithPublicURL(cfg.PublicURL)
+		WithPublicURL(cfg.PublicURL).
+		WithDummyPayout(cfg.DummyClaim)
 
 	auth := app.NewAuth(st, realClock)
 	wallet := app.NewWallet(st, realClock, money)

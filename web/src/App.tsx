@@ -14,6 +14,7 @@ import { InstructorWallet } from "@/pages/instructor/InstructorWallet";
 import { InstructorFundWallet } from "@/pages/instructor/InstructorFundWallet";
 import { InstructorQuizBuilder } from "@/pages/instructor/InstructorQuizBuilder";
 import { InstructorLiveRoom } from "@/pages/instructor/InstructorLiveRoom";
+import { InstructorResults } from "@/pages/instructor/InstructorResults";
 import { InstructorHistory } from "@/pages/instructor/InstructorHistory";
 import { InstructorHistoryEmpty } from "@/pages/instructor/InstructorHistoryEmpty";
 
@@ -82,6 +83,14 @@ export default function App() {
           element={
             <Guard>
               <InstructorLiveRoom />
+            </Guard>
+          }
+        />
+        <Route
+          path="/instructor/results"
+          element={
+            <Guard>
+              <InstructorResults />
             </Guard>
           }
         />

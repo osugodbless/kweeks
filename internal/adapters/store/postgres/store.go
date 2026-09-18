@@ -309,6 +309,18 @@ func (s *Store) LatestLiveRoom(ctx context.Context, quizID string) (*domain.Room
 	return s.scanRoom(row)
 }
 
+// LatestRoom returns the most recently created room for a quiz in any state,
+// so the host can review results after the room has closed.
+func (s *Store) LatestRoom(ctx context.Context, quizID string) (*domain.Room, error) {
+	row := s.pool.QueryRow(ctx, `
+		select id, quiz_id, state, host_id, current_question_idx, question_started_at, started_at, code
+		from rooms
+		where quiz_id=$1
+		order by created_at desc
+		limit 1`, quizID)
+	return s.scanRoom(row)
+}
+
 // --- Participants ---
 
 func (s *Store) JoinParticipant(ctx context.Context, p *domain.Participant) (*domain.Participant, error) {

@@ -26,6 +26,10 @@ type Redemption struct {
 	// publicURL is the externally-reachable base URL (KWEEKS_PUBLIC_URL) used
 	// to build the /claim link in the redemption email.
 	publicURL string
+
+	// dummy marks the payout as a demo: SubmitBankPayout marks the claim paid
+	// without calling the money rail (DUMMY_CLAIM). Never on for real money.
+	dummy bool
 }
 
 func NewRedemption(store ports.Store, clock ports.Clock, money ports.Money, mail ports.Mail) *Redemption {
@@ -35,6 +39,13 @@ func NewRedemption(store ports.Store, clock ports.Clock, money ports.Money, mail
 // WithPublicURL sets the external base URL used for claim links in email.
 func (r *Redemption) WithPublicURL(publicURL string) *Redemption {
 	r.publicURL = publicURL
+	return r
+}
+
+// WithDummyPayout marks the payout as a demo (DUMMY_CLAIM): the winner's bank
+// details are recorded and the claim is marked paid without any money-rail call.
+func (r *Redemption) WithDummyPayout(enabled bool) *Redemption {
+	r.dummy = enabled
 	return r
 }
 
@@ -208,17 +219,28 @@ func (r *Redemption) HostExternal(ctx context.Context, claim *domain.Claim) (*do
 	}, nil
 }
 
+// bankListFloor is the minimum number of banks the rail must return for its
+// list to be treated as complete. Below this (or on any rail error) the claim
+// form falls back to the comprehensive built-in Nigerian bank list so the form
+// is always complete and previewable, even on a sparse sandbox.
+const bankListFloor = 20
+
 // ListBanks returns the supported Nigerian banks for the claim form, scoped to
-// the host wallet.
+// the host wallet. It falls back to domain.DefaultNigerianBanks when the money
+// rail is unavailable or returns an incomplete list.
 func (r *Redemption) ListBanks(ctx context.Context, claim *domain.Claim) ([]domain.NigerianBank, error) {
 	if r.money == nil {
-		return nil, errors.New("money rail not configured")
+		return domain.DefaultNigerianBanks, nil
 	}
 	ext, err := r.HostExternal(ctx, claim)
 	if err != nil {
-		return nil, err
+		return domain.DefaultNigerianBanks, nil
 	}
-	return r.money.ListNigerianBanks(ctx, ext.UserID)
+	banks, err := r.money.ListNigerianBanks(ctx, ext.UserID)
+	if err != nil || len(banks) < bankListFloor {
+		return domain.DefaultNigerianBanks, nil
+	}
+	return banks, nil
 }
 
 // SubmitBankPayout takes the winner's Nigerian bank details, verifies +
@@ -230,14 +252,24 @@ func (r *Redemption) SubmitBankPayout(ctx context.Context, claimCode, email stri
 	if err != nil {
 		return nil, err
 	}
-	if r.money == nil {
-		return nil, errors.New("money rail not configured")
-	}
 	if !domain.CanTransition(claim.State, domain.ClaimBankSubmitted) {
+		// Idempotent: a claim already paid returns as-is (double tap safe).
+		if claim.State == domain.ClaimPaid {
+			return claim, nil
+		}
 		return nil, domain.ErrInvalidTransition
 	}
 	if len(acct.AccountNumber) != 10 || acct.BankCode == "" || acct.BankName == "" {
 		return nil, errors.New("enter a valid 10-digit Nigerian account number and bank")
+	}
+
+	// Demo path: settle locally, no money rail required.
+	if r.dummy {
+		return r.dummyPayout(ctx, claim, acct)
+	}
+
+	if r.money == nil {
+		return nil, errors.New("money rail not configured")
 	}
 
 	ext, err := r.HostExternal(ctx, claim)
@@ -289,6 +321,25 @@ func (r *Redemption) SubmitBankPayout(ctx context.Context, claimCode, email stri
 	}
 	if err := r.store.UpdateClaimState(ctx, claim.ID, domain.ClaimPaid); err != nil {
 		return nil, err
+	}
+	claim.State = domain.ClaimPaid
+	return claim, nil
+}
+
+// dummyPayout is the DUMMY_CLAIM path: record the bank details and walk the
+// claim through the normal states to paid, without calling the money rail.
+func (r *Redemption) dummyPayout(ctx context.Context, claim *domain.Claim, acct domain.NigerianAccount) (*domain.Claim, error) {
+	claim.BankAccountNumber = acct.AccountNumber
+	claim.BankName = acct.BankName
+	claim.AccountHolderName = "Demo Winner"
+	claim.PayoutRef = "DUMMY-" + newID()[:8]
+	if err := r.store.UpdateClaimBank(ctx, claim); err != nil {
+		return nil, err
+	}
+	for _, to := range []domain.ClaimState{domain.ClaimBankSubmitted, domain.ClaimPaying, domain.ClaimPaid} {
+		if err := r.store.UpdateClaimState(ctx, claim.ID, to); err != nil {
+			return nil, err
+		}
 	}
 	claim.State = domain.ClaimPaid
 	return claim, nil

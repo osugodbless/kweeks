@@ -216,3 +216,48 @@ func TestPodiumShareSplit(t *testing.T) {
 		t.Fatalf("first place must get >= second: %v", shares)
 	}
 }
+
+// QuizResults must resolve a closed room: the host can review the full
+// leaderboard after the room has ended, not only while it is live.
+func TestQuizResultsAfterPodium(t *testing.T) {
+	st := memory.New()
+	clk := clock.NewStatic(time.Date(2026, 9, 3, 12, 0, 0, 0, time.UTC))
+	roomID, _ := seedHostAndWinner(t, st, clk, nil)
+	g := NewGame(st, clk, bus.NewInMemory())
+
+	room, err := st.GetRoom(context.Background(), roomID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := g.QuizResults(context.Background(), room.QuizID)
+	if err != nil {
+		t.Fatalf("quiz results: %v", err)
+	}
+	if res.Room == nil || res.Room.ID != roomID {
+		t.Fatalf("expected latest room %q, got %+v", roomID, res.Room)
+	}
+	if len(res.Standings) != 1 || res.Standings[0].CorrectCount != 1 {
+		t.Fatalf("standings = %+v", res.Standings)
+	}
+	if len(res.Winners) != 1 || res.Winners[0].ParticipantID != "p-1" {
+		t.Fatalf("winners = %+v", res.Winners)
+	}
+}
+
+// A quiz that has never opened a room resolves to an empty leaderboard, not an
+// error.
+func TestQuizResultsWithoutRoom(t *testing.T) {
+	st := memory.New()
+	clk := clock.NewStatic(time.Date(2026, 9, 3, 12, 0, 0, 0, time.UTC))
+	g := NewGame(st, clk, bus.NewInMemory())
+	if err := g.CreateQuiz(context.Background(), mustQuiz()); err != nil {
+		t.Fatal(err)
+	}
+	res, err := g.QuizResults(context.Background(), "quiz-1")
+	if err != nil {
+		t.Fatalf("quiz results: %v", err)
+	}
+	if res.Room != nil || len(res.Standings) != 0 || len(res.Winners) != 0 {
+		t.Fatalf("expected empty results, got %+v", res)
+	}
+}
