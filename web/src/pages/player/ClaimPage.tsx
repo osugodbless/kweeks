@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Banknote, Check, ChevronDown, Hash, Landmark, Loader2, Mail, PartyPopper, ShieldCheck, Sparkles } from "lucide-react";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Footer } from "@/components/ui/footer";
 import { Money } from "@/components/ui/money";
+import { PaidCelebration } from "@/components/ui/paid-celebration";
 import { PlayerTopBar } from "@/components/ui/player-topbar";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -39,6 +40,17 @@ export function ClaimPage() {
   const claim = resolveClaim.data?.claim ?? null;
   const banks = resolveClaim.data?.banks ?? [];
   const paid = submitPayout.data?.claim ?? null;
+
+  // The reward moment fires once, the first time the claim reads as paid.
+  const [celebrate, setCelebrate] = useState(false);
+  const celebrated = useRef(false);
+  useEffect(() => {
+    const state = paid?.state ?? claim?.state;
+    if (state === "paid" && !celebrated.current) {
+      celebrated.current = true;
+      setCelebrate(true);
+    }
+  }, [paid?.state, claim?.state]);
 
   useEffect(() => {
     const code = params.get("code");
@@ -306,6 +318,17 @@ export function ClaimPage() {
           </section>
         </div>
       </div>
+
+      {celebrate && (
+        <PaidCelebration
+          open
+          onClose={() => setCelebrate(false)}
+          amountNaira={paid?.amountNaira ?? claim?.amountNaira ?? "0"}
+          accountLast4={accountNumber.slice(-4)}
+          bankName={banks.find((b) => b.code === bankCode)?.name}
+          payoutRef={paid?.payoutRef}
+        />
+      )}
 
       <Footer variant="player" />
     </main>

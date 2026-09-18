@@ -37,6 +37,7 @@ export default {
         "pulse-ring": "pulse-ring 2.2s ease-out infinite",
         "spin-slow": "spin 14s linear infinite",
         "pulse-soft": "pulse-soft 2.4s ease-in-out infinite",
+        confetti: "confetti 3.2s linear infinite",
       },
       keyframes: {
         float: {
@@ -63,6 +64,11 @@ export default {
         "pulse-soft": {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.55" },
+        },
+        confetti: {
+          "0%": { transform: "translate3d(0, -12vh, 0) rotate(0deg)", opacity: "0" },
+          "8%": { opacity: "1" },
+          "100%": { transform: "translate3d(0, 112vh, 0) rotate(720deg)", opacity: "1" },
         },
       },
     },
