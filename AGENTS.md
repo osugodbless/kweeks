@@ -26,6 +26,60 @@ Key routing rules:
 - Resume context → invoke /context-restore
 - Author a backlog-ready spec/issue → invoke /spec
 
+## Go skills routing (global)
+
+31 `golang-*` skills are installed globally at `/home/godbless/.agents/skills/`.
+`golang-how-to` is the always-on orchestrator: any Go coding/review/debug/setup
+task loads it first, and it loads the right skills together. When invoking
+skills directly (or the orchestrator is ambiguous), route by intent:
+
+| Intent | Primary skill | Also load |
+| --- | --- | --- |
+| Any Go task / unsure of the fit | `golang-how-to` | loads the others itself |
+| Design an API / choose a pattern | `golang-design-patterns` | `golang-structs-interfaces`, `golang-naming` |
+| Name a type/function/package | `golang-naming` | `golang-code-style` |
+| Idiomatic errors / wrapping | `golang-error-handling` | `golang-safety` |
+| Goroutines/channels/mutexes/worker pools | `golang-concurrency` | `golang-context` |
+| Deadlines / cancellation / ctx propagation | `golang-context` | `golang-concurrency` |
+| Struct/interface design, embedding | `golang-structs-interfaces` | `golang-design-patterns` |
+| Database (pgx, transactions, pooling) | `golang-database` | `golang-error-handling`, `golang-security` |
+| gRPC service / protobuf | `golang-grpc` | `golang-testing`, `golang-error-handling` |
+| GraphQL API | `golang-graphql` | `golang-testing`, `golang-error-handling` |
+| CLI (commands, flags, exit codes, binaries) | `golang-cli` | `golang-naming`, `golang-code-style` |
+| Swagger/OpenAPI docs | `golang-swagger` | `golang-documentation` |
+| Write tests / test approach | `golang-testing` | `golang-stretchr-testify` (only if testify already imported) |
+| Testify suites/mocks | `golang-stretchr-testify` | `golang-testing` |
+| Benchmark / measure perf (pprof, benchstat) | `golang-benchmark` | `golang-performance`, `golang-troubleshooting` |
+| Optimize a measured bottleneck | `golang-performance` | `golang-benchmark` |
+| Debug panic / race / hang / leak | `golang-troubleshooting` | `golang-safety`, `golang-benchmark` |
+| Production observability (slog, metrics, tracing) | `golang-observability` | `golang-performance` |
+| Security audit / threat model / govulncheck | `golang-security` | `golang-safety`, `golang-lint` |
+| Defensive coding (nil, aliasing, overflow) | `golang-safety` | — |
+| Code style / review | `golang-code-style` | `golang-naming`, `golang-lint` |
+| golangci-lint config | `golang-lint` | `golang-code-style` |
+| Godoc / README / CHANGELOG | `golang-documentation` | `golang-naming` |
+| New project layout / scaffold | `golang-project-layout` | `golang-design-patterns`, `golang-dependency-injection`, `golang-lint` |
+| CI/CD (GitHub Actions, goreleaser, SAST) | `golang-continuous-integration` | `golang-lint`, `golang-security` |
+| Choose a library | `golang-popular-libraries` | `golang-dependency-management` |
+| go.mod/go.sum, upgrades, MVS, dep audit | `golang-dependency-management` | `golang-security` |
+| Dependency injection decision | `golang-dependency-injection` | — |
+| Modernize to new Go features / version bump | `golang-modernize` | `golang-lint` |
+| Slices/maps internals, containers, builders | `golang-data-structures` | `golang-performance` |
+| Keep current with Go ecosystem | `golang-stay-updated` | — |
+
+Boundary rules when two skills overlap:
+- **perf cluster**: `golang-benchmark` measures first, `golang-performance` applies the fix, `golang-troubleshooting` finds the root cause, `golang-observability` is always-on production signals.
+- **safety vs security**: `golang-safety` = internal bugs (panics, aliasing, overflows); `golang-security` = external threats (injection, crypto, secrets). A security audit loads both.
+- **type vs arch vs style**: `golang-structs-interfaces` = type design; `golang-design-patterns` = architecture; `golang-naming` / `golang-code-style` / `golang-lint` / `golang-documentation` = what the code should look like.
+- **concurrency vs context**: load both together when cancelling goroutines via context.
+- **testing vs testify**: `golang-testing` owns the approach; `golang-stretchr-testify` only when testify is already a project dependency.
+
+NOT installed globally (referenced in the golang-how-to catalog but absent):
+`golang-refactoring`, `golang-gopls`, `golang-pkg-go-dev`, `golang-spf13-cobra`,
+`golang-spf13-viper`, `golang-google-wire`, `golang-uber-dig`, `golang-uber-fx`,
+`golang-samber-*`. Don't reference or invoke these; CLI work → `golang-cli`, DI →
+`golang-dependency-injection`.
+
 # kweeks — repo essentials
 
 Live money quiz: a Go backend serves the React SPA, `/api`, and websockets from
