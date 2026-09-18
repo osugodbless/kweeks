@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Check, FileQuestion, Plus, Presentation, Trash2, Trophy, Wallet } from "lucide-react";
+import { BookOpen, Check, FileQuestion, Plus, Presentation, Trash2, Trophy, Wallet } from "lucide-react";
 import { ApiError, type QuizDetail, type QuizQuestion } from "@/lib/api";
 import { useCreateQuiz, useOpenRoom, useQuiz, useUpdateQuiz, useWallet } from "@/lib/hooks";
 import { naira } from "@/lib/player";
@@ -10,6 +10,8 @@ import { Field } from "@/components/ui/field";
 import { Footer } from "@/components/ui/footer";
 import { InstructorNav } from "@/components/ui/instructor-nav";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Modal } from "@/components/ui/modal";
+import { allBankKeys, QUESTION_BANKS } from "@/lib/questionBank";
 import { cn } from "@/lib/cn";
 
 const POOL_MIN = 1000;
@@ -91,6 +93,8 @@ function BuilderForm({ existing, existingId }: BuilderFormProps) {
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<QuizQuestion | null>(null);
   const [addedToast, setAddedToast] = useState<{ id: string; num: number } | null>(null);
+  const [bankOpen, setBankOpen] = useState(false);
+  const [bankSelected, setBankSelected] = useState<Set<string>>(new Set());
 
   const poolNum = useMemo(() => parseInt(poolNaira || "0", 10), [poolNaira]);
 
@@ -119,6 +123,55 @@ function BuilderForm({ existing, existingId }: BuilderFormProps) {
     const q = newQuestion();
     setQuestions((qs) => [...qs, q]);
     setAddedToast({ id: q.id, num: questions.length + 1 });
+  }
+
+  // ---- question bank -------------------------------------------------------
+
+  function openBank() {
+    setBankSelected(new Set(allBankKeys()));
+    setBankOpen(true);
+  }
+
+  function toggleBankKey(key: string) {
+    setBankSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function toggleBankAll(keys: string[]) {
+    setBankSelected((prev) => {
+      const next = new Set(prev);
+      const allOn = keys.every((k) => next.has(k));
+      if (allOn) keys.forEach((k) => next.delete(k));
+      else keys.forEach((k) => next.add(k));
+      return next;
+    });
+  }
+
+  function addFromBank() {
+    const picked = QUESTION_BANKS.flatMap((bank) =>
+      bank.questions.filter((_, i) => bankSelected.has(`${bank.id}:${i}`)),
+    );
+    if (picked.length === 0) return;
+    setQuestions((qs) => {
+      // Drop the untouched starter question so the bank becomes the deck.
+      const onlyBlank = qs.every((q) => !q.prompt.trim() && q.options.every((o) => !o.trim()));
+      const base = onlyBlank ? [] : qs;
+      return [
+        ...base,
+        ...picked.map((bq) => ({
+          id: crypto.randomUUID(),
+          prompt: bq.prompt,
+          options: [...bq.options],
+          correctIndex: bq.correctIndex,
+          durationMs: bq.durationMs ?? defaultDurationMs,
+        })),
+      ];
+    });
+    setBankOpen(false);
   }
 
   // Scroll the freshly added question into view and auto-dismiss the toast.
@@ -301,9 +354,14 @@ function BuilderForm({ existing, existingId }: BuilderFormProps) {
           <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
             <Presentation className="size-5 text-violet" /> Questions ({questions.length})
           </h2>
-          <Button variant="outline" size="sm" icon={<Plus className="size-4" />} onClick={addQuestion}>
-            Add question
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" icon={<BookOpen className="size-4" />} onClick={openBank}>
+              Add from bank
+            </Button>
+            <Button variant="outline" size="sm" icon={<Plus className="size-4" />} onClick={addQuestion}>
+              Add question
+            </Button>
+          </div>
         </div>
 
         <div className="mt-5 space-y-6">
@@ -484,6 +542,91 @@ function BuilderForm({ existing, existingId }: BuilderFormProps) {
           </div>
         </div>
       )}
+
+      {/* Question bank — pull ready-made questions into this quiz */}
+      <Modal
+        open={bankOpen}
+        onClose={() => setBankOpen(false)}
+        eyebrow="Question bank"
+        title="Add ready-made questions"
+        className="max-w-2xl"
+      >
+        <p className="mt-1.5 text-sm text-soft">
+          Pick the questions to drop into this quiz — they are copied in, so you can still edit them before you open
+          the room.
+        </p>
+
+        <div className="mt-5 max-h-[26rem] space-y-6 overflow-y-auto pr-1">
+          {QUESTION_BANKS.map((bank) => {
+            const keys = bank.questions.map((_, i) => `${bank.id}:${i}`);
+            const allOn = keys.every((k) => bankSelected.has(k));
+            return (
+              <section key={bank.id}>
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <p className="font-display text-lg font-semibold">{bank.name}</p>
+                    <p className="text-xs text-soft">{bank.description}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleBankAll(keys)}
+                    className="cursor-pointer text-xs font-bold text-violet hover:text-violet-dark"
+                  >
+                    {allOn ? "Clear" : "Select all"}
+                  </button>
+                </div>
+                <ul className="mt-3 space-y-2">
+                  {bank.questions.map((q, i) => {
+                    const key = `${bank.id}:${i}`;
+                    const on = bankSelected.has(key);
+                    return (
+                      <li key={key}>
+                        <button
+                          type="button"
+                          role="checkbox"
+                          aria-checked={on}
+                          onClick={() => toggleBankKey(key)}
+                          className={cn(
+                            "flex w-full cursor-pointer items-start gap-3 rounded-2xl border-2 px-4 py-3 text-left transition-colors",
+                            on ? "border-violet bg-violet/5" : "border-ink/10 bg-white hover:border-violet/50",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border-2",
+                              on ? "border-violet bg-violet text-white" : "border-ink/20",
+                            )}
+                          >
+                            {on && <Check className="size-3" strokeWidth={3.5} />}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-bold">{q.prompt}</span>
+                            <span className="block text-xs text-soft">Answer: {q.options[q.correctIndex]}</span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+
+        <div className="mt-6 flex items-center justify-between gap-3">
+          <span className="text-sm font-bold text-soft">{bankSelected.size} selected</span>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setBankOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="coral" size="sm" disabled={bankSelected.size === 0} onClick={addFromBank}>
+              {bankSelected.size === 0
+                ? "Add questions"
+                : `Add ${bankSelected.size} question${bankSelected.size === 1 ? "" : "s"}`}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Footer className="mt-16" />
     </main>
